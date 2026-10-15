@@ -1,6 +1,6 @@
 import { SynthParams, StudentSubmission } from '../types';
 import { DEFAULT_SYNTH_PARAMS } from './presets';
-import { taskTitle, totalScoreFor, cleanTaskList } from './taskCatalog';
+import { taskTitle, gradesFor, headlineScore, cleanTaskList } from './taskCatalog';
 
 /**
  * Compact submission and patch codes.
@@ -121,7 +121,10 @@ export async function encodeSubmission(submission: StudentSubmission, params?: S
   const packed: Record<string, unknown> = {
     n: submission.studentName.trim(),
     t: Math.floor(submission.timestamp / 1000),
-    k: Object.fromEntries(submission.completedTasks.map((t) => [t.taskId, Math.round(t.score)])),
+    // score, or [score, tries] for Patch Master
+    k: Object.fromEntries(
+      submission.completedTasks.map((t) => [t.taskId, t.tries ? [Math.round(t.score), t.tries] : Math.round(t.score)])
+    ),
   };
   if (submission.assignmentCode && submission.assignmentCode !== DEFAULT_ASSIGNMENT) packed.a = submission.assignmentCode;
   if (submission.assignedTasks?.length) packed.x = submission.assignedTasks.join(',');
@@ -143,11 +146,10 @@ export async function decodeSubmission(code: string): Promise<DecodedSubmission 
   try {
     const d = JSON.parse(json);
     if (!d || typeof d.n !== 'string' || typeof d.k !== 'object') return null;
-    const completedTasks = Object.entries(d.k as Record<string, number>).map(([taskId, score]) => ({
-      taskId,
-      taskTitle: taskTitle(taskId),
-      score: Number(score) || 0,
-    }));
+    const completedTasks = Object.entries(d.k as Record<string, number | [number, number]>).map(([taskId, v]) => {
+      const [score, tries] = Array.isArray(v) ? v : [v, 0];
+      return { taskId, taskTitle: taskTitle(taskId), score: Number(score) || 0, ...(tries ? { tries: Number(tries) } : {}) };
+    });
     const assignedTasks = typeof d.x === 'string' ? cleanTaskList(d.x.split(',')) : [];
     return {
       submission: {
@@ -155,7 +157,7 @@ export async function decodeSubmission(code: string): Promise<DecodedSubmission 
         assignmentCode: d.a || DEFAULT_ASSIGNMENT,
         assignedTasks,
         timestamp: (Number(d.t) || 0) * 1000,
-        totalScore: totalScoreFor(completedTasks, assignedTasks),
+        totalScore: headlineScore(gradesFor(completedTasks, assignedTasks)),
         completedTasks,
         encodedVerification: raw.slice(dot + 1),
         patchUrl: '',
@@ -197,7 +199,7 @@ function decodeLegacySubmission(raw: string): DecodedSubmission | null {
         studentName: d.n,
         assignmentCode: d.a || DEFAULT_ASSIGNMENT,
         timestamp: d.t || 0,
-        totalScore: d.s,
+        totalScore: headlineScore(gradesFor(completedTasks)),
         completedTasks,
         encodedVerification: d.sig,
         patchUrl: '',

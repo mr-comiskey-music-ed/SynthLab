@@ -4,12 +4,13 @@ import {
   ThemeMode,
   AppMode,
   Preset,
+  StudentSubmission,
 } from './types';
 import { SubtractiveEngine } from './audio/synthEngine';
 import { DEFAULT_SYNTH_PARAMS, INITIAL_PRESETS } from './utils/presets';
 import { decodeSubmission, decodePatch } from './utils/submissionCodec';
 import { parseBatch, BatchParseResult } from './utils/batchGrading';
-import { cleanTaskList } from './utils/taskCatalog';
+import { cleanTaskList, isPatchMaster } from './utils/taskCatalog';
 import { BatchGradeModal } from './components/BatchGradeModal';
 import { BatchReviewBar } from './components/BatchReviewBar';
 import { StudioRetroView } from './components/StudioRetroView';
@@ -44,7 +45,7 @@ export default function App() {
   const [activeMode, setActiveMode] = useState<AppMode>('learn');
   const [params, setParams] = useState<SynthParams>(DEFAULT_SYNTH_PARAMS);
   const [audioStarted, setAudioStarted] = useState<boolean>(false);
-  const [completedTasks, setCompletedTasks] = useState<{ taskId: string; taskTitle: string; score: number }[]>([]);
+  const [completedTasks, setCompletedTasks] = useState<StudentSubmission['completedTasks']>([]);
   const [highlightSection, setHighlightSection] = useState<string | null>(null);
   const [sharedReport, setSharedReport] = useState<SharedReport | null>(null);
 
@@ -196,7 +197,15 @@ export default function App() {
 
   const handleRecordTaskScore = (taskId: string, taskTitle: string, score: number) => {
     setCompletedTasks((prev) => {
+      const old = prev.find((t) => t.taskId === taskId);
       const filtered = prev.filter((t) => t.taskId !== taskId);
+      if (isPatchMaster(taskId)) {
+        // Patch Master is graded on effort: keep the best match and count every try.
+        return [
+          ...filtered,
+          { taskId, taskTitle, score: Math.max(score, old?.score ?? 0), tries: (old?.tries ?? 0) + 1 },
+        ];
+      }
       return [...filtered, { taskId, taskTitle, score }];
     });
   };

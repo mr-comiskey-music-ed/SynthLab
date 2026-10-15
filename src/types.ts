@@ -139,6 +139,8 @@ export interface StudentSubmission {
     taskId: string;
     taskTitle: string;
     score: number;
+    /** Patch Master only: how many times Test Match was pressed (score is the best). */
+    tries?: number;
   }[];
   encodedVerification: string;
   patchUrl: string;

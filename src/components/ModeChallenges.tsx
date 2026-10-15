@@ -25,7 +25,57 @@ import {
   Sparkles,
   ArrowRight,
   HelpCircle,
+  Lightbulb,
 } from 'lucide-react';
+
+const WAVE_NAMES: Record<string, string> = {
+  sine: 'Sine', triangle: 'Triangle', sawtooth: 'Sawtooth', square: 'Square', noise: 'Noise',
+};
+const roundNice = (n: number) => Number(n.toPrecision(2));
+const fmtTime = (s: number) => (s < 1 ? `${Math.round(s * 1000)} ms` : `${roundNice(s)} s`);
+
+/**
+ * Patch Master hint: find the graded setting the student is furthest from right now
+ * (same weights as the auto-grader), skipping settings already revealed, and reveal
+ * the hidden patch's value for it.
+ */
+function patchHint(current: SynthParams, target: SynthParams, alreadyShown: string[]): { key: string; text: string } {
+  const cutoffGap = Math.min(1, Math.abs(Math.log10(Math.max(20, current.filterCutoff)) - Math.log10(Math.max(20, target.filterCutoff))) / 1.5) * 25;
+  const gaps = [
+    {
+      key: 'wave',
+      gap: current.vco1Waveform === target.vco1Waveform ? 0 : 20,
+      text: `VCO 1 uses a ${WAVE_NAMES[target.vco1Waveform] ?? target.vco1Waveform} wave (yours: ${WAVE_NAMES[current.vco1Waveform] ?? current.vco1Waveform}).`,
+    },
+    {
+      key: 'cutoff',
+      gap: cutoffGap,
+      text: `Filter Cutoff is about ${roundNice(target.filterCutoff).toLocaleString()} Hz (yours: ${Math.round(current.filterCutoff).toLocaleString()} Hz). Is the target brighter or darker than yours?`,
+    },
+    {
+      key: 'resonance',
+      gap: Math.min(1, Math.abs(current.filterResonance - target.filterResonance) / 15) * 15,
+      text: `Filter Resonance is about ${roundNice(target.filterResonance)} (yours: ${roundNice(current.filterResonance)}). Listen for how much the filter "whistles".`,
+    },
+    {
+      key: 'attack',
+      gap: Math.min(1, Math.abs(current.ampAttack - target.ampAttack) / 1.5) * 15,
+      text: `Amp Envelope Attack is about ${fmtTime(target.ampAttack)} (yours: ${fmtTime(current.ampAttack)}). Does the sound snap in or fade in?`,
+    },
+    {
+      key: 'sustain',
+      gap: Math.abs(current.ampSustain - target.ampSustain) * 15,
+      text: `Amp Envelope Sustain is about ${Math.round(target.ampSustain * 100)}% (yours: ${Math.round(current.ampSustain * 100)}%). Does the note hold strong or die away while the key is held?`,
+    },
+  ];
+  const next = gaps.filter((g) => g.gap >= 2 && !alreadyShown.includes(g.key)).sort((a, b) => b.gap - a.gap)[0];
+  if (!next) {
+    return alreadyShown.length
+      ? { key: 'done', text: "No more hints: you're close on every other graded setting. Fine-tune by ear!" }
+      : { key: 'done', text: "You're already very close on every graded setting. Fine-tune by ear!" };
+  }
+  return { key: next.key, text: next.text };
+}
 
 interface ModeChallengesProps {
   engine: SubtractiveEngine;
@@ -50,6 +100,14 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const [activePatchIdx, setActivePatchIdx] = useState<number>(0);
   const [matchScore, setMatchScore] = useState<number | null>(null);
   const [matchFeedback, setMatchFeedback] = useState<string | null>(null);
+  const [hints, setHints] = useState<{ patchId: string; shown: { key: string; text: string }[] } | null>(null);
+  const currentHints = hints && hints.patchId === PATCH_MATCHER_CHALLENGES[activePatchIdx]?.id ? hints.shown : [];
+  const handleHint = () => {
+    const patch = PATCH_MATCHER_CHALLENGES[activePatchIdx];
+    const next = patchHint(params, patch.targetParams, currentHints.map((h) => h.key));
+    // Replace an earlier "you're close" note instead of stacking it.
+    setHints({ patchId: patch.id, shown: [...currentHints.filter((h) => h.key !== 'done'), next] });
+  };
 
   // Synth Doctor State
   const [activeTicketIdx, setActiveTicketIdx] = useState<number>(0);
@@ -285,12 +343,24 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
             <div>
               <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">
                 QUEST 3: PATCH MASTER
+                <span className="ml-2 normal-case tracking-normal text-sky-300 font-normal">
+                  · graded on effort: every patch you try with Test Match counts
+                </span>
               </span>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>{currentPatch.title}</span>
                 <span className="text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300 font-mono">
                   {currentPatch.difficulty}
                 </span>
+                <button
+                  type="button"
+                  onClick={handleHint}
+                  title="Reveal one setting of the hidden patch: the one you're furthest from right now"
+                  className="ml-1 px-2.5 py-0.5 rounded-full bg-yellow-300 hover:bg-yellow-200 text-black text-xs font-mono font-bold flex items-center gap-1 shadow-[0_0_14px_rgba(253,224,71,0.8)] animate-pulse hover:animate-none"
+                >
+                  <Lightbulb className="w-3.5 h-3.5" />
+                  {currentHints.length ? 'Another Hint' : 'Hint'}
+                </button>
               </h3>
             </div>
 
@@ -327,6 +397,20 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
               </button>
             </div>
           </div>
+
+          {currentHints.length > 0 && (
+            <div className="mb-3 p-3 rounded-lg bg-yellow-300/10 border border-yellow-300/50 text-xs text-yellow-100 space-y-1.5 shadow-[0_0_12px_rgba(253,224,71,0.15)]">
+              {currentHints.map((h, i) => (
+                <div key={h.key} className="flex items-start gap-2">
+                  <Lightbulb className="w-4 h-4 text-yellow-300 shrink-0 mt-0.5" />
+                  <span>
+                    <b className="text-yellow-300 font-mono">Hint {i + 1}: </b>
+                    {h.text}
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
 
           <p className="text-xs text-slate-300 mb-4">{currentPatch.description}</p>
 

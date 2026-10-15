@@ -1,6 +1,6 @@
 import { StudentSubmission, SynthParams } from '../types';
 import { decodeSubmission } from './submissionCodec';
-import { ALL_TASKS, TASK_CATEGORIES, TaskCategory, letterGrade, taskInfo, gradedTaskIds, gradedDoneCount } from './taskCatalog';
+import { ALL_TASKS, TASK_CATEGORIES, TaskCategory, letterGrade, taskInfo, gradedTaskIds, gradedDoneCount, gradesFor, Grades } from './taskCatalog';
 
 /** A Patch Matcher score under this counts as "lost points" in class patterns. */
 export const STRUGGLE_THRESHOLD = 70;
@@ -15,6 +15,8 @@ export interface BatchEntry {
   id: number;
   submission: StudentSubmission;
   patchParams?: SynthParams;
+  grades: Grades;
+  /** Letter for the main grade (Ear Training + Synth Doctor); '' when not assigned. */
   letter: string;
   categories: Record<TaskCategory, CategorySummary>;
   /** True when the same student name appears with more than one different code. */
@@ -87,11 +89,14 @@ export async function parseBatch(text: string): Promise<BatchParseResult> {
       id: entries.length,
       submission: d.submission,
       patchParams: d.patchParams,
-      letter: letterGrade(d.submission.totalScore),
+      grades: gradesFor(d.submission.completedTasks, d.submission.assignedTasks),
+      letter: '',
       categories: summarize(d.submission),
       hasMultipleSubmissions: false,
     });
   });
+
+  for (const e of entries) e.letter = e.grades.main ? letterGrade(e.grades.main.score) : '';
 
   const nameCounts = new Map<string, number>();
   const key = (e: BatchEntry) => e.submission.studentName.trim().toLowerCase();
@@ -161,7 +166,10 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = [
-    'Student', 'Assignment', 'Submitted', 'Score', 'Letter', 'Assigned Tasks Done',
+    'Student', 'Assignment', 'Submitted',
+    'Main Grade (Ear + Doctor)', 'Main Letter',
+    'Patch Master Effort %', 'Patch Master Tried', 'Patch Master Avg Best Match', 'Patch Master Total Tries',
+    'Assigned Tasks Done',
     ...TASK_CATEGORIES.flatMap((c) => [`${c} Done`, `${c} Avg`]),
     ...ALL_TASKS.map((t) => t.title),
   ];
@@ -171,8 +179,12 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
       s.studentName,
       s.assignmentCode,
       s.timestamp ? new Date(s.timestamp).toISOString().slice(0, 16).replace('T', ' ') : '',
-      s.totalScore,
-      e.letter,
+      e.grades.main?.score ?? 'N/A',
+      e.letter || 'N/A',
+      e.grades.patchMaster?.score ?? 'N/A',
+      e.grades.patchMaster ? `${e.grades.patchMaster.tried}/${e.grades.patchMaster.total}` : 'N/A',
+      e.grades.patchMaster?.avgBestMatch ?? '',
+      e.grades.patchMaster?.totalTries ?? '',
       doneLabel(s),
       ...TASK_CATEGORIES.flatMap((c) => [
         `${e.categories[c].done}/${e.categories[c].total}`,

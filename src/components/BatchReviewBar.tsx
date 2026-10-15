@@ -27,7 +27,9 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({ entry, position,
   }, [position, total, onPrev, onNext]);
 
   const s = entry.submission;
-  const pct = s.totalScore;
+  const main = entry.grades.main;
+  const effort = entry.grades.patchMaster;
+  const pct = main?.score ?? effort?.score ?? 0;
   const color = pct >= 90 ? 'text-emerald-300 border-emerald-400/50' : pct >= 70 ? 'text-amber-300 border-amber-400/50' : 'text-rose-300 border-rose-400/50';
   const btn = 'p-1.5 rounded-lg bg-white/10 hover:bg-white/20 border border-white/10 disabled:opacity-30 disabled:cursor-not-allowed';
 
@@ -44,8 +46,13 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({ entry, position,
         </span>
         {!entry.patchParams && <span className="text-amber-300 shrink-0">no patch in code</span>}
         <span className={`font-bold px-2 py-0.5 rounded border ${color} shrink-0`}>
-          {pct}% {entry.letter}
+          {main ? `${main.score}% ${entry.letter}` : `Effort ${pct}%`}
         </span>
+        {main && effort && (
+          <span className="text-slate-300 shrink-0 hidden md:inline" title="Patch Master effort">
+            Patch effort {effort.score}%
+          </span>
+        )}
         <button type="button" onClick={onPrev} disabled={position === 0} className={btn} title="Previous student (←)">
           <ChevronLeft className="w-4 h-4" />
         </button>

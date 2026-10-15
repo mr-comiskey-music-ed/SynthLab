@@ -30,7 +30,7 @@ const taskOrder = (id: string) => {
   return i < 0 ? ALL_TASKS.length : i;
 };
 
-type SortKey = 'name' | 'score' | 'tasks';
+type SortKey = 'name' | 'score' | 'effort' | 'tasks';
 
 interface BatchGradeModalProps {
   isOpen: boolean;
@@ -86,7 +86,8 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
   const visible: BatchEntry[] = useMemo(() => {
     const list = entries.filter((e) => assignmentFilter === 'all' || e.submission.assignmentCode === assignmentFilter);
     return [...list].sort((a, b) => {
-      if (sortKey === 'score') return b.submission.totalScore - a.submission.totalScore;
+      if (sortKey === 'score') return (b.grades.main?.score ?? -1) - (a.grades.main?.score ?? -1);
+      if (sortKey === 'effort') return (b.grades.patchMaster?.score ?? -1) - (a.grades.patchMaster?.score ?? -1);
       if (sortKey === 'tasks')
         return (
           gradedDoneCount(b.submission.completedTasks, b.submission.assignedTasks) -
@@ -98,10 +99,12 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
 
   const patterns = useMemo(() => classPatterns(visible), [visible]);
   const skipped = useMemo(() => leastAttempted(visible), [visible]);
-  const average = visible.length ? Math.round(visible.reduce((s, e) => s + e.submission.totalScore, 0) / visible.length) : 0;
+  const avgOf = (nums: number[]) => (nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) : null);
+  const mainAverage = avgOf(visible.flatMap((e) => (e.grades.main ? [e.grades.main.score] : [])));
+  const effortAverage = avgOf(visible.flatMap((e) => (e.grades.patchMaster ? [e.grades.patchMaster.score] : [])));
   const letterCounts = useMemo(() => {
     const m = new Map<string, number>();
-    for (const e of visible) m.set(e.letter, (m.get(e.letter) || 0) + 1);
+    for (const e of visible) if (e.letter) m.set(e.letter, (m.get(e.letter) || 0) + 1);
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]));
   }, [visible]);
 
@@ -168,12 +171,21 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
               <span className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
                 <b className="text-white">{visible.length}</b> graded
               </span>
-              <span className={`px-3 py-1.5 rounded-lg border font-bold ${gradeColor(average)}`}>Class average {average}%</span>
+              {mainAverage !== null && (
+                <span className={`px-3 py-1.5 rounded-lg border font-bold ${gradeColor(mainAverage)}`} title="A/B Ear Training + Synth Doctor">
+                  Main grade avg {mainAverage}%
+                </span>
+              )}
               {letterCounts.map(([letter, n]) => (
                 <span key={letter} className="px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 text-slate-300">
                   {letter}: <b className="text-white">{n}</b>
                 </span>
               ))}
+              {effortAverage !== null && (
+                <span className={`px-3 py-1.5 rounded-lg border font-bold ${gradeColor(effortAverage)}`} title="Share of assigned Patch Master patches tried">
+                  Patch Master effort avg {effortAverage}%
+                </span>
+              )}
               <div className="ml-auto flex gap-2">
                 <button type="button" onClick={() => downloadBatchCsv(visible)} disabled={!visible.length} className={pill}>
                   <Download className="w-3.5 h-3.5" /> Download CSV
@@ -272,7 +284,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                 {/* Controls */}
                 <div className="flex flex-wrap items-center gap-2 text-[11px]">
                   <span className="text-slate-400">Sort:</span>
-                  {(['name', 'score', 'tasks'] as SortKey[]).map((k) => (
+                  {(['name', 'score', 'effort', 'tasks'] as SortKey[]).map((k) => (
                     <button
                       type="button"
                       key={k}
@@ -281,7 +293,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                         sortKey === k ? 'bg-amber-500 text-black border-amber-400 font-bold' : 'bg-white/5 border-white/10 text-slate-300'
                       }`}
                     >
-                      {k === 'name' ? 'Last name' : k === 'score' ? 'Score' : 'Tasks done'}
+                      {k === 'name' ? 'Last name' : k === 'score' ? 'Main grade' : k === 'effort' ? 'Patch effort' : 'Tasks done'}
                     </button>
                   ))}
                   {assignments.length > 1 && (
@@ -313,10 +325,11 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
 
                 {/* Table */}
                 <div className="border border-white/10 rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-[1fr_150px_60px_96px] sm:grid-cols-[1fr_190px_60px_110px] gap-2 px-3 py-2 bg-white/5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="grid grid-cols-[1fr_120px_56px_64px_96px] sm:grid-cols-[1fr_170px_64px_80px_110px] gap-2 px-3 py-2 bg-white/5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <span>Student</span>
                     <span>Assigned done (Patch · Doctor · Ear)</span>
-                    <span className="text-center">Grade</span>
+                    <span className="text-center" title="A/B Ear Training + Synth Doctor">Main</span>
+                    <span className="text-center" title="Patch Master effort: share of assigned patches tried">Patch effort</span>
                     <span />
                   </div>
                   {visible.map((e, pos) => {
@@ -326,7 +339,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                       <div key={e.id} className="border-t border-white/5">
                         <div
                           onClick={() => setExpandedId(open ? null : e.id)}
-                          className="grid grid-cols-[1fr_150px_60px_96px] sm:grid-cols-[1fr_190px_60px_110px] gap-2 px-3 py-2 items-center hover:bg-white/5 cursor-pointer"
+                          className="grid grid-cols-[1fr_120px_56px_64px_96px] sm:grid-cols-[1fr_170px_64px_80px_110px] gap-2 px-3 py-2 items-center hover:bg-white/5 cursor-pointer"
                         >
                           <span className="font-bold text-white truncate flex items-center gap-1.5">
                             {open ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
@@ -343,9 +356,25 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                               ({TASK_CATEGORIES.map((c) => e.categories[c].done).join(' · ')})
                             </span>
                           </span>
-                          <span className={`text-center font-bold rounded border px-1.5 py-0.5 ${gradeColor(s.totalScore)}`}>
-                            {s.totalScore}%
-                          </span>
+                          {e.grades.main ? (
+                            <span className={`text-center font-bold rounded border px-1.5 py-0.5 ${gradeColor(e.grades.main.score)}`}>
+                              {e.grades.main.score}%
+                            </span>
+                          ) : (
+                            <span className="text-center text-slate-500">–</span>
+                          )}
+                          {e.grades.patchMaster ? (
+                            <span
+                              className={`text-center font-bold rounded border px-1.5 py-0.5 ${gradeColor(e.grades.patchMaster.score)}`}
+                              title={`Tried ${e.grades.patchMaster.tried} of ${e.grades.patchMaster.total} patches · ${e.grades.patchMaster.totalTries} tries${
+                                e.grades.patchMaster.avgBestMatch !== null ? ` · avg best match ${e.grades.patchMaster.avgBestMatch}%` : ''
+                              }`}
+                            >
+                              {e.grades.patchMaster.score}%
+                            </span>
+                          ) : (
+                            <span className="text-center text-slate-500">–</span>
+                          )}
                           <button
                             type="button"
                             onClick={(ev) => {
@@ -403,7 +432,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                                           </span>
                                         </span>
                                         <span className={`font-bold shrink-0 ${good ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                          {Math.round(t.score)}%
+                                          {t.tries ? `best ${Math.round(t.score)}% · ${t.tries} ${t.tries === 1 ? 'try' : 'tries'}` : `${Math.round(t.score)}%`}
                                         </span>
                                       </div>
                                     );

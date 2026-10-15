@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SynthParams, StudentSubmission } from '../types';
 import { encodeSubmission, decodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
-import { totalScoreFor, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
+import { gradesFor, headlineScore, Grades, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
 import { AssignmentLinkBuilder } from './AssignmentLinkBuilder';
 import { formatDate, doneLabel } from '../utils/batchGrading';
 import { copyText } from '../utils/copyText';
@@ -36,6 +36,38 @@ interface ModeTeacherProps {
   onLoadParams: (params: SynthParams) => void;
   onOpenBatchGrade: () => void;
 }
+
+/** "85%", or "best 85% · 3 tries" for Patch Master. */
+const scoreLabel = (t: { score: number; tries?: number }) =>
+  t.tries ? `best ${Math.round(t.score)}% · ${t.tries} ${t.tries === 1 ? 'try' : 'tries'}` : `${Math.round(t.score)}%`;
+
+/** The two grades side by side: main (Ear Training + Synth Doctor) and Patch Master effort. */
+const GradeBoxes: React.FC<{ grades: Grades; compact?: boolean }> = ({ grades, compact }) => {
+  const box = compact
+    ? 'px-2.5 py-1 rounded bg-black/40 border'
+    : 'px-3 py-1.5 rounded bg-black/40 border';
+  return (
+    <div className="flex flex-wrap items-stretch gap-2 font-mono">
+      {grades.main && (
+        <div className={`${box} border-amber-500/30`} title="A/B Ear Training + Synth Doctor">
+          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Main Grade</span>
+          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-amber-400`}>{grades.main.score} / 100</span>
+          <span className="block text-[10px] text-slate-500">Ear + Doctor · {grades.main.done}/{grades.main.total} done</span>
+        </div>
+      )}
+      {grades.patchMaster && (
+        <div className={`${box} border-sky-500/30`} title="Patch Master is graded on effort: the share of patches you tried">
+          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Patch Master Effort</span>
+          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-sky-300`}>{grades.patchMaster.score}%</span>
+          <span className="block text-[10px] text-slate-500">
+            tried {grades.patchMaster.tried}/{grades.patchMaster.total}
+            {grades.patchMaster.avgBestMatch !== null ? ` · avg best ${grades.patchMaster.avgBestMatch}%` : ''}
+          </span>
+        </div>
+      )}
+    </div>
+  );
+};
 
 const BAD_CODE = 'That code couldn’t be read. It may be incomplete, mistyped or edited. Ask the student to copy it again.';
 
@@ -89,7 +121,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
     }
   };
 
-  const totalScore = totalScoreFor(completedTasks, assignedTasks);
+  const grades = gradesFor(completedTasks, assignedTasks);
   const gradedIds = gradedTaskIds(assignedTasks);
   const doneCount = gradedDoneCount(completedTasks, assignedTasks);
 
@@ -102,7 +134,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
       studentName: studentName.trim(),
       assignmentCode: assignmentCodeFromUrl,
       timestamp: Date.now(),
-      totalScore,
+      totalScore: headlineScore(grades),
       completedTasks,
       assignedTasks,
       encodedVerification: '',
@@ -146,12 +178,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             </div>
           </div>
 
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-mono text-slate-400">Overall Grade:</span>
-            <span className="text-lg font-mono font-bold text-amber-400 px-3 py-1 rounded bg-black/40 border border-amber-500/30">
-              {totalScore} / 100
-            </span>
-          </div>
+          <GradeBoxes grades={grades} />
         </div>
 
         {/* Name input & Generate Code button */}
@@ -216,7 +243,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                       <span className="truncate" title={taskInfo(id)?.title}>{taskInfo(id)?.title ?? id}</span>
                     </span>
                     <span className={`shrink-0 font-bold ${done ? 'text-emerald-400' : 'text-slate-600'}`}>
-                      {done ? `${Math.round(done.score)}%` : 'not done'}
+                      {done ? scoreLabel(done) : 'not done'}
                     </span>
                   </div>
                 );
@@ -235,9 +262,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                   Grade Report Ready
                 </span>
               </div>
-              <span className="text-xs font-mono text-slate-300">
-                Final Grade: <strong className="text-emerald-300 text-sm font-bold">{submission.totalScore}/100</strong>
-              </span>
+              <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} compact />
             </div>
 
             {/* Quest breakdown */}
@@ -257,7 +282,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                       className="flex items-center justify-between p-2 rounded bg-slate-900/80 border border-white/5 text-xs font-mono"
                     >
                       <span className="text-slate-200">{task.taskTitle}</span>
-                      <span className="text-emerald-400 font-bold">{Math.round(task.score)}%</span>
+                      <span className="text-emerald-400 font-bold">{scoreLabel(task)}</span>
                     </div>
                   ))}
                 </div>
@@ -395,9 +420,8 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                 )}
               </div>
               <div>
-                <span className="text-slate-400 block mb-0.5">Overall Grade:</span>
-                <strong className="text-emerald-400 text-base">{checkedSub.totalScore} / 100</strong>
-                <span className="block text-[10px] text-slate-500 mt-0.5">
+                <GradeBoxes grades={gradesFor(checkedSub.completedTasks, checkedSub.assignedTasks)} compact />
+                <span className="block text-[10px] text-slate-500 mt-1">
                   {doneLabel(checkedSub)} {checkedSub.assignedTasks?.length ? 'assigned ' : ''}tasks · {checkedSub.assignmentCode}
                 </span>
               </div>
@@ -414,7 +438,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                     className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-white/5 font-mono text-xs"
                   >
                     <span className="text-slate-200">{taskInfo(t.taskId)?.title ?? t.taskTitle}</span>
-                    <span className="text-emerald-400 font-bold">{Math.round(t.score)}%</span>
+                    <span className="text-emerald-400 font-bold">{scoreLabel(t)}</span>
                   </div>
                 ))}
               </div>
