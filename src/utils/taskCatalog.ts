@@ -37,7 +37,7 @@ export const ALL_TASKS: TaskInfo[] = [
   })),
 ];
 
-/** Grade is the average across all tasks; unfinished tasks count as 0. */
+/** With no assignment, the grade is the average across all tasks. */
 export const TOTAL_TASK_COUNT = 30;
 
 const BY_ID = new Map(ALL_TASKS.map((t) => [t.id, t]));
@@ -50,9 +50,32 @@ export function taskTitle(id: string): string {
   return BY_ID.get(id)?.title ?? id;
 }
 
-export function totalScoreFor(tasks: { score: number }[]): number {
-  if (!tasks.length) return 0;
-  return Math.round(tasks.reduce((sum, t) => sum + t.score, 0) / TOTAL_TASK_COUNT);
+/** Keep only real task IDs, in Challenges-tab order, without repeats. */
+export function cleanTaskList(ids: string[] | undefined | null): string[] {
+  const wanted = new Set((ids || []).map((s) => s.trim()));
+  return ALL_TASKS.filter((t) => wanted.has(t.id)).map((t) => t.id);
+}
+
+/** The tasks a grade is out of: the assigned ones, or all 30 when nothing was assigned. */
+export function gradedTaskIds(assigned?: string[]): string[] {
+  return assigned && assigned.length ? assigned : ALL_TASKS.map((t) => t.id);
+}
+
+/**
+ * Grade = average score across the graded tasks; an unfinished task counts as 0.
+ * Tasks done outside the assignment are shown but don't change the grade.
+ */
+export function totalScoreFor(tasks: { taskId: string; score: number }[], assigned?: string[]): number {
+  const graded = gradedTaskIds(assigned);
+  const set = new Set(graded);
+  const sum = tasks.filter((t) => set.has(t.taskId)).reduce((s, t) => s + t.score, 0);
+  return Math.round(sum / graded.length);
+}
+
+/** How many of the graded tasks are done. */
+export function gradedDoneCount(tasks: { taskId: string }[], assigned?: string[]): number {
+  const set = new Set(gradedTaskIds(assigned));
+  return tasks.filter((t) => set.has(t.taskId)).length;
 }
 
 export function letterGrade(pct: number): string {

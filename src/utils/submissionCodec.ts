@@ -1,6 +1,6 @@
 import { SynthParams, StudentSubmission } from '../types';
 import { DEFAULT_SYNTH_PARAMS } from './presets';
-import { taskTitle, totalScoreFor } from './taskCatalog';
+import { taskTitle, totalScoreFor, cleanTaskList } from './taskCatalog';
 
 /**
  * Compact submission and patch codes.
@@ -124,6 +124,7 @@ export async function encodeSubmission(submission: StudentSubmission, params?: S
     k: Object.fromEntries(submission.completedTasks.map((t) => [t.taskId, Math.round(t.score)])),
   };
   if (submission.assignmentCode && submission.assignmentCode !== DEFAULT_ASSIGNMENT) packed.a = submission.assignmentCode;
+  if (submission.assignedTasks?.length) packed.x = submission.assignedTasks.join(',');
   if (params) {
     const p = packParams(params);
     packed.p = Object.keys(p).length ? p : 0; // 0 = default patch
@@ -147,12 +148,14 @@ export async function decodeSubmission(code: string): Promise<DecodedSubmission 
       taskTitle: taskTitle(taskId),
       score: Number(score) || 0,
     }));
+    const assignedTasks = typeof d.x === 'string' ? cleanTaskList(d.x.split(',')) : [];
     return {
       submission: {
         studentName: d.n,
         assignmentCode: d.a || DEFAULT_ASSIGNMENT,
+        assignedTasks,
         timestamp: (Number(d.t) || 0) * 1000,
-        totalScore: totalScoreFor(completedTasks),
+        totalScore: totalScoreFor(completedTasks, assignedTasks),
         completedTasks,
         encodedVerification: raw.slice(dot + 1),
         patchUrl: '',

@@ -1,7 +1,6 @@
 import React, { useEffect } from 'react';
 import { ChevronLeft, ChevronRight, ListChecks, LogOut, Headphones } from 'lucide-react';
-import { BatchEntry } from '../utils/batchGrading';
-import { TOTAL_TASK_COUNT } from '../utils/taskCatalog';
+import { BatchEntry, doneLabel } from '../utils/batchGrading';
 
 interface BatchReviewBarProps {
   entry: BatchEntry;
@@ -41,7 +40,7 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({ entry, position,
         </span>
         <span className="font-bold text-white truncate max-w-[160px]">{s.studentName || 'Unnamed student'}</span>
         <span className="text-slate-400 hidden sm:inline shrink-0">
-          {s.completedTasks.length}/{TOTAL_TASK_COUNT} tasks
+          {doneLabel(s)} tasks
         </span>
         {!entry.patchParams && <span className="text-amber-300 shrink-0">no patch in code</span>}
         <span className={`font-bold px-2 py-0.5 rounded border ${color} shrink-0`}>

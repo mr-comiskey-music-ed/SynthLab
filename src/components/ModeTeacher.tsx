@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SynthParams, StudentSubmission } from '../types';
 import { encodeSubmission, decodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
-import { totalScoreFor, TOTAL_TASK_COUNT, taskInfo } from '../utils/taskCatalog';
-import { formatDate } from '../utils/batchGrading';
+import { totalScoreFor, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
+import { AssignmentLinkBuilder } from './AssignmentLinkBuilder';
+import { formatDate, doneLabel } from '../utils/batchGrading';
 import { copyText } from '../utils/copyText';
 import {
   GraduationCap,
@@ -15,6 +16,8 @@ import {
   ListChecks,
   Headphones,
   Loader2,
+  Link2,
+  Circle,
 } from 'lucide-react';
 
 export interface SharedReport {
@@ -26,6 +29,8 @@ interface ModeTeacherProps {
   currentParams: SynthParams;
   completedTasks: { taskId: string; taskTitle: string; score: number }[];
   assignmentCodeFromUrl?: string;
+  /** Tasks picked in the assignment link; empty = all tasks. */
+  assignedTasks?: string[];
   /** A code that arrived in the page link (?report=...). */
   sharedReport?: SharedReport | null;
   onLoadParams: (params: SynthParams) => void;
@@ -38,6 +43,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
   currentParams,
   completedTasks,
   assignmentCodeFromUrl = 'SYNTH_LAB_01',
+  assignedTasks = [],
   sharedReport = null,
   onLoadParams,
   onOpenBatchGrade,
@@ -56,6 +62,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
   const [verificationError, setVerificationError] = useState<string | null>(null);
   const [isChecking, setIsChecking] = useState(false);
   const [patchLoaded, setPatchLoaded] = useState(false);
+  const [showLinkBuilder, setShowLinkBuilder] = useState(false);
 
   useEffect(() => {
     if (!sharedReport) return;
@@ -82,7 +89,9 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
     }
   };
 
-  const totalScore = totalScoreFor(completedTasks);
+  const totalScore = totalScoreFor(completedTasks, assignedTasks);
+  const gradedIds = gradedTaskIds(assignedTasks);
+  const doneCount = gradedDoneCount(completedTasks, assignedTasks);
 
   const handleLockSubmission = async () => {
     if (!studentName.trim()) {
@@ -95,6 +104,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
       timestamp: Date.now(),
       totalScore,
       completedTasks,
+      assignedTasks,
       encodedVerification: '',
       patchUrl: '',
     };
@@ -161,7 +171,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
 
           <div className="md:col-span-4">
             <span className="block text-xs font-mono text-slate-300 font-semibold mb-1.5">
-              Completed Tasks: {completedTasks.length}/{TOTAL_TASK_COUNT}
+              {assignedTasks.length ? 'Assigned Tasks Done' : 'Completed Tasks'}: {doneCount}/{gradedIds.length}
             </span>
             <div className="text-xs font-mono text-slate-400 py-2">
               Your current patch is saved in the code too.
@@ -180,6 +190,40 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             </button>
           </div>
         </div>
+
+        {/* Assigned task checklist */}
+        {assignedTasks.length > 0 && (
+          <div className="mb-6 p-4 rounded-xl bg-black/40 border border-white/10">
+            <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold mb-2">
+              Your assignment ({doneCount}/{gradedIds.length} done) · do these in the Challenges tab:
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {gradedIds.map((id) => {
+                const done = completedTasks.find((t) => t.taskId === id);
+                return (
+                  <div
+                    key={id}
+                    className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded text-xs font-mono border ${
+                      done ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-900/60 border-white/5'
+                    }`}
+                  >
+                    <span className={`flex items-center gap-1.5 min-w-0 ${done ? 'text-slate-200' : 'text-slate-400'}`}>
+                      {done ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                      )}
+                      <span className="truncate" title={taskInfo(id)?.title}>{taskInfo(id)?.title ?? id}</span>
+                    </span>
+                    <span className={`shrink-0 font-bold ${done ? 'text-emerald-400' : 'text-slate-600'}`}>
+                      {done ? `${Math.round(done.score)}%` : 'not done'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
 
         {/* Submission code */}
         {submission && (
@@ -291,6 +335,14 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             </button>
             <button
               type="button"
+              onClick={() => setShowLinkBuilder(true)}
+              className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs uppercase flex items-center gap-1 flex-shrink-0"
+            >
+              <Link2 className="w-3.5 h-3.5" />
+              Assignment Link
+            </button>
+            <button
+              type="button"
               onClick={onOpenBatchGrade}
               className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs uppercase flex items-center gap-1 flex-shrink-0"
             >
@@ -306,6 +358,8 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
           )}
         </div>
       </div>
+
+      {showLinkBuilder && <AssignmentLinkBuilder onClose={() => setShowLinkBuilder(false)} />}
 
       {/* Checked student's report */}
       {checkedSub && (
@@ -344,7 +398,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                 <span className="text-slate-400 block mb-0.5">Overall Grade:</span>
                 <strong className="text-emerald-400 text-base">{checkedSub.totalScore} / 100</strong>
                 <span className="block text-[10px] text-slate-500 mt-0.5">
-                  {checkedSub.completedTasks.length}/{TOTAL_TASK_COUNT} tasks · {checkedSub.assignmentCode}
+                  {doneLabel(checkedSub)} {checkedSub.assignedTasks?.length ? 'assigned ' : ''}tasks · {checkedSub.assignmentCode}
                 </span>
               </div>
             </div>

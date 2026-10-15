@@ -1,6 +1,6 @@
 import { StudentSubmission, SynthParams } from '../types';
 import { decodeSubmission } from './submissionCodec';
-import { ALL_TASKS, TASK_CATEGORIES, TaskCategory, TOTAL_TASK_COUNT, letterGrade, taskInfo } from './taskCatalog';
+import { ALL_TASKS, TASK_CATEGORIES, TaskCategory, letterGrade, taskInfo, gradedTaskIds, gradedDoneCount } from './taskCatalog';
 
 /** A Patch Matcher score under this counts as "lost points" in class patterns. */
 export const STRUGGLE_THRESHOLD = 70;
@@ -31,11 +31,15 @@ export interface BatchParseResult {
 const LOOKS_LIKE_CODE = /^[A-Za-z0-9_-]{20,}\.[a-z0-9]{1,8}$/;
 const LONG_TOKEN = 30;
 
+/** Category counts, out of the tasks this student was assigned. */
 function summarize(sub: StudentSubmission): Record<TaskCategory, CategorySummary> {
   const out = {} as Record<TaskCategory, CategorySummary>;
+  const graded = new Set(gradedTaskIds(sub.assignedTasks));
   for (const cat of TASK_CATEGORIES) {
-    const total = ALL_TASKS.filter((t) => t.category === cat).length;
-    const scores = sub.completedTasks.filter((t) => taskInfo(t.taskId)?.category === cat).map((t) => t.score);
+    const total = ALL_TASKS.filter((t) => t.category === cat && graded.has(t.id)).length;
+    const scores = sub.completedTasks
+      .filter((t) => graded.has(t.taskId) && taskInfo(t.taskId)?.category === cat)
+      .map((t) => t.score);
     out[cat] = {
       done: scores.length,
       total,
@@ -111,6 +115,7 @@ export function classPatterns(entries: BatchEntry[]): ClassPattern[] {
     let attempted = 0;
     let struggled = 0;
     for (const e of entries) {
+      if (!gradedTaskIds(e.submission.assignedTasks).includes(t.id)) continue;
       const done = e.submission.completedTasks.find((c) => c.taskId === t.id);
       if (!done) continue;
       attempted++;
@@ -122,15 +127,26 @@ export function classPatterns(entries: BatchEntry[]): ClassPattern[] {
     .sort((a, b) => b.struggled / b.attempted - a.struggled / a.attempted || b.struggled - a.struggled);
 }
 
-/** Tasks the fewest students attempted. */
-export function leastAttempted(entries: BatchEntry[]): { title: string; category: TaskCategory; attempted: number }[] {
-  return ALL_TASKS.map((t) => ({
-    title: t.shortTitle,
-    category: t.category,
-    attempted: entries.filter((e) => e.submission.completedTasks.some((c) => c.taskId === t.id)).length,
-  }))
-    .filter((t) => t.attempted < entries.length)
-    .sort((a, b) => a.attempted - b.attempted);
+/** Assigned tasks the fewest students attempted. */
+export function leastAttempted(
+  entries: BatchEntry[]
+): { title: string; category: TaskCategory; attempted: number; assignedTo: number }[] {
+  return ALL_TASKS.map((t) => {
+    const assigned = entries.filter((e) => gradedTaskIds(e.submission.assignedTasks).includes(t.id));
+    return {
+      title: t.shortTitle,
+      category: t.category,
+      assignedTo: assigned.length,
+      attempted: assigned.filter((e) => e.submission.completedTasks.some((c) => c.taskId === t.id)).length,
+    };
+  })
+    .filter((t) => t.assignedTo > 0 && t.attempted < t.assignedTo)
+    .sort((a, b) => a.attempted / a.assignedTo - b.attempted / b.assignedTo);
+}
+
+/** "12/15": assigned tasks done, out of assigned (or all 30). */
+export function doneLabel(s: StudentSubmission): string {
+  return `${gradedDoneCount(s.completedTasks, s.assignedTasks)}/${gradedTaskIds(s.assignedTasks).length}`;
 }
 
 export function formatDate(ms: number): string {
@@ -145,7 +161,7 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
     return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
   };
   const header = [
-    'Student', 'Assignment', 'Submitted', 'Score', 'Letter', `Tasks Done (of ${TOTAL_TASK_COUNT})`,
+    'Student', 'Assignment', 'Submitted', 'Score', 'Letter', 'Assigned Tasks Done',
     ...TASK_CATEGORIES.flatMap((c) => [`${c} Done`, `${c} Avg`]),
     ...ALL_TASKS.map((t) => t.title),
   ];
@@ -157,12 +173,15 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
       s.timestamp ? new Date(s.timestamp).toISOString().slice(0, 16).replace('T', ' ') : '',
       s.totalScore,
       e.letter,
-      s.completedTasks.length,
+      doneLabel(s),
       ...TASK_CATEGORIES.flatMap((c) => [
         `${e.categories[c].done}/${e.categories[c].total}`,
         e.categories[c].done ? e.categories[c].average : '',
       ]),
-      ...ALL_TASKS.map((t) => s.completedTasks.find((c) => c.taskId === t.id)?.score ?? ''),
+      // blank = not done; "–" = not part of this student's assignment
+      ...ALL_TASKS.map((t) =>
+        gradedTaskIds(s.assignedTasks).includes(t.id) ? s.completedTasks.find((c) => c.taskId === t.id)?.score ?? '' : '–'
+      ),
     ].map(esc).join(',');
   });
   const blob = new Blob([[header.map(esc).join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });

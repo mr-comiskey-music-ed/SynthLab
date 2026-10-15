@@ -19,10 +19,11 @@ import {
   classPatterns,
   leastAttempted,
   downloadBatchCsv,
+  doneLabel,
   formatDate,
   STRUGGLE_THRESHOLD,
 } from '../utils/batchGrading';
-import { ALL_TASKS, TASK_CATEGORIES, TOTAL_TASK_COUNT, taskInfo } from '../utils/taskCatalog';
+import { ALL_TASKS, TASK_CATEGORIES, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
 
 const taskOrder = (id: string) => {
   const i = ALL_TASKS.findIndex((t) => t.id === id);
@@ -86,7 +87,11 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
     const list = entries.filter((e) => assignmentFilter === 'all' || e.submission.assignmentCode === assignmentFilter);
     return [...list].sort((a, b) => {
       if (sortKey === 'score') return b.submission.totalScore - a.submission.totalScore;
-      if (sortKey === 'tasks') return b.submission.completedTasks.length - a.submission.completedTasks.length;
+      if (sortKey === 'tasks')
+        return (
+          gradedDoneCount(b.submission.completedTasks, b.submission.assignedTasks) -
+          gradedDoneCount(a.submission.completedTasks, a.submission.assignedTasks)
+        );
       return lastName(a.submission.studentName).localeCompare(lastName(b.submission.studentName));
     });
   }, [entries, sortKey, assignmentFilter]);
@@ -254,7 +259,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                             {skipped.slice(0, 4).map((t, i) => (
                               <span key={t.title}>
                                 {i > 0 && ' · '}
-                                {t.title} <span className="text-slate-500">({t.attempted}/{visible.length})</span>
+                                {t.title} <span className="text-slate-500">({t.attempted}/{t.assignedTo})</span>
                               </span>
                             ))}
                           </div>
@@ -310,7 +315,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                 <div className="border border-white/10 rounded-xl overflow-hidden">
                   <div className="grid grid-cols-[1fr_150px_60px_96px] sm:grid-cols-[1fr_190px_60px_110px] gap-2 px-3 py-2 bg-white/5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <span>Student</span>
-                    <span>Done (Patch · Doctor · Ear)</span>
+                    <span>Assigned done (Patch · Doctor · Ear)</span>
                     <span className="text-center">Grade</span>
                     <span />
                   </div>
@@ -333,7 +338,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                             )}
                           </span>
                           <span className="text-slate-300">
-                            {s.completedTasks.length}/{TOTAL_TASK_COUNT}{' '}
+                            {doneLabel(s)}{' '}
                             <span className="text-slate-500">
                               ({TASK_CATEGORIES.map((c) => e.categories[c].done).join(' · ')})
                             </span>
@@ -358,8 +363,20 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                           <div className="px-4 pb-3 pt-1 space-y-2 bg-white/[0.02]">
                             <div className="text-[10px] text-slate-500">
                               {s.assignmentCode}
+                              {s.assignedTasks?.length ? ` · ${s.assignedTasks.length} assigned tasks` : ' · all 30 tasks'}
                               {s.timestamp ? ` · submitted ${formatDate(s.timestamp)}` : ''}
                             </div>
+                            {(() => {
+                              const missing = gradedTaskIds(s.assignedTasks).filter(
+                                (id) => !s.completedTasks.some((t) => t.taskId === id)
+                              );
+                              return missing.length > 0 && missing.length < ALL_TASKS.length ? (
+                                <div className="text-[11px] text-rose-200">
+                                  <span className="text-rose-300 font-bold">Not done ({missing.length}): </span>
+                                  {missing.map((id) => taskInfo(id)?.shortTitle ?? id).join(' · ')}
+                                </div>
+                              ) : null;
+                            })()}
                             {s.completedTasks.length === 0 ? (
                               <div className="text-[11px] text-slate-500 italic">No tasks completed.</div>
                             ) : (
@@ -368,10 +385,12 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                                   .sort((a, b) => taskOrder(a.taskId) - taskOrder(b.taskId))
                                   .map((t) => {
                                     const good = t.score >= STRUGGLE_THRESHOLD;
+                                    const counted = gradedTaskIds(s.assignedTasks).includes(t.taskId);
                                     return (
                                       <div
                                         key={t.taskId}
-                                        className="flex items-center justify-between gap-2 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10"
+                                        className={`flex items-center justify-between gap-2 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 ${counted ? '' : 'opacity-50'}`}
+                                        title={counted ? undefined : 'Extra: not part of the assignment, so not counted'}
                                       >
                                         <span className="flex items-center gap-1.5 text-slate-200 min-w-0">
                                           {good ? (

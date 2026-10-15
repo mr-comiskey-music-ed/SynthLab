@@ -142,4 +142,6 @@ export interface StudentSubmission {
   }[];
   encodedVerification: string;
   patchUrl: string;
+  /** Task IDs the teacher assigned (from the assignment link). Empty/missing = all tasks. */
+  assignedTasks?: string[];
 }

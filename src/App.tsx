@@ -9,6 +9,7 @@ import { SubtractiveEngine } from './audio/synthEngine';
 import { DEFAULT_SYNTH_PARAMS, INITIAL_PRESETS } from './utils/presets';
 import { decodeSubmission, decodePatch } from './utils/submissionCodec';
 import { parseBatch, BatchParseResult } from './utils/batchGrading';
+import { cleanTaskList } from './utils/taskCatalog';
 import { BatchGradeModal } from './components/BatchGradeModal';
 import { BatchReviewBar } from './components/BatchReviewBar';
 import { StudioRetroView } from './components/StudioRetroView';
@@ -78,7 +79,7 @@ export default function App() {
     const handleAssignmentParam = (assignParam: string, tasksParam?: string) => {
       if (assignParam) setAssignmentCode(assignParam);
       if (tasksParam) {
-        setAssignedTasks(tasksParam.split(','));
+        setAssignedTasks(cleanTaskList(tasksParam.split(',')));
         setActiveMode('challenges');
       }
     };
@@ -354,6 +355,7 @@ export default function App() {
             currentParams={params}
             completedTasks={completedTasks}
             assignmentCodeFromUrl={assignmentCode}
+            assignedTasks={assignedTasks}
             sharedReport={sharedReport}
             onLoadParams={loadParams}
             onOpenBatchGrade={() => setIsBatchOpen(true)}
