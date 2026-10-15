@@ -4,18 +4,20 @@ import {
   ThemeMode,
   AppMode,
   Preset,
-  StudentSubmission,
 } from './types';
 import { SubtractiveEngine } from './audio/synthEngine';
 import { DEFAULT_SYNTH_PARAMS, INITIAL_PRESETS } from './utils/presets';
-import { decodeSubmissionReport } from './utils/verification';
+import { decodeSubmission, decodePatch } from './utils/submissionCodec';
+import { parseBatch, BatchParseResult } from './utils/batchGrading';
+import { BatchGradeModal } from './components/BatchGradeModal';
+import { BatchReviewBar } from './components/BatchReviewBar';
 import { StudioRetroView } from './components/StudioRetroView';
 import { MinilogueView } from './components/MinilogueView';
 import { Keyboard } from './components/Keyboard';
 import { ModeLearn } from './components/ModeLearn';
 import { ModePlayground } from './components/ModePlayground';
 import { ModeChallenges } from './components/ModeChallenges';
-import { ModeTeacher } from './components/ModeTeacher';
+import { ModeTeacher, SharedReport } from './components/ModeTeacher';
 import { MarbleWaveLogo } from './components/MarbleWaveLogo';
 import {
   BookOpen,
@@ -43,7 +45,15 @@ export default function App() {
   const [audioStarted, setAudioStarted] = useState<boolean>(false);
   const [completedTasks, setCompletedTasks] = useState<{ taskId: string; taskTitle: string; score: number }[]>([]);
   const [highlightSection, setHighlightSection] = useState<string | null>(null);
-  const [sharedReport, setSharedReport] = useState<{ valid: boolean; submission?: StudentSubmission; error?: string } | null>(null);
+  const [sharedReport, setSharedReport] = useState<SharedReport | null>(null);
+
+  // Batch grading (kept in memory only; nothing is stored)
+  const [isBatchOpen, setIsBatchOpen] = useState(false);
+  const [batchText, setBatchText] = useState('');
+  const [batchResult, setBatchResult] = useState<BatchParseResult | null>(null);
+  const [isGrading, setIsGrading] = useState(false);
+  const [review, setReview] = useState<{ order: number[]; pos: number } | null>(null);
+  const [savedParams, setSavedParams] = useState<SynthParams | null>(null);
 
   // URL query params tracking
   const [assignmentCode, setAssignmentCode] = useState<string>('SYNTH_LAB_01');
@@ -58,13 +68,10 @@ export default function App() {
 
   // Initialize from URL params (e.g. shared patch, teacher assignment, shared report)
   useEffect(() => {
-    const handleReportParam = (reportParam: string) => {
+    const handleReportParam = async (reportParam: string) => {
       if (!reportParam) return;
-      const decoded = decodeSubmissionReport(reportParam);
-      setSharedReport(decoded);
-      if (decoded.valid && decoded.submission) {
-        setCompletedTasks(decoded.submission.completedTasks);
-      }
+      const decoded = await decodeSubmission(reportParam);
+      setSharedReport({ code: reportParam, decoded });
       setActiveMode('teacher');
     };
 
@@ -80,14 +87,15 @@ export default function App() {
     const query = new URLSearchParams(window.location.search);
     const patchData = query.get('patch');
     if (patchData) {
-      try {
-        const decoded = JSON.parse(atob(decodeURIComponent(patchData)));
-        setParams((prev) => ({ ...prev, ...decoded }));
+      decodePatch(patchData).then((decoded) => {
+        if (!decoded) {
+          console.error('Failed to read patch from URL');
+          return;
+        }
+        setParams(decoded);
         engine.applyParams(decoded);
         setActiveMode('playground');
-      } catch (err) {
-        console.error('Failed to parse patch from URL', err);
-      }
+      });
     }
 
     const reportParam = query.get('report');
@@ -151,6 +159,39 @@ export default function App() {
     setParams({ ...preset.params });
     engine.applyParams(preset.params);
   };
+
+  const loadParams = (next: SynthParams) => {
+    setParams({ ...next });
+    engine.applyParams(next);
+  };
+
+  // ---------- Batch grading review: step through students' patches ----------
+  const handleGradeBatch = async () => {
+    setIsGrading(true);
+    setBatchResult(await parseBatch(batchText));
+    setIsGrading(false);
+  };
+  const showReviewAt = (order: number[], pos: number) => {
+    const entry = batchResult?.entries[order[pos]];
+    if (!entry) return;
+    if (entry.patchParams) loadParams(entry.patchParams);
+    setReview({ order, pos });
+    // Bring the synth into view so the student's knob settings are visible.
+    requestAnimationFrame(() =>
+      document.getElementById('synth-hardware-rack')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+    );
+  };
+  const handleStartReview = (order: number[], start: number) => {
+    if (!review) setSavedParams(params); // remember the teacher's own patch
+    setIsBatchOpen(false);
+    showReviewAt(order, start);
+  };
+  const handleExitReview = () => {
+    if (savedParams) loadParams(savedParams);
+    setSavedParams(null);
+    setReview(null);
+  };
+  const reviewEntry = review && batchResult ? batchResult.entries[review.order[review.pos]] : null;
 
   const handleRecordTaskScore = (taskId: string, taskTitle: string, score: number) => {
     setCompletedTasks((prev) => {
@@ -314,11 +355,13 @@ export default function App() {
             completedTasks={completedTasks}
             assignmentCodeFromUrl={assignmentCode}
             sharedReport={sharedReport}
+            onLoadParams={loadParams}
+            onOpenBatchGrade={() => setIsBatchOpen(true)}
           />
         )}
 
         {/* Primary Synthesizer Hardware Chassis (Active Theme) */}
-        <section id="synth-hardware-rack" className="w-full">
+        <section id="synth-hardware-rack" className="w-full scroll-mt-36">
           {theme === 'studio-retro' ? (
             <StudioRetroView
               params={params}
@@ -341,6 +384,34 @@ export default function App() {
           <Keyboard engine={engine} theme={theme} params={params} />
         </section>
       </main>
+
+      {/* Batch Grading */}
+      <BatchGradeModal
+        isOpen={isBatchOpen}
+        onClose={() => setIsBatchOpen(false)}
+        text={batchText}
+        onTextChange={setBatchText}
+        result={batchResult}
+        isGrading={isGrading}
+        onGrade={handleGradeBatch}
+        onClear={() => {
+          if (review) handleExitReview();
+          setBatchResult(null);
+          setBatchText('');
+        }}
+        onReview={handleStartReview}
+      />
+      {reviewEntry && review && !isBatchOpen && (
+        <BatchReviewBar
+          entry={reviewEntry}
+          position={review.pos}
+          total={review.order.length}
+          onPrev={() => showReviewAt(review.order, review.pos - 1)}
+          onNext={() => showReviewAt(review.order, review.pos + 1)}
+          onBackToList={() => setIsBatchOpen(true)}
+          onExit={handleExitReview}
+        />
+      )}
     </div>
   );
 }

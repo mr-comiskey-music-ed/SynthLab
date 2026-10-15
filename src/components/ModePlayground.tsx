@@ -2,6 +2,8 @@ import React, { useState, useRef } from 'react';
 import { SynthParams, Preset, ArpConfig, ArpDivision, ArpDirection, ThemeMode } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
 import { INITIAL_PRESETS } from '../utils/presets';
+import { encodePatch, decodePatch } from '../utils/submissionCodec';
+import { copyText } from '../utils/copyText';
 import {
   Play,
   Square,
@@ -120,44 +122,34 @@ export const ModePlayground: React.FC<ModePlaygroundProps> = ({
     }, durationSeconds * 1000);
   };
 
-  // Copy Patch Base64 Code
-  const handleCopyPatchCode = () => {
-    const jsonStr = JSON.stringify(params);
-    const encoded = btoa(jsonStr);
-    navigator.clipboard.writeText(encoded);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2500);
+  // Copy the patch as a short code
+  const handleCopyPatchCode = async () => {
+    const encoded = await encodePatch(params);
+    if (await copyText(encoded)) {
+      setCopiedCode(true);
+      setTimeout(() => setCopiedCode(false), 2500);
+    } else {
+      window.prompt('Your browser blocked copying. Press Ctrl+C to copy this patch code:', encoded);
+    }
   };
 
-  // Paste & Import Patch Base64 Code
-  const handleImportPatchCode = () => {
-    const code = window.prompt("Paste synthesizer patch base64 code:");
+  // Paste & import a patch code (new short codes, older codes, or a ?patch= link)
+  const handleImportPatchCode = async () => {
+    const code = window.prompt('Paste synthesizer patch code:');
     if (!code) return;
-    try {
-      let cleaned = code.trim();
-      if (cleaned.includes('patch=')) {
-        const parts = cleaned.split('patch=');
-        if (parts[1]) {
-          cleaned = parts[1].split('&')[0];
-        }
-      }
-      let jsonStr = '';
-      try {
-        jsonStr = atob(cleaned);
-      } catch (err) {
-        jsonStr = atob(decodeURIComponent(cleaned));
-      }
-      const parsedParams = JSON.parse(jsonStr);
-      onLoadPreset({
-        id: 'imported-' + Date.now(),
-        name: 'Imported Patch',
-        category: 'Custom',
-        params: parsedParams,
-      });
-      alert("Synth patch imported successfully!");
-    } catch (e) {
-      alert("Invalid patch code. Please ensure you copied the exact base64 code.");
+    const parsedParams = await decodePatch(code);
+    if (!parsedParams) {
+      alert('Invalid patch code. Please make sure you copied the whole code.');
+      return;
     }
+    onLoadPreset({
+      id: 'imported-' + Date.now(),
+      name: 'Imported Patch',
+      category: 'Custom' as Preset['category'],
+      description: '',
+      params: parsedParams,
+    });
+    alert('Synth patch imported successfully!');
   };
 
   return (

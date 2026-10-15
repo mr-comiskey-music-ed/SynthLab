@@ -1,144 +1,126 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { SynthParams, StudentSubmission } from '../types';
-import {
-  generateVerificationCode,
-  encodeSubmissionReport,
-  decodeSubmissionReport,
-  getBaseReportUrl,
-} from '../utils/verification';
+import { encodeSubmission, decodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
+import { totalScoreFor, TOTAL_TASK_COUNT, taskInfo } from '../utils/taskCatalog';
+import { formatDate } from '../utils/batchGrading';
+import { copyText } from '../utils/copyText';
 import {
   GraduationCap,
   Check,
   ShieldCheck,
-  Share2,
   X,
   Award,
   AlertTriangle,
   Copy,
+  ListChecks,
+  Headphones,
+  Loader2,
 } from 'lucide-react';
+
+export interface SharedReport {
+  code: string;
+  decoded: DecodedSubmission | null;
+}
 
 interface ModeTeacherProps {
   currentParams: SynthParams;
   completedTasks: { taskId: string; taskTitle: string; score: number }[];
   assignmentCodeFromUrl?: string;
-  sharedReport?: { valid: boolean; submission?: StudentSubmission; error?: string } | null;
+  /** A code that arrived in the page link (?report=...). */
+  sharedReport?: SharedReport | null;
+  onLoadParams: (params: SynthParams) => void;
+  onOpenBatchGrade: () => void;
 }
+
+const BAD_CODE = 'That code couldn’t be read. It may be incomplete, mistyped or edited. Ask the student to copy it again.';
 
 export const ModeTeacher: React.FC<ModeTeacherProps> = ({
   currentParams,
   completedTasks,
   assignmentCodeFromUrl = 'SYNTH_LAB_01',
   sharedReport = null,
+  onLoadParams,
+  onOpenBatchGrade,
 }) => {
   const [studentName, setStudentName] = useState<string>('');
-  const [submission, setSubmission] = useState<StudentSubmission | null>(sharedReport?.submission || null);
-  const [secureReportUrl, setSecureReportUrl] = useState<string>('');
-  const [copiedLink, setCopiedLink] = useState<boolean>(false);
-  const [showReportModal, setShowReportModal] = useState<boolean>(!!sharedReport);
+  // The student's own locked submission
+  const [submission, setSubmission] = useState<StudentSubmission | null>(null);
+  const [rawReportCode, setRawReportCode] = useState<string>('');
+  const [copyState, setCopyState] = useState<'idle' | 'copied' | 'manual'>('idle');
+  const [isLocking, setIsLocking] = useState(false);
+  const codeBoxRef = useRef<HTMLTextAreaElement>(null);
+
+  // A code the teacher checked (or that came in the link)
+  const [checked, setChecked] = useState<DecodedSubmission | null>(null);
   const [manualReportInput, setManualReportInput] = useState<string>('');
-  const [rawReportCode, setRawReportCode] = useState<string>(
-    sharedReport?.submission ? encodeSubmissionReport(sharedReport.submission, currentParams) : ''
-  );
-  const [copiedCode, setCopiedCode] = useState<boolean>(false);
-  const [verificationError, setVerificationError] = useState<string | null>(sharedReport?.error || null);
+  const [verificationError, setVerificationError] = useState<string | null>(null);
+  const [isChecking, setIsChecking] = useState(false);
+  const [patchLoaded, setPatchLoaded] = useState(false);
 
-  // Reactive update when sharedReport changes asynchronously
   useEffect(() => {
-    if (sharedReport) {
-      if (sharedReport.submission) {
-        setSubmission(sharedReport.submission);
-        const encodedReport = encodeSubmissionReport(sharedReport.submission, currentParams);
-        setRawReportCode(encodedReport);
-        setSecureReportUrl(`${getBaseReportUrl()}?report=${encodedReport}`);
-      }
-      if (sharedReport.valid) {
-        setShowReportModal(true);
-      } else if (sharedReport.error) {
-        setVerificationError(sharedReport.error);
-      }
+    if (!sharedReport) return;
+    if (sharedReport.decoded) {
+      setChecked(sharedReport.decoded);
+      setPatchLoaded(false);
+    } else {
+      setVerificationError(BAD_CODE);
     }
-  }, [sharedReport, currentParams]);
+  }, [sharedReport]);
 
-  const handleManualLoadReport = () => {
+  const handleCheckCode = async () => {
     if (!manualReportInput.trim()) return;
     setVerificationError(null);
-    let param = manualReportInput.trim();
-    try {
-      if (param.includes('report=')) {
-        const urlObj = new URL(param.startsWith('http') ? param : `https://dummy.com?${param}`);
-        const rep = urlObj.searchParams.get('report');
-        if (rep) param = rep;
-      }
-    } catch (e) {
-      const match = param.match(/report=([^&]+)/);
-      if (match && match[1]) {
-        param = match[1];
-      }
-    }
-
-    const decoded = decodeSubmissionReport(param);
-    if (decoded.valid && decoded.submission) {
-      setSubmission(decoded.submission);
-      setRawReportCode(param);
-      const encodedReport = encodeSubmissionReport(decoded.submission, currentParams);
-      setSecureReportUrl(`${getBaseReportUrl()}?report=${encodedReport}`);
-      setShowReportModal(true);
+    setIsChecking(true);
+    const decoded = await decodeSubmission(manualReportInput);
+    setIsChecking(false);
+    if (decoded) {
+      setChecked(decoded);
+      setPatchLoaded(false);
       setManualReportInput('');
     } else {
-      setVerificationError(decoded.error || '⚠️ TAMPER DETECTED: Invalid submission code or signature checksum mismatch.');
+      setVerificationError(BAD_CODE);
     }
   };
 
-  // Calculate student score proportional to 30 total tasks
-  const totalScore =
-    sharedReport?.submission?.totalScore ??
-    (completedTasks.length > 0
-      ? Math.round(
-          completedTasks.reduce((acc, curr) => acc + curr.score, 0) / 30
-        )
-      : 0);
+  const totalScore = totalScoreFor(completedTasks);
 
-  // Lock and generate secure tamper-proof report code
-  const handleLockSubmission = () => {
+  const handleLockSubmission = async () => {
     if (!studentName.trim()) {
-      alert('Please enter your full student name before locking your submission.');
+      alert('Please enter your full student name before generating your code.');
       return;
     }
-
-    const taskIds = completedTasks.map((t) => t.taskId);
-    const code = generateVerificationCode(studentName, totalScore, assignmentCodeFromUrl, taskIds);
-
     const newSub: StudentSubmission = {
       studentName: studentName.trim(),
       assignmentCode: assignmentCodeFromUrl,
       timestamp: Date.now(),
       totalScore,
       completedTasks,
-      encodedVerification: code,
-      patchUrl: window.location.href,
+      encodedVerification: '',
+      patchUrl: '',
     };
-
-    const encodedReport = encodeSubmissionReport(newSub, currentParams);
-    const url = `${getBaseReportUrl()}?report=${encodedReport}`;
-
+    setIsLocking(true);
+    const code = await encodeSubmission(newSub, currentParams);
+    setIsLocking(false);
     setSubmission(newSub);
-    setRawReportCode(encodedReport);
-    setSecureReportUrl(url);
+    setRawReportCode(code);
+    setCopyState('idle');
   };
 
-  const handleCopyLink = () => {
-    const urlToCopy = secureReportUrl || (submission ? `${getBaseReportUrl()}?report=${encodeSubmissionReport(submission, currentParams)}` : window.location.href);
-    navigator.clipboard.writeText(urlToCopy);
-    setCopiedLink(true);
-    setTimeout(() => setCopiedLink(false), 2500);
-  };
-
-  const handleCopySubmissionCode = () => {
+  const handleCopySubmissionCode = async () => {
     if (!rawReportCode) return;
-    navigator.clipboard.writeText(rawReportCode);
-    setCopiedCode(true);
-    setTimeout(() => setCopiedCode(false), 2500);
+    const ok = await copyText(rawReportCode);
+    if (ok) {
+      setCopyState('copied');
+      setTimeout(() => setCopyState('idle'), 2500);
+    } else {
+      // Clipboard blocked: select the code so the student can press Ctrl+C.
+      codeBoxRef.current?.focus();
+      codeBoxRef.current?.select();
+      setCopyState('manual');
+    }
   };
+
+  const checkedSub = checked?.submission;
 
   return (
     <div id="mode-teacher-panel" className="space-y-4 mb-4 max-w-4xl mx-auto">
@@ -150,7 +132,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
               <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">
                 STUDENT GRADE REPORT & SUBMISSION
               </span>
-              <h3 className="text-lg font-bold text-white">Grade Report & Teacher Share Link</h3>
+              <h3 className="text-lg font-bold text-white">Grade Report & Submission Code</h3>
             </div>
           </div>
 
@@ -162,7 +144,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
           </div>
         </div>
 
-        {/* Name input & Lock & Generate Code button */}
+        {/* Name input & Generate Code button */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6">
           <div className="md:col-span-5">
             <label className="block text-xs font-mono text-slate-300 font-semibold mb-1.5">
@@ -179,10 +161,10 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
 
           <div className="md:col-span-4">
             <span className="block text-xs font-mono text-slate-300 font-semibold mb-1.5">
-              Completed Tasks: {completedTasks.length}/30
+              Completed Tasks: {completedTasks.length}/{TOTAL_TASK_COUNT}
             </span>
             <div className="text-xs font-mono text-slate-400 py-2">
-              All finished quests and scores are tracked below.
+              Your current patch is saved in the code too.
             </div>
           </div>
 
@@ -190,22 +172,23 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             <button
               type="button"
               onClick={handleLockSubmission}
-              className="w-full py-2.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.3)] active:scale-95 transition-all"
+              disabled={isLocking}
+              className="w-full py-2.5 px-3 rounded-lg bg-amber-500 hover:bg-amber-400 disabled:opacity-60 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.3)] active:scale-95 transition-all"
             >
-              <ShieldCheck className="w-4 h-4" />
-              Lock & Generate Code
+              {isLocking ? <Loader2 className="w-4 h-4 animate-spin" /> : <ShieldCheck className="w-4 h-4" />}
+              {submission ? 'Update My Code' : 'Generate My Code'}
             </button>
           </div>
         </div>
 
-        {/* Submission Report & Share Link */}
+        {/* Submission code */}
         {submission && (
           <div className="p-5 rounded-xl bg-black/70 border border-emerald-500/50 space-y-4">
             <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 border-b border-white/10 pb-3">
               <div className="flex items-center gap-2">
                 <Check className="w-5 h-5 text-emerald-400" />
                 <span className="text-xs font-mono font-bold text-emerald-300 uppercase tracking-wide">
-                  Tamper-Proof Grade Report Generated & Locked
+                  Grade Report Ready
                 </span>
               </div>
               <span className="text-xs font-mono text-slate-300">
@@ -213,14 +196,14 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
               </span>
             </div>
 
-            {/* Detailed Quest Breakdown */}
+            {/* Quest breakdown */}
             <div className="space-y-2">
               <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
                 Quests & Challenges Completed ({submission.completedTasks.length}):
               </span>
               {submission.completedTasks.length === 0 ? (
                 <div className="text-xs font-mono text-slate-500 italic p-2 bg-slate-900/40 rounded">
-                  No quests completed yet. Complete challenges in the Learn or Challenges tabs to record scores.
+                  No quests completed yet. Complete challenges in the Challenges tab to record scores.
                 </div>
               ) : (
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
@@ -237,100 +220,96 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
               )}
             </div>
 
-            {/* Google Classroom Submission Code Box */}
             <div className="space-y-3 pt-3 border-t border-white/10">
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-mono text-emerald-300 font-bold uppercase tracking-wider">
-                  Student Submission Code for Google Classroom:
-                </label>
-                <span className="text-[10px] font-mono text-slate-400">
-                  Select & copy code below
-                </span>
-              </div>
-
-              <div className="relative">
-                <textarea
-                  readOnly
-                  rows={3}
-                  value={rawReportCode}
-                  onClick={(e) => (e.target as HTMLTextAreaElement).select()}
-                  className="w-full px-3 py-2 rounded-lg bg-black/90 text-emerald-400 font-mono text-xs border border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-400 select-all"
-                />
-              </div>
+              <label className="block text-xs font-mono text-emerald-300 font-bold uppercase tracking-wider">
+                Your Submission Code for Google Classroom:
+              </label>
+              <textarea
+                ref={codeBoxRef}
+                readOnly
+                rows={3}
+                value={rawReportCode}
+                onClick={(e) => (e.target as HTMLTextAreaElement).select()}
+                className="w-full px-3 py-2 rounded-lg bg-black/90 text-emerald-400 font-mono text-xs border border-emerald-500/40 focus:outline-none focus:ring-1 focus:ring-emerald-400 break-all"
+              />
 
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
                 <p className="text-xs font-mono text-slate-300 max-w-md flex-1">
-                  Copy this code and paste it into your Google Classroom assignment or send it to your teacher.
+                  {copyState === 'manual' ? (
+                    <span className="text-amber-300">
+                      Your browser blocked copying. The code is selected — press <b>Ctrl+C</b> to copy it.
+                    </span>
+                  ) : (
+                    'Copy this code and paste it into your Google Classroom assignment.'
+                  )}
                 </p>
-
-                <div className="flex items-center gap-2 w-full sm:w-auto">
-                  <button
-                    type="button"
-                    onClick={() => setShowReportModal(true)}
-                    className="px-4 py-2.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-amber-300 font-mono font-bold text-xs uppercase flex items-center justify-center gap-1.5 border border-amber-500/30 flex-shrink-0"
-                  >
-                    <Award className="w-4 h-4" />
-                    View Report
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={handleCopySubmissionCode}
-                    className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(16,185,129,0.3)] active:scale-95 transition-all flex-shrink-0"
-                  >
-                    {copiedCode ? (
-                      <>
-                        <Check className="w-4 h-4" />
-                        Code Copied!
-                      </>
-                    ) : (
-                      <>
-                        <Copy className="w-4 h-4" />
-                        Copy Code
-                      </>
-                    )}
-                  </button>
-                </div>
+                <button
+                  type="button"
+                  onClick={handleCopySubmissionCode}
+                  className="w-full sm:w-auto px-5 py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-2 shadow-[0_0_12px_rgba(16,185,129,0.3)] active:scale-95 transition-all flex-shrink-0"
+                >
+                  {copyState === 'copied' ? (
+                    <>
+                      <Check className="w-4 h-4" />
+                      Code Copied!
+                    </>
+                  ) : (
+                    <>
+                      <Copy className="w-4 h-4" />
+                      Copy Code
+                    </>
+                  )}
+                </button>
               </div>
             </div>
           </div>
         )}
 
-        {/* Compact Teacher Code Check at the bottom */}
-        <div className="mt-6 pt-4 border-t border-white/10 flex flex-col sm:flex-row items-center gap-2">
-          <span className="text-xs font-mono text-amber-400 font-bold whitespace-nowrap">
-            Teacher Code Check:
-          </span>
-          <input
-            type="text"
-            placeholder="Paste student submission code or URL..."
-            value={manualReportInput}
-            onChange={(e) => {
-              setManualReportInput(e.target.value);
-              setVerificationError(null);
-            }}
-            className="flex-1 px-3 py-1.5 rounded bg-black/70 text-slate-100 font-mono text-xs border border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-400"
-          />
-          <button
-            type="button"
-            onClick={handleManualLoadReport}
-            className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs uppercase flex items-center gap-1 flex-shrink-0"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" />
-            Verify
-          </button>
-        </div>
-        {verificationError && (
-          <div className="mt-2 p-2 rounded bg-red-950/80 border border-red-500/60 text-red-200 text-xs font-mono flex items-center gap-2">
-            <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
-            <span>{verificationError}</span>
+        {/* Teacher tools */}
+        <div className="mt-6 pt-4 border-t border-white/10 space-y-2">
+          <div className="flex flex-col sm:flex-row items-center gap-2">
+            <span className="text-xs font-mono text-amber-400 font-bold whitespace-nowrap">Teacher Code Check:</span>
+            <input
+              type="text"
+              placeholder="Paste one student's code..."
+              value={manualReportInput}
+              onChange={(e) => {
+                setManualReportInput(e.target.value);
+                setVerificationError(null);
+              }}
+              onKeyDown={(e) => e.key === 'Enter' && handleCheckCode()}
+              className="flex-1 w-full px-3 py-1.5 rounded bg-black/70 text-slate-100 font-mono text-xs border border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            />
+            <button
+              type="button"
+              onClick={handleCheckCode}
+              disabled={isChecking}
+              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs uppercase flex items-center gap-1 flex-shrink-0"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" />
+              Check
+            </button>
+            <button
+              type="button"
+              onClick={onOpenBatchGrade}
+              className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs uppercase flex items-center gap-1 flex-shrink-0"
+            >
+              <ListChecks className="w-3.5 h-3.5" />
+              Batch Grade a Class
+            </button>
           </div>
-        )}
+          {verificationError && (
+            <div className="p-2 rounded bg-red-950/80 border border-red-500/60 text-red-200 text-xs font-mono flex items-center gap-2">
+              <AlertTriangle className="w-3.5 h-3.5 text-red-400 flex-shrink-0" />
+              <span>{verificationError}</span>
+            </div>
+          )}
+        </div>
       </div>
 
-      {/* Grade Report Pop-up Modal Overlay */}
-      {showReportModal && submission && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+      {/* Checked student's report */}
+      {checkedSub && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
           <div className="relative w-full max-w-2xl rounded-2xl bg-slate-950 border-2 border-amber-500/50 p-6 shadow-2xl text-slate-100 space-y-5">
             <div className="flex items-center justify-between border-b border-white/10 pb-4">
               <div className="flex items-center gap-3">
@@ -339,15 +318,14 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                 </div>
                 <div>
                   <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">
-                    OFFICIAL VERIFIED GRADE REPORT
+                    VERIFIED GRADE REPORT
                   </span>
                   <h3 className="text-lg font-bold text-white">Subtractive Synthesis Lab</h3>
                 </div>
               </div>
-
               <button
                 type="button"
-                onClick={() => setShowReportModal(false)}
+                onClick={() => setChecked(null)}
                 className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white"
               >
                 <X className="w-5 h-5" />
@@ -357,32 +335,50 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-slate-900/80 border border-white/10 font-mono text-xs">
               <div>
                 <span className="text-slate-400 block mb-0.5">Student Name:</span>
-                <strong className="text-amber-300 text-sm">{submission.studentName}</strong>
+                <strong className="text-amber-300 text-sm">{checkedSub.studentName}</strong>
+                {checkedSub.timestamp > 0 && (
+                  <span className="block text-[10px] text-slate-500 mt-0.5">Submitted {formatDate(checkedSub.timestamp)}</span>
+                )}
               </div>
               <div>
                 <span className="text-slate-400 block mb-0.5">Overall Grade:</span>
-                <strong className="text-emerald-400 text-base">{submission.totalScore} / 100</strong>
+                <strong className="text-emerald-400 text-base">{checkedSub.totalScore} / 100</strong>
+                <span className="block text-[10px] text-slate-500 mt-0.5">
+                  {checkedSub.completedTasks.length}/{TOTAL_TASK_COUNT} tasks · {checkedSub.assignmentCode}
+                </span>
               </div>
             </div>
 
             <div className="space-y-2">
               <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
-                Challenging Quests Breakdown ({submission.completedTasks.length}):
+                Quests Breakdown ({checkedSub.completedTasks.length}):
               </span>
               <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                {submission.completedTasks.map((t, idx) => (
+                {checkedSub.completedTasks.map((t, idx) => (
                   <div
                     key={idx}
                     className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-white/5 font-mono text-xs"
                   >
-                    <span className="text-slate-200">{t.taskTitle}</span>
+                    <span className="text-slate-200">{taskInfo(t.taskId)?.title ?? t.taskTitle}</span>
                     <span className="text-emerald-400 font-bold">{Math.round(t.score)}%</span>
                   </div>
                 ))}
               </div>
             </div>
 
-
+            {checked?.patchParams && (
+              <button
+                type="button"
+                onClick={() => {
+                  onLoadParams(checked.patchParams!);
+                  setPatchLoaded(true);
+                }}
+                className="w-full py-2.5 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-1.5"
+              >
+                {patchLoaded ? <Check className="w-4 h-4" /> : <Headphones className="w-4 h-4" />}
+                {patchLoaded ? 'Patch loaded on the synth' : 'Load their patch onto the synth'}
+              </button>
+            )}
           </div>
         </div>
       )}
