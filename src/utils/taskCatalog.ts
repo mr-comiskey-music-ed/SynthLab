@@ -74,8 +74,20 @@ export interface MainGrade {
   total: number;
 }
 
+/** Best match % that earns the full "score" half of a Patch Master patch. */
+export const PATCH_MASTER_FULL_MATCH = 85;
+
+/**
+ * Points for one Patch Master patch (0-100): 50 for trying it, plus up to 50 from
+ * the best match score, scaled so a best match of 85% or more earns all 50.
+ */
+export function patchMasterPoints(best: number | undefined): number {
+  if (best === undefined) return 0;
+  return 50 + 50 * Math.min(1, Math.max(0, best) / PATCH_MASTER_FULL_MATCH);
+}
+
 export interface PatchMasterGrade {
-  score: number; // effort: % of assigned patches tried
+  score: number; // average of patchMasterPoints over the assigned patches
   tried: number;
   total: number;
   avgBestMatch: number | null; // average best match % of the patches tried
@@ -85,7 +97,7 @@ export interface PatchMasterGrade {
 export interface Grades {
   /** A/B Ear Training + Synth Doctor. Null when none were assigned. */
   main: MainGrade | null;
-  /** Patch Master, graded on effort. Null when none were assigned. */
+  /** Patch Master: half for trying, half from match scores. Null when none were assigned. */
   patchMaster: PatchMasterGrade | null;
 }
 
@@ -95,7 +107,8 @@ export const isPatchMaster = (id: string) => taskInfo(id)?.category === 'Patch M
  * Two grades, each out of the assigned tasks (or all tasks when nothing was assigned):
  *  - Main grade: average score on assigned Ear Training + Synth Doctor tasks
  *    (an unfinished task counts as 0).
- *  - Patch Master effort grade: % of assigned Patch Master patches the student tried.
+ *  - Patch Master grade: average over assigned patches of 50 points for trying plus up
+ *    to 50 more from the best match (85%+ = full points); untried patches get 0.
  * Tasks done outside the assignment are shown but don't change either grade.
  */
 export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
@@ -115,7 +128,7 @@ export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
   if (pmIds.length) {
     const tried = pmIds.filter((id) => byId.has(id)).map((id) => byId.get(id)!);
     patchMaster = {
-      score: Math.round((100 * tried.length) / pmIds.length),
+      score: Math.round(pmIds.reduce((s, id) => s + patchMasterPoints(byId.get(id)?.score), 0) / pmIds.length),
       tried: tried.length,
       total: pmIds.length,
       avgBestMatch: tried.length ? Math.round(tried.reduce((s, t) => s + t.score, 0) / tried.length) : null,
@@ -125,7 +138,7 @@ export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
   return { main, patchMaster };
 }
 
-/** The headline number kept on a submission: the main grade, or Patch Master effort if that's all that was assigned. */
+/** The headline number kept on a submission: the main grade, or the Patch Master grade if that's all that was assigned. */
 export function headlineScore(g: Grades): number {
   return g.main?.score ?? g.patchMaster?.score ?? 0;
 }

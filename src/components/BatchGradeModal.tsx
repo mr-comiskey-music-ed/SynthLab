@@ -182,8 +182,8 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                 </span>
               ))}
               {effortAverage !== null && (
-                <span className={`px-3 py-1.5 rounded-lg border font-bold ${gradeColor(effortAverage)}`} title="Share of assigned Patch Master patches tried">
-                  Patch Master effort avg {effortAverage}%
+                <span className={`px-3 py-1.5 rounded-lg border font-bold ${gradeColor(effortAverage)}`} title="50% for trying each patch, 50% from match scores (85%+ = full points)">
+                  Patch Master avg {effortAverage}%
                 </span>
               )}
               <div className="ml-auto flex gap-2">
@@ -293,7 +293,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                         sortKey === k ? 'bg-amber-500 text-black border-amber-400 font-bold' : 'bg-white/5 border-white/10 text-slate-300'
                       }`}
                     >
-                      {k === 'name' ? 'Last name' : k === 'score' ? 'Main grade' : k === 'effort' ? 'Patch effort' : 'Tasks done'}
+                      {k === 'name' ? 'Last name' : k === 'score' ? 'Main grade' : k === 'effort' ? 'Patch Master' : 'Tasks done'}
                     </button>
                   ))}
                   {assignments.length > 1 && (
@@ -329,7 +329,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                     <span>Student</span>
                     <span>Assigned done (Patch · Doctor · Ear)</span>
                     <span className="text-center" title="A/B Ear Training + Synth Doctor">Main</span>
-                    <span className="text-center" title="Patch Master effort: share of assigned patches tried">Patch effort</span>
+                    <span className="text-center" title="Patch Master: 50% for trying, 50% from match scores">Patch Master</span>
                     <span />
                   </div>
                   {visible.map((e, pos) => {

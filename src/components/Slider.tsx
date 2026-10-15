@@ -1,5 +1,6 @@
 import React, { useRef, useState } from 'react';
 import { ThemeMode } from '../types';
+import { taperPosition, taperValue } from '../utils/taper';
 
 interface SliderProps {
   id: string;
@@ -12,6 +13,8 @@ interface SliderProps {
   unit?: string;
   theme: ThemeMode;
   height?: number; // default 100px
+  /** Curved travel: this value sits halfway up the fader (used for envelope times). */
+  centerValue?: number;
   section?: 'vco' | 'filter' | 'envelope' | 'lfo' | 'master';
   onChange: (val: number) => void;
 }
@@ -27,13 +30,17 @@ export const VerticalSlider: React.FC<SliderProps> = ({
   unit = '',
   theme,
   height = 100,
+  centerValue,
   section = 'master',
   onChange,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
   const trackRef = useRef<HTMLDivElement | null>(null);
 
-  const normVal = Math.max(0, Math.min(1, (value - min) / (max - min)));
+  const normVal =
+    centerValue !== undefined
+      ? taperPosition(value, min, max, centerValue)
+      : Math.max(0, Math.min(1, (value - min) / (max - min)));
 
   const updateFromY = (clientY: number) => {
     if (!trackRef.current) return;
@@ -42,9 +49,12 @@ export const VerticalSlider: React.FC<SliderProps> = ({
     // clientY measured from top of track, value goes from bottom (min) to top (max)
     const ratio = 1 - (clientY - rect.top) / trackHeight;
     const clampedRatio = Math.max(0, Math.min(1, ratio));
-    let newVal = min + clampedRatio * (max - min);
-    if (step) {
-      newVal = Math.round(newVal / step) * step;
+    let newVal: number;
+    if (centerValue !== undefined) {
+      newVal = Math.round(taperValue(clampedRatio, min, max, centerValue) * 1000) / 1000;
+    } else {
+      newVal = min + clampedRatio * (max - min);
+      if (step) newVal = Math.round(newVal / step) * step;
     }
     onChange(newVal);
   };

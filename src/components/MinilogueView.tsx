@@ -1,3 +1,4 @@
+import { ENVELOPE_CENTER_SECONDS } from '../utils/taper';
 import React, { useState } from 'react';
 import { SynthParams, WaveformType, LfoDestination, FilterRolloff } from '../types';
 import { Knob } from './Knob';
@@ -106,17 +107,17 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
               </div>
 
               <div className="flex items-center justify-around">
-                <ToggleSwitch<number>
+                <Knob
                   id="mini-vco1-oct"
                   label="Octave"
-                  options={[
-                    { label: '16\'', value: -1, short: '-1' },
-                    { label: '8\'', value: 0, short: '0' },
-                    { label: '4\'', value: 1, short: '+1' },
-                  ]}
+                  section="vco"
                   value={params.vco1Octave}
+                  min={-2}
+                  max={2}
+                  step={1}
+                  defaultValue={0}
+                  unit="semi"
                   theme="hardware-bench"
-                  orientation="vertical"
                   onChange={(v) => onParamChange('vco1Octave', v)}
                 />
                 <Knob
@@ -183,17 +184,17 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
               </div>
 
               <div className="flex items-center justify-around">
-                <ToggleSwitch<number>
+                <Knob
                   id="mini-vco2-oct"
                   label="Octave"
-                  options={[
-                    { label: '16\'', value: -1, short: '-1' },
-                    { label: '8\'', value: 0, short: '0' },
-                    { label: '4\'', value: 1, short: '+1' },
-                  ]}
+                  section="vco"
                   value={params.vco2Octave}
+                  min={-2}
+                  max={2}
+                  step={1}
+                  defaultValue={0}
+                  unit="semi"
                   theme="hardware-bench"
-                  orientation="vertical"
                   onChange={(v) => onParamChange('vco2Octave', v)}
                 />
                 <Knob
@@ -422,6 +423,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   defaultValue={0.02}
                   unit="s"
                   theme="hardware-bench"
+                  centerValue={ENVELOPE_CENTER_SECONDS}
                   onChange={(v) => onParamChange('ampAttack', v)}
                 />
                 <Knob
@@ -436,6 +438,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   defaultValue={0.4}
                   unit="s"
                   theme="hardware-bench"
+                  centerValue={ENVELOPE_CENTER_SECONDS}
                   onChange={(v) => onParamChange('ampDecay', v)}
                 />
                 <Knob
@@ -443,14 +446,14 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   label="Sustain"
                   section="envelope"
                   size="sm"
-                  value={params.ampSustain}
+                  value={Math.round(params.ampSustain * 100)}
                   min={0}
-                  max={1.0}
-                  step={0.01}
-                  defaultValue={0.6}
+                  max={100}
+                  step={1}
+                  defaultValue={60}
                   unit="%"
                   theme="hardware-bench"
-                  onChange={(v) => onParamChange('ampSustain', v)}
+                  onChange={(v) => onParamChange('ampSustain', v / 100)}
                 />
                 <Knob
                   id="mini-amp-release"
@@ -464,6 +467,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   defaultValue={0.3}
                   unit="s"
                   theme="hardware-bench"
+                  centerValue={ENVELOPE_CENTER_SECONDS}
                   onChange={(v) => onParamChange('ampRelease', v)}
                 />
               </div>
@@ -487,6 +491,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   defaultValue={0.03}
                   unit="s"
                   theme="hardware-bench"
+                  centerValue={ENVELOPE_CENTER_SECONDS}
                   onChange={(v) => onParamChange('modAttack', v)}
                 />
                 <Knob
@@ -501,6 +506,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   defaultValue={0.5}
                   unit="s"
                   theme="hardware-bench"
+                  centerValue={ENVELOPE_CENTER_SECONDS}
                   onChange={(v) => onParamChange('modDecay', v)}
                 />
                 <Knob
@@ -508,14 +514,14 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   label="Sustain"
                   section="envelope"
                   size="sm"
-                  value={params.modSustain}
+                  value={Math.round(params.modSustain * 100)}
                   min={0}
-                  max={1.0}
-                  step={0.01}
-                  defaultValue={0.2}
+                  max={100}
+                  step={1}
+                  defaultValue={20}
                   unit="%"
                   theme="hardware-bench"
-                  onChange={(v) => onParamChange('modSustain', v)}
+                  onChange={(v) => onParamChange('modSustain', v / 100)}
                 />
                 <Knob
                   id="mini-mod-release"
@@ -529,6 +535,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   defaultValue={0.4}
                   unit="s"
                   theme="hardware-bench"
+                  centerValue={ENVELOPE_CENTER_SECONDS}
                   onChange={(v) => onParamChange('modRelease', v)}
                 />
               </div>

@@ -168,7 +168,7 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
   const header = [
     'Student', 'Assignment', 'Submitted',
     'Main Grade (Ear + Doctor)', 'Main Letter',
-    'Patch Master Effort %', 'Patch Master Tried', 'Patch Master Avg Best Match', 'Patch Master Total Tries',
+    'Patch Master Grade %', 'Patch Master Tried', 'Patch Master Avg Best Match', 'Patch Master Total Tries',
     'Assigned Tasks Done',
     ...TASK_CATEGORIES.flatMap((c) => [`${c} Done`, `${c} Avg`]),
     ...ALL_TASKS.map((t) => t.title),

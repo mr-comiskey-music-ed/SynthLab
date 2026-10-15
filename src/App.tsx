@@ -68,6 +68,11 @@ export default function App() {
   }
   const engine = engineRef.current;
 
+  // Challenges open on the Modern Synth by default.
+  useEffect(() => {
+    if (activeMode === 'challenges') setTheme('hardware-bench');
+  }, [activeMode]);
+
   // Initialize from URL params (e.g. shared patch, teacher assignment, shared report)
   useEffect(() => {
     const handleReportParam = async (reportParam: string) => {
@@ -200,7 +205,7 @@ export default function App() {
       const old = prev.find((t) => t.taskId === taskId);
       const filtered = prev.filter((t) => t.taskId !== taskId);
       if (isPatchMaster(taskId)) {
-        // Patch Master is graded on effort: keep the best match and count every try.
+        // Patch Master: keep the best match (it sets half the grade) and count every try.
         return [
           ...filtered,
           { taskId, taskTitle, score: Math.max(score, old?.score ?? 0), tries: (old?.tries ?? 0) + 1 },

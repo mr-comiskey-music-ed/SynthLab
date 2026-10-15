@@ -46,11 +46,11 @@ export const BatchReviewBar: React.FC<BatchReviewBarProps> = ({ entry, position,
         </span>
         {!entry.patchParams && <span className="text-amber-300 shrink-0">no patch in code</span>}
         <span className={`font-bold px-2 py-0.5 rounded border ${color} shrink-0`}>
-          {main ? `${main.score}% ${entry.letter}` : `Effort ${pct}%`}
+          {main ? `${main.score}% ${entry.letter}` : `Patch Master ${pct}%`}
         </span>
         {main && effort && (
-          <span className="text-slate-300 shrink-0 hidden md:inline" title="Patch Master effort">
-            Patch effort {effort.score}%
+          <span className="text-slate-300 shrink-0 hidden md:inline" title="Patch Master grade">
+            Patch Master {effort.score}%
           </span>
         )}
         <button type="button" onClick={onPrev} disabled={position === 0} className={btn} title="Previous student (←)">

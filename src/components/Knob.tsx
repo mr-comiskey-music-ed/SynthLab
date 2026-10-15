@@ -1,5 +1,6 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ThemeMode } from '../types';
+import { taperPosition, taperValue } from '../utils/taper';
 
 interface KnobProps {
   id: string;
@@ -13,6 +14,8 @@ interface KnobProps {
   section?: 'vco' | 'filter' | 'envelope' | 'lfo' | 'master';
   theme: ThemeMode;
   logarithmic?: boolean;
+  /** Curved travel: this value sits at 12 o'clock (used for envelope times). */
+  centerValue?: number;
   size?: 'sm' | 'md' | 'lg';
   lfoModulated?: boolean;
   lfoDepth?: number;
@@ -31,6 +34,7 @@ export const Knob: React.FC<KnobProps> = ({
   section = 'master',
   theme,
   logarithmic = false,
+  centerValue,
   size = 'md',
   lfoModulated = false,
   lfoDepth = 0,
@@ -42,6 +46,7 @@ export const Knob: React.FC<KnobProps> = ({
 
   // Map value to 0..1 normalized
   const toNormalized = (val: number): number => {
+    if (centerValue !== undefined) return taperPosition(val, min, max, centerValue);
     if (logarithmic) {
       const minL = Math.log(Math.max(0.001, min));
       const maxL = Math.log(max);
@@ -52,6 +57,7 @@ export const Knob: React.FC<KnobProps> = ({
 
   const fromNormalized = (norm: number): number => {
     const clamped = Math.max(0, Math.min(1, norm));
+    if (centerValue !== undefined) return taperValue(clamped, min, max, centerValue);
     if (logarithmic) {
       const minL = Math.log(Math.max(0.001, min));
       const maxL = Math.log(max);
@@ -75,7 +81,9 @@ export const Knob: React.FC<KnobProps> = ({
       const sensitivity = 0.006;
       const newNorm = Math.max(0, Math.min(1, startValRef.current + deltaY * sensitivity));
       let newVal = fromNormalized(newNorm);
-      if (step && !logarithmic) {
+      if (centerValue !== undefined) {
+        newVal = Math.round(newVal * 1000) / 1000;
+      } else if (step && !logarithmic) {
         newVal = Math.round(newVal / step) * step;
       }
       onChange(newVal);
@@ -104,7 +112,9 @@ export const Knob: React.FC<KnobProps> = ({
       const sensitivity = 0.006;
       const newNorm = Math.max(0, Math.min(1, startValRef.current + deltaY * sensitivity));
       let newVal = fromNormalized(newNorm);
-      if (step && !logarithmic) {
+      if (centerValue !== undefined) {
+        newVal = Math.round(newVal * 1000) / 1000;
+      } else if (step && !logarithmic) {
         newVal = Math.round(newVal / step) * step;
       }
       onChange(newVal);

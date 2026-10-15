@@ -41,7 +41,7 @@ interface ModeTeacherProps {
 const scoreLabel = (t: { score: number; tries?: number }) =>
   t.tries ? `best ${Math.round(t.score)}% · ${t.tries} ${t.tries === 1 ? 'try' : 'tries'}` : `${Math.round(t.score)}%`;
 
-/** The two grades side by side: main (Ear Training + Synth Doctor) and Patch Master effort. */
+/** The two grades side by side: main (Ear Training + Synth Doctor) and Patch Master. */
 const GradeBoxes: React.FC<{ grades: Grades; compact?: boolean }> = ({ grades, compact }) => {
   const box = compact
     ? 'px-2.5 py-1 rounded bg-black/40 border'
@@ -56,8 +56,8 @@ const GradeBoxes: React.FC<{ grades: Grades; compact?: boolean }> = ({ grades, c
         </div>
       )}
       {grades.patchMaster && (
-        <div className={`${box} border-sky-500/30`} title="Patch Master is graded on effort: the share of patches you tried">
-          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Patch Master Effort</span>
+        <div className={`${box} border-sky-500/30`} title="You get 50% for trying each patch. The other 50% is based on your scores (85%+ match = full points).">
+          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Patch Master Grade</span>
           <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-sky-300`}>{grades.patchMaster.score}%</span>
           <span className="block text-[10px] text-slate-500">
             tried {grades.patchMaster.tried}/{grades.patchMaster.total}

@@ -68,13 +68,11 @@ function patchHint(current: SynthParams, target: SynthParams, alreadyShown: stri
   const candidates = [
     {
       key: 'wave',
-      gap: current.vco1Waveform === target.vco1Waveform ? 0 : 20,
-      text:
-        SMOOTH_WAVES.includes(target.vco1Waveform) === SMOOTH_WAVES.includes(current.vco1Waveform)
-          ? `VCO 1 is the right kind of waveform (${SMOOTH_WAVES.includes(target.vco1Waveform) ? 'smooth' : 'buzzy'}), but not the right one. Try its partner.`
-          : SMOOTH_WAVES.includes(target.vco1Waveform)
-          ? 'VCO 1 needs a smooth, mellow waveform (not a buzzy one).'
-          : 'VCO 1 needs a bright, buzzy waveform (not a smooth one).',
+      // Only hint the waveform when the student is in the wrong family (smooth vs buzzy).
+      gap: SMOOTH_WAVES.includes(target.vco1Waveform) === SMOOTH_WAVES.includes(current.vco1Waveform) ? 0 : 20,
+      text: SMOOTH_WAVES.includes(target.vco1Waveform)
+        ? 'VCO 1 needs a smooth, mellow waveform (not a buzzy one).'
+        : 'VCO 1 needs a bright, buzzy waveform (not a smooth one).',
     },
     {
       key: 'cutoff',
@@ -125,12 +123,14 @@ function patchHint(current: SynthParams, target: SynthParams, alreadyShown: stri
       text: rangeClue('White Noise level', current.noiseLevel, Math.max(0, target.noiseLevel - 0.2), Math.min(1, target.noiseLevel + 0.2), pct),
     },
   ];
-  // Only one hint per patch may be about the filter (cutoff or resonance).
+  // The first hint is about the filter (cutoff or resonance); only one hint per patch may be.
   const FILTER_KEYS = ['cutoff', 'resonance'];
   const filterUsed = alreadyShown.some((k) => FILTER_KEYS.includes(k));
-  const next = candidates
+  const open = candidates
     .filter((c) => c.gap >= 2 && !alreadyShown.includes(c.key) && !(filterUsed && FILTER_KEYS.includes(c.key)))
-    .sort((a, b) => b.gap - a.gap)[0];
+    .sort((a, b) => b.gap - a.gap);
+  const firstFilter = alreadyShown.length === 0 ? open.find((c) => FILTER_KEYS.includes(c.key)) : undefined;
+  const next = firstFilter ?? open[0];
   return next ? { key: next.key, text: next.text } : null;
 }
 
@@ -298,7 +298,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
     setActiveTicketIdx(idx);
     const t = SYNTH_DOCTOR_TICKETS[idx];
     onLoadParams({ ...t.brokenParams });
-    onThemeChange(t.recommendedTheme);
+    // Challenges use the Modern Synth by default; students can still switch styles.
     setTicketStatus('idle');
     setTicketMessage(null);
   };
@@ -411,7 +411,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
               <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">
                 QUEST 3: PATCH MASTER
                 <span className="ml-2 normal-case tracking-normal text-sky-300 font-normal">
-                  · graded on effort: every patch you try with Test Match counts
+                  · you get 50% for trying. The other 50% is based on your scores
                 </span>
               </span>
               <h3 className="text-base font-bold text-white flex items-center gap-2">
@@ -577,9 +577,6 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
               <h3 className="text-base font-bold text-white flex items-center gap-2">
                 <span>
                   Ticket #{currentTicket.ticketNumber}: {currentTicket.title}
-                </span>
-                <span className="text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-mono">
-                  Theme: {currentTicket.recommendedTheme === 'studio-retro' ? 'Retro Synth' : 'Modern Synth'}
                 </span>
               </h3>
             </div>

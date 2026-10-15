@@ -1,3 +1,4 @@
+import { ENVELOPE_CENTER_SECONDS } from '../utils/taper';
 import React, { useState } from 'react';
 import { SynthParams, WaveformType, LfoDestination, FilterRolloff } from '../types';
 import { Knob } from './Knob';
@@ -394,6 +395,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 theme="studio-retro"
                 section="envelope"
                 height={80}
+                centerValue={ENVELOPE_CENTER_SECONDS}
                 onChange={(v) => onParamChange('ampAttack', v)}
               />
               <VerticalSlider
@@ -408,6 +410,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 theme="studio-retro"
                 section="envelope"
                 height={80}
+                centerValue={ENVELOPE_CENTER_SECONDS}
                 onChange={(v) => onParamChange('ampDecay', v)}
               />
               <VerticalSlider
@@ -436,6 +439,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 theme="studio-retro"
                 section="envelope"
                 height={80}
+                centerValue={ENVELOPE_CENTER_SECONDS}
                 onChange={(v) => onParamChange('ampRelease', v)}
               />
             </div>
@@ -459,6 +463,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 theme="studio-retro"
                 section="envelope"
                 height={75}
+                centerValue={ENVELOPE_CENTER_SECONDS}
                 onChange={(v) => onParamChange('modAttack', v)}
               />
               <VerticalSlider
@@ -473,6 +478,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 theme="studio-retro"
                 section="envelope"
                 height={75}
+                centerValue={ENVELOPE_CENTER_SECONDS}
                 onChange={(v) => onParamChange('modDecay', v)}
               />
               <VerticalSlider
@@ -501,6 +507,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 theme="studio-retro"
                 section="envelope"
                 height={75}
+                centerValue={ENVELOPE_CENTER_SECONDS}
                 onChange={(v) => onParamChange('modRelease', v)}
               />
             </div>
