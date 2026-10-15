@@ -28,53 +28,105 @@ import {
   Lightbulb,
 } from 'lucide-react';
 
-const WAVE_NAMES: Record<string, string> = {
-  sine: 'Sine', triangle: 'Triangle', sawtooth: 'Sawtooth', square: 'Square', noise: 'Noise',
+export const HINTS_PER_PATCH = 2;
+
+const SMOOTH_WAVES = ['sine', 'triangle'];
+/** Round to a friendly number: 1 or 2 significant figures (e.g. 1,234 -> 1,200; 0.37 -> 0.4). */
+const nice = (n: number) => {
+  if (n <= 0) return 0;
+  const digits = n >= 10 ? 2 : 1;
+  return Number(n.toPrecision(digits));
 };
-const roundNice = (n: number) => Number(n.toPrecision(2));
-const fmtTime = (s: number) => (s < 1 ? `${Math.round(s * 1000)} ms` : `${roundNice(s)} s`);
+const fmtTime = (s: number) => (s < 1 ? `${Math.round(nice(s * 1000))} ms` : `${nice(s)} s`);
+const fmtHz = (n: number) => `${nice(n).toLocaleString()} Hz`;
 
 /**
- * Patch Master hint: find the graded setting the student is furthest from right now
- * (same weights as the auto-grader), skipping settings already revealed, and reveal
- * the hidden patch's value for it.
+ * A vague clue for one setting: "should be above 3", "below 1,500 Hz", "between 2 & 5 Hz".
+ * Points the student the right way from where their knob is now, without the exact value.
  */
-function patchHint(current: SynthParams, target: SynthParams, alreadyShown: string[]): { key: string; text: string } {
-  const cutoffGap = Math.min(1, Math.abs(Math.log10(Math.max(20, current.filterCutoff)) - Math.log10(Math.max(20, target.filterCutoff))) / 1.5) * 25;
-  const gaps = [
+function rangeClue(
+  name: string,
+  current: number,
+  lo: number,
+  hi: number,
+  fmt: (n: number) => string,
+  words: { up: string; down: string } = { up: 'above', down: 'below' }
+): string {
+  if (current < lo) return `${name} should be ${words.up} ${fmt(lo)}.`;
+  if (current > hi) return `${name} should be ${words.down} ${fmt(hi)}.`;
+  return `${name} should be between ${fmt(lo)} & ${fmt(hi)}.`;
+}
+
+/**
+ * Patch Master hint: pick the setting the student is furthest from right now
+ * (using the auto-grader's weights), skipping ones already hinted, and give a
+ * range for it rather than the exact value.
+ */
+function patchHint(current: SynthParams, target: SynthParams, alreadyShown: string[]): { key: string; text: string } | null {
+  const logGap = (a: number, b: number, span: number) => Math.min(1, Math.abs(Math.log10(Math.max(1e-3, a)) - Math.log10(Math.max(1e-3, b))) / span);
+  const pct = (n: number) => `${Math.round(n * 100)}%`;
+  const candidates = [
     {
       key: 'wave',
       gap: current.vco1Waveform === target.vco1Waveform ? 0 : 20,
-      text: `VCO 1 uses a ${WAVE_NAMES[target.vco1Waveform] ?? target.vco1Waveform} wave (yours: ${WAVE_NAMES[current.vco1Waveform] ?? current.vco1Waveform}).`,
+      text:
+        SMOOTH_WAVES.includes(target.vco1Waveform) === SMOOTH_WAVES.includes(current.vco1Waveform)
+          ? `VCO 1 is the right kind of waveform (${SMOOTH_WAVES.includes(target.vco1Waveform) ? 'smooth' : 'buzzy'}), but not the right one. Try its partner.`
+          : SMOOTH_WAVES.includes(target.vco1Waveform)
+          ? 'VCO 1 needs a smooth, mellow waveform (not a buzzy one).'
+          : 'VCO 1 needs a bright, buzzy waveform (not a smooth one).',
     },
     {
       key: 'cutoff',
-      gap: cutoffGap,
-      text: `Filter Cutoff is about ${roundNice(target.filterCutoff).toLocaleString()} Hz (yours: ${Math.round(current.filterCutoff).toLocaleString()} Hz). Is the target brighter or darker than yours?`,
+      gap: logGap(current.filterCutoff, target.filterCutoff, 1.5) * 25,
+      text: rangeClue('Filter Cutoff', current.filterCutoff, target.filterCutoff / 1.6, target.filterCutoff * 1.6, fmtHz),
     },
     {
       key: 'resonance',
       gap: Math.min(1, Math.abs(current.filterResonance - target.filterResonance) / 15) * 15,
-      text: `Filter Resonance is about ${roundNice(target.filterResonance)} (yours: ${roundNice(current.filterResonance)}). Listen for how much the filter "whistles".`,
+      text: rangeClue('Filter Resonance', current.filterResonance, target.filterResonance * 0.6, target.filterResonance * 1.5 + 0.5, (n) => `${nice(n)}`),
     },
     {
       key: 'attack',
       gap: Math.min(1, Math.abs(current.ampAttack - target.ampAttack) / 1.5) * 15,
-      text: `Amp Envelope Attack is about ${fmtTime(target.ampAttack)} (yours: ${fmtTime(current.ampAttack)}). Does the sound snap in or fade in?`,
+      text: rangeClue('Amp Envelope Attack', current.ampAttack, target.ampAttack / 2, target.ampAttack * 2 + 0.005, fmtTime, {
+        up: 'slower than',
+        down: 'faster than',
+      }),
     },
     {
       key: 'sustain',
       gap: Math.abs(current.ampSustain - target.ampSustain) * 15,
-      text: `Amp Envelope Sustain is about ${Math.round(target.ampSustain * 100)}% (yours: ${Math.round(current.ampSustain * 100)}%). Does the note hold strong or die away while the key is held?`,
+      text: rangeClue(
+        'Amp Envelope Sustain',
+        current.ampSustain,
+        Math.max(0, Math.floor((target.ampSustain - 0.15) * 10) / 10),
+        Math.min(1, Math.ceil((target.ampSustain + 0.15) * 10) / 10),
+        pct
+      ),
+    },
+    // Not auto-graded, but they shape the sound a lot on some patches.
+    {
+      key: 'release',
+      gap: logGap(current.ampRelease, target.ampRelease, 1.5) * 10,
+      text: rangeClue('Amp Envelope Release', current.ampRelease, target.ampRelease / 2, target.ampRelease * 2, fmtTime, {
+        up: 'longer than',
+        down: 'shorter than',
+      }),
+    },
+    {
+      key: 'lfoRate',
+      gap: target.lfoDepth >= 0.15 ? logGap(current.lfoRate, target.lfoRate, 1) * 15 : 0,
+      text: `The LFO is a big part of this sound. LFO Rate should be between ${nice(Math.max(0.1, target.lfoRate * 0.6))} & ${nice(target.lfoRate * 1.5)} Hz.`,
+    },
+    {
+      key: 'noise',
+      gap: target.noiseLevel >= 0.2 ? Math.abs(current.noiseLevel - target.noiseLevel) * 15 : 0,
+      text: rangeClue('White Noise level', current.noiseLevel, Math.max(0, target.noiseLevel - 0.2), Math.min(1, target.noiseLevel + 0.2), pct),
     },
   ];
-  const next = gaps.filter((g) => g.gap >= 2 && !alreadyShown.includes(g.key)).sort((a, b) => b.gap - a.gap)[0];
-  if (!next) {
-    return alreadyShown.length
-      ? { key: 'done', text: "No more hints: you're close on every other graded setting. Fine-tune by ear!" }
-      : { key: 'done', text: "You're already very close on every graded setting. Fine-tune by ear!" };
-  }
-  return { key: next.key, text: next.text };
+  const next = candidates.filter((c) => c.gap >= 2 && !alreadyShown.includes(c.key)).sort((a, b) => b.gap - a.gap)[0];
+  return next ? { key: next.key, text: next.text } : null;
 }
 
 interface ModeChallengesProps {
@@ -100,13 +152,23 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const [activePatchIdx, setActivePatchIdx] = useState<number>(0);
   const [matchScore, setMatchScore] = useState<number | null>(null);
   const [matchFeedback, setMatchFeedback] = useState<string | null>(null);
-  const [hints, setHints] = useState<{ patchId: string; shown: { key: string; text: string }[] } | null>(null);
-  const currentHints = hints && hints.patchId === PATCH_MATCHER_CHALLENGES[activePatchIdx]?.id ? hints.shown : [];
+  // Hints given so far, per patch (kept for this visit only; nothing is saved).
+  const [hintsByPatch, setHintsByPatch] = useState<Record<string, { key: string; text: string }[]>>({});
+  const [noMoreHints, setNoMoreHints] = useState<string | null>(null);
+  const currentPatchId = PATCH_MATCHER_CHALLENGES[activePatchIdx]?.id;
+  const currentHints = hintsByPatch[currentPatchId] ?? [];
+  const hintsLeft = HINTS_PER_PATCH - currentHints.length;
   const handleHint = () => {
+    if (hintsLeft <= 0) return;
     const patch = PATCH_MATCHER_CHALLENGES[activePatchIdx];
     const next = patchHint(params, patch.targetParams, currentHints.map((h) => h.key));
-    // Replace an earlier "you're close" note instead of stacking it.
-    setHints({ patchId: patch.id, shown: [...currentHints.filter((h) => h.key !== 'done'), next] });
+    if (!next) {
+      // Nothing far enough off to hint about; don't use up a hint.
+      setNoMoreHints(patch.id);
+      return;
+    }
+    setNoMoreHints(null);
+    setHintsByPatch((prev) => ({ ...prev, [patch.id]: [...currentHints, next] }));
   };
 
   // Synth Doctor State
@@ -355,11 +417,20 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
                 <button
                   type="button"
                   onClick={handleHint}
-                  title="Reveal one setting of the hidden patch: the one you're furthest from right now"
-                  className="ml-1 px-2.5 py-0.5 rounded-full bg-yellow-300 hover:bg-yellow-200 text-black text-xs font-mono font-bold flex items-center gap-1 shadow-[0_0_14px_rgba(253,224,71,0.8)] animate-pulse hover:animate-none"
+                  disabled={hintsLeft <= 0}
+                  title={
+                    hintsLeft > 0
+                      ? `Get a clue about the setting you're furthest from right now (${hintsLeft} of ${HINTS_PER_PATCH} left for this patch)`
+                      : 'No hints left for this patch. Trust your ears!'
+                  }
+                  className={`ml-1 px-2.5 py-0.5 rounded-full text-xs font-mono font-bold flex items-center gap-1 ${
+                    hintsLeft > 0
+                      ? 'bg-yellow-300 hover:bg-yellow-200 text-black shadow-[0_0_14px_rgba(253,224,71,0.8)] animate-pulse hover:animate-none'
+                      : 'bg-slate-800 text-slate-500 border border-white/10 cursor-not-allowed'
+                  }`}
                 >
                   <Lightbulb className="w-3.5 h-3.5" />
-                  {currentHints.length ? 'Another Hint' : 'Hint'}
+                  {hintsLeft > 0 ? `Hint (${hintsLeft} left)` : 'No hints left'}
                 </button>
               </h3>
             </div>
@@ -398,7 +469,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
             </div>
           </div>
 
-          {currentHints.length > 0 && (
+          {(currentHints.length > 0 || noMoreHints === currentPatch.id) && (
             <div className="mb-3 p-3 rounded-lg bg-yellow-300/10 border border-yellow-300/50 text-xs text-yellow-100 space-y-1.5 shadow-[0_0_12px_rgba(253,224,71,0.15)]">
               {currentHints.map((h, i) => (
                 <div key={h.key} className="flex items-start gap-2">
@@ -409,6 +480,12 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
                   </span>
                 </div>
               ))}
+              {noMoreHints === currentPatch.id && (
+                <div className="flex items-start gap-2 text-yellow-200/80">
+                  <Lightbulb className="w-4 h-4 text-yellow-300/60 shrink-0 mt-0.5" />
+                  <span>You're already close on the main settings. No hint used: fine-tune by ear!</span>
+                </div>
+              )}
             </div>
           )}
 
