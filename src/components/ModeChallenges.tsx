@@ -125,7 +125,12 @@ function patchHint(current: SynthParams, target: SynthParams, alreadyShown: stri
       text: rangeClue('White Noise level', current.noiseLevel, Math.max(0, target.noiseLevel - 0.2), Math.min(1, target.noiseLevel + 0.2), pct),
     },
   ];
-  const next = candidates.filter((c) => c.gap >= 2 && !alreadyShown.includes(c.key)).sort((a, b) => b.gap - a.gap)[0];
+  // Only one hint per patch may be about the filter (cutoff or resonance).
+  const FILTER_KEYS = ['cutoff', 'resonance'];
+  const filterUsed = alreadyShown.some((k) => FILTER_KEYS.includes(k));
+  const next = candidates
+    .filter((c) => c.gap >= 2 && !alreadyShown.includes(c.key) && !(filterUsed && FILTER_KEYS.includes(c.key)))
+    .sort((a, b) => b.gap - a.gap)[0];
   return next ? { key: next.key, text: next.text } : null;
 }
 
