@@ -1,6 +1,6 @@
 export type WaveformType = 'sine' | 'triangle' | 'sawtooth' | 'square' | 'noise';
 
-export type LfoDestination = 'pitch' | 'cutoff';
+export type LfoDestination = 'pitch' | 'cutoff' | 'pwm';
 
 export type FilterType = 'lowpass';
 export type FilterRolloff = -12 | -24;
@@ -15,7 +15,7 @@ export interface SynthParams {
   vco1Semi: number; // -12 to 12
   vco1Fine: number; // -50 to +50 cents
   vco1Level: number; // 0 to 1
-  vco1PulseWidth: number; // 0.1 to 0.9
+  vco1PulseWidth: number; // duty cycle 0.05 to 0.95 (0.5 = square)
 
   // VCO 2
   vco2Waveform: WaveformType;
@@ -23,7 +23,7 @@ export interface SynthParams {
   vco2Semi: number; // -12 to 12
   vco2Fine: number; // -50 to +50 cents
   vco2Level: number; // 0 to 1
-  vco2PulseWidth: number; // 0.1 to 0.9
+  vco2PulseWidth: number; // duty cycle 0.05 to 0.95 (0.5 = square)
 
   // Noise & Mix
   noiseLevel: number; // 0 to 1
@@ -78,6 +78,25 @@ export interface Preset {
   params: SynthParams;
 }
 
+/** One thing the Patch Master grader compares (see utils/patchScore.ts). */
+export type PatchAspect =
+  | 'wave'
+  | 'octave'
+  | 'pulseWidth'
+  | 'osc2'
+  | 'detune'
+  | 'noise'
+  | 'oscMuted'
+  | 'cutoff'
+  | 'resonance'
+  | 'filterEnv'
+  | 'filterDecay'
+  | 'attack'
+  | 'decay'
+  | 'sustain'
+  | 'release'
+  | 'lfo';
+
 export interface PatchMatcherChallenge {
   id: string;
   title: string;
@@ -86,8 +105,12 @@ export interface PatchMatcherChallenge {
   description: string;
   hint: string;
   targetParams: SynthParams;
+  /** What the auto-grader listens for on this patch, with weights that add up to 100. */
+  gradeOn: Partial<Record<PatchAspect, number>>;
   referenceNotes: string[]; // Notes played during reference playback
   referenceDuration: number;
+  /** Play the reference notes together as a chord (the synth is polyphonic). */
+  referenceChord?: boolean;
 }
 
 export interface SynthDoctorTicket {
@@ -95,6 +118,9 @@ export interface SynthDoctorTicket {
   ticketNumber: number;
   title: string;
   clientComplaint: string;
+  /** Clue 1: which part of the synth to look at. */
+  sectionClue: string;
+  /** Clue 2: the exact control. */
   diagnosticClue: string;
   brokenParams: SynthParams;
   // Validation function criteria:
@@ -102,6 +128,8 @@ export interface SynthDoctorTicket {
   targetMin?: number;
   targetMax?: number;
   targetValue?: any;
+  /** Any of these values fixes it (e.g. sine or triangle). */
+  targetValues?: any[];
   fixExplanation: string;
   recommendedTheme: ThemeMode;
 }
@@ -121,6 +149,32 @@ export interface BlindTestChallenge {
   };
   correctOption: 'A' | 'B';
   explanation: string;
+}
+
+export type BriefKind = 'Music' | 'Sound FX';
+/** What the test button plays so students can hear their patch in context. */
+export type PhraseId = 'bassRiff' | 'padChords' | 'leadLine' | 'pluckArp' | 'longHit' | 'shortHits' | 'swell';
+
+export interface SoundBrief {
+  id: string;
+  kind: BriefKind;
+  title: string;
+  /** The request, written like a client or producer would ask. */
+  ask: string;
+  /** What a teacher (and the student) should listen for. */
+  listenFor: string;
+  /** Hint 1: where to start. Hint 2: more specific settings. */
+  hints: [string, string];
+  phrase: PhraseId;
+}
+
+/** A student's saved answer to a Sound Design Brief. */
+export interface BriefWork {
+  params: SynthParams;
+  /** How many hints they opened (0-2). */
+  hints: number;
+  /** Optional one-line description in the student's words. */
+  note?: string;
 }
 
 export interface TeacherAssignment {
@@ -146,4 +200,6 @@ export interface StudentSubmission {
   patchUrl: string;
   /** Task IDs the teacher assigned (from the assignment link). Empty/missing = all tasks. */
   assignedTasks?: string[];
+  /** Sound Design Brief patches, by brief id. */
+  briefs?: Record<string, BriefWork>;
 }

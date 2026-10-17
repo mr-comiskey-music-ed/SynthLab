@@ -111,16 +111,17 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
               <div className="flex flex-col items-center">
                 <Knob
                   id="retro-vco1-pw"
-                  label="PWM / Shape"
+                  label="Pulse Width"
                   value={params.vco1PulseWidth * 100}
-                  min={0}
-                  max={100}
+                  min={5}
+                  max={95}
                   step={1}
-                  defaultValue={0}
+                  defaultValue={50}
                   unit="%"
                   theme="studio-retro"
                   section="vco"
-                  lfoDepth={params.lfoDepth}
+                  lfoModulated={params.lfoDestination === 'pwm' && params.vco1Waveform === 'square'}
+                    lfoDepth={params.lfoDepth}
                   onChange={(v) => {
                     onParamChange('vco1PulseWidth', v / 100);
                     if (params.vco1Waveform !== 'square') {
@@ -131,7 +132,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 <span className={`text-[8px] font-mono font-bold tracking-tighter uppercase px-1 rounded mt-0.5 ${
                   params.vco1Waveform === 'square' ? 'text-amber-400 bg-amber-500/20' : 'text-slate-500'
                 }`}>
-                  {params.vco1Waveform === 'square' ? 'PWM ACTIVE' : 'PWM (ON SQR)'}
+                  {params.vco1Waveform !== 'square' ? 'SQUARE ONLY' : Math.abs(params.vco1PulseWidth - 0.5) < 0.03 ? '50/50 SQUARE' : 'THIN PULSE'}
                 </span>
               </div>
             </div>
@@ -586,6 +587,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                   options={[
                     { label: 'Pitch', value: 'pitch', short: 'PITCH' },
                     { label: 'Filter', value: 'cutoff', short: 'CUTOFF' },
+                    { label: 'Pulse Width', value: 'pwm', short: 'PW' },
                   ]}
                   value={params.lfoDestination}
                   theme="studio-retro"

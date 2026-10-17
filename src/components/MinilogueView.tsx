@@ -136,15 +136,16 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                 <div className="flex flex-col items-center">
                   <Knob
                     id="mini-vco1-pw"
-                    label="Shape"
+                    label="Pulse Width"
                     section="vco"
                     value={params.vco1PulseWidth * 100}
-                    min={0}
-                    max={100}
+                    min={5}
+                    max={95}
                     step={1}
-                    defaultValue={0}
+                    defaultValue={50}
                     unit="%"
                     theme="hardware-bench"
+                    lfoModulated={params.lfoDestination === 'pwm' && params.vco1Waveform === 'square'}
                     lfoDepth={params.lfoDepth}
                     onChange={(v) => {
                       onParamChange('vco1PulseWidth', v / 100);
@@ -156,7 +157,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   <span className={`text-[8px] font-mono font-bold tracking-tighter uppercase px-1 rounded mt-0.5 ${
                     params.vco1Waveform === 'square' ? 'text-amber-800 bg-amber-200/80' : 'text-slate-500'
                   }`}>
-                    {params.vco1Waveform === 'square' ? 'PWM ACTIVE' : 'PWM (ON SQR)'}
+                    {params.vco1Waveform !== 'square' ? 'SQUARE ONLY' : Math.abs(params.vco1PulseWidth - 0.5) < 0.03 ? '50/50 SQUARE' : 'THIN PULSE'}
                   </span>
                 </div>
               </div>
@@ -613,6 +614,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                     options={[
                       { label: 'Pitch', value: 'pitch', short: 'PITCH' },
                       { label: 'Cutoff', value: 'cutoff', short: 'CUTOFF' },
+                    { label: 'Pulse Width', value: 'pwm', short: 'PW' },
                     ]}
                     value={params.lfoDestination}
                     theme="hardware-bench"

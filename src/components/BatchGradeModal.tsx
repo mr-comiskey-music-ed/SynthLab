@@ -23,7 +23,10 @@ import {
   formatDate,
   STRUGGLE_THRESHOLD,
 } from '../utils/batchGrading';
-import { ALL_TASKS, TASK_CATEGORIES, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
+import { ALL_TASKS, TASK_CATEGORIES, taskInfo, gradedTaskIds, gradedDoneCount, isDesignBrief } from '../utils/taskCatalog';
+import { SynthParams } from '../types';
+import { BriefReviewList } from './BriefReviewList';
+import { scoreLabel } from './ModeTeacher';
 
 const taskOrder = (id: string) => {
   const i = ALL_TASKS.findIndex((t) => t.id === id);
@@ -43,6 +46,8 @@ interface BatchGradeModalProps {
   onClear: () => void;
   /** Load patches in this order (entry ids), starting at position `start`. */
   onReview: (order: number[], start: number) => void;
+  /** Play a student's Sound Design Brief patch in its musical context. */
+  onPlayBrief: (briefId: string, params: SynthParams) => void;
 }
 
 export const gradeColor = (pct: number) =>
@@ -59,6 +64,7 @@ const CATEGORY_SHORT: Record<string, string> = {
   'Patch Matcher': 'Patch',
   'Synth Doctor': 'Doctor',
   'Blind Ear Test': 'Ear',
+  'Sound Design': 'Design',
 };
 
 export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
@@ -71,6 +77,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
   onGrade,
   onClear,
   onReview,
+  onPlayBrief,
 }) => {
   const [sortKey, setSortKey] = useState<SortKey>('name');
   const [assignmentFilter, setAssignmentFilter] = useState<string>('all');
@@ -327,7 +334,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                 <div className="border border-white/10 rounded-xl overflow-hidden">
                   <div className="grid grid-cols-[1fr_120px_56px_64px_96px] sm:grid-cols-[1fr_170px_64px_80px_110px] gap-2 px-3 py-2 bg-white/5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <span>Student</span>
-                    <span>Assigned done (Patch · Doctor · Ear)</span>
+                    <span>Assigned done (Patch · Doctor · Ear · Design)</span>
                     <span className="text-center" title="A/B Ear Training + Synth Doctor">Main</span>
                     <span className="text-center" title="Patch Master: 50% for trying, 50% from match scores">Patch Master</span>
                     <span />
@@ -392,7 +399,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                           <div className="px-4 pb-3 pt-1 space-y-2 bg-white/[0.02]">
                             <div className="text-[10px] text-slate-500">
                               {s.assignmentCode}
-                              {s.assignedTasks?.length ? ` · ${s.assignedTasks.length} assigned tasks` : ' · all 30 tasks'}
+                              {s.assignedTasks?.length ? ` · ${s.assignedTasks.length} assigned tasks` : ` · all ${ALL_TASKS.length} tasks`}
                               {s.timestamp ? ` · submitted ${formatDate(s.timestamp)}` : ''}
                             </div>
                             {(() => {
@@ -406,11 +413,24 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                                 </div>
                               ) : null;
                             })()}
-                            {s.completedTasks.length === 0 ? (
+                            {(s.briefs || s.assignedTasks?.some(isDesignBrief)) && (
+                              <div className="space-y-1">
+                                <div className="text-[10px] uppercase tracking-wider text-fuchsia-300/80">
+                                  Sound Design Briefs (grade by ear)
+                                </div>
+                                <BriefReviewList
+                                  briefs={s.briefs}
+                                  assigned={gradedTaskIds(s.assignedTasks).filter(isDesignBrief)}
+                                  onPlay={onPlayBrief}
+                                />
+                              </div>
+                            )}
+                            {s.completedTasks.filter((t) => !isDesignBrief(t.taskId)).length === 0 ? (
                               <div className="text-[11px] text-slate-500 italic">No tasks completed.</div>
                             ) : (
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                {[...s.completedTasks]
+                                {s.completedTasks
+                                  .filter((t) => !isDesignBrief(t.taskId))
                                   .sort((a, b) => taskOrder(a.taskId) - taskOrder(b.taskId))
                                   .map((t) => {
                                     const good = t.score >= STRUGGLE_THRESHOLD;
@@ -432,7 +452,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                                           </span>
                                         </span>
                                         <span className={`font-bold shrink-0 ${good ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                          {t.tries ? `best ${Math.round(t.score)}% · ${t.tries} ${t.tries === 1 ? 'try' : 'tries'}` : `${Math.round(t.score)}%`}
+                                          {scoreLabel(t)}
                                         </span>
                                       </div>
                                     );

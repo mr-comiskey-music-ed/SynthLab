@@ -9,7 +9,7 @@ export const DEFAULT_SYNTH_PARAMS: SynthParams = {
   vco1Semi: 0,
   vco1Fine: 0,
   vco1Level: 0.8,
-  vco1PulseWidth: 0,
+  vco1PulseWidth: 0.5, // duty cycle: 0.5 = square
 
   // VCO 2
   vco2Waveform: 'square',
@@ -17,7 +17,7 @@ export const DEFAULT_SYNTH_PARAMS: SynthParams = {
   vco2Semi: 0,
   vco2Fine: 7,
   vco2Level: 0,
-  vco2PulseWidth: 0,
+  vco2PulseWidth: 0.5,
 
   // Noise & Mix
   noiseLevel: 0,
@@ -45,7 +45,7 @@ export const DEFAULT_SYNTH_PARAMS: SynthParams = {
   // LFO
   lfoRate: 4,
   lfoWaveform: 'triangle',
-  lfoDepth: 0.05,
+  lfoDepth: 0,
   lfoDestination: 'pitch',
 };
 
@@ -160,7 +160,7 @@ export const INITIAL_PRESETS: Preset[] = [
     params: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'square',
-      vco1PulseWidth: 0.35,
+      vco1PulseWidth: 0.33,
       vco1Octave: 1,
       vco2Waveform: 'triangle',
       vco2Octave: 0,
@@ -241,6 +241,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     hint: 'Lower Amp Sustain to 0, set Amp Decay around 0.2s, and give the filter envelope a strong positive amount.',
     referenceNotes: ['C4', 'G4', 'C5'],
     referenceDuration: 0.3,
+    gradeOn: { wave: 15, cutoff: 15, resonance: 10, filterEnv: 15, filterDecay: 10, attack: 5, decay: 15, sustain: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'square',
@@ -267,6 +268,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     hint: 'Use a Sine wave pitched down -2 octaves. Keep Sustain at 0, and add a tiny bit of noise for the transient click.',
     referenceNotes: ['C2'],
     referenceDuration: 0.6,
+    gradeOn: { wave: 20, octave: 25, noise: 5, cutoff: 10, attack: 10, decay: 15, sustain: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'sine',
@@ -291,7 +293,9 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     description: 'Match this warm, slowly opening vintage brass pad with dual detuned sawtooth waves.',
     hint: 'Use Sawtooth on both VCO1 and VCO2 with detune (~12 cents). Increase Attack on Amp and Mod EG (~0.5s to 1s).',
     referenceNotes: ['F3', 'A3', 'C4'],
+    referenceChord: true,
     referenceDuration: 2.0,
+    gradeOn: { wave: 10, osc2: 15, detune: 15, cutoff: 15, attack: 20, sustain: 10, release: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'sawtooth',
@@ -320,6 +324,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     hint: 'Route LFO to Pitch, set LFO Rate around 6 to 9 Hz, and crank the LFO Depth up high.',
     referenceNotes: ['A4'],
     referenceDuration: 2.5,
+    gradeOn: { wave: 10, lfo: 50, cutoff: 10, attack: 15, sustain: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'sawtooth',
@@ -346,6 +351,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     hint: 'High filter resonance (>10), low cutoff (<1000 Hz), with high filter envelope amount (>70%).',
     referenceNotes: ['D3', 'F3', 'A3'],
     referenceDuration: 0.8,
+    gradeOn: { wave: 10, octave: 10, cutoff: 20, resonance: 20, filterEnv: 20, filterDecay: 10, sustain: 10 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'sawtooth',
@@ -373,6 +379,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     hint: 'Select Square wave on VCO 1, squeeze Pulse Width (PWM/Shape) down to ~20%, and keep Decay short with zero Sustain.',
     referenceNotes: ['C3', 'D#3', 'F3', 'G3'],
     referenceDuration: 0.35,
+    gradeOn: { wave: 15, pulseWidth: 25, cutoff: 15, resonance: 10, decay: 15, sustain: 20 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'square',
@@ -399,6 +406,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     hint: 'Use a Triangle or Sine wave on VCO 1 with a soft attack (~0.08s) and a moderate filter cutoff around 2,400 Hz.',
     referenceNotes: ['G4', 'B4', 'D5'],
     referenceDuration: 1.2,
+    gradeOn: { wave: 25, cutoff: 20, attack: 20, sustain: 15, lfo: 20 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'triangle',
@@ -409,7 +417,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
       ampDecay: 0.4,
       ampSustain: 0.8,
       ampRelease: 0.3,
-      lfoDepth: 0.04,
+      lfoDepth: 0.1,
       lfoRate: 5.5,
       lfoDestination: 'pitch',
     }
@@ -423,6 +431,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     hint: 'Mute VCO 1 and VCO 2, turn up White Noise, lower the filter cutoff below 1,000 Hz, and add moderate resonance.',
     referenceNotes: ['C3'],
     referenceDuration: 2.5,
+    gradeOn: { oscMuted: 15, noise: 15, cutoff: 20, resonance: 15, attack: 10, release: 10, lfo: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Level: 0,
@@ -448,6 +457,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     hint: 'Blend VCO 1 and VCO 2 sawtooths, detune VCO 2 by +16 cents, and dial in a subtle filter envelope punch.',
     referenceNotes: ['A3', 'E4', 'A4'],
     referenceDuration: 0.9,
+    gradeOn: { wave: 10, osc2: 15, detune: 20, cutoff: 15, filterEnv: 15, attack: 10, sustain: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'sawtooth',
@@ -475,7 +485,9 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     description: 'Construct this slowly swelling ambient pad with a long release and subtle LFO movement.',
     hint: 'Set slow Amp Attack (>0.8s) and long Release (>1.5s), with an LFO gently undulating cutoff frequency.',
     referenceNotes: ['F3', 'C4', 'E4', 'G4'],
+    referenceChord: true,
     referenceDuration: 3.0,
+    gradeOn: { wave: 10, osc2: 10, detune: 10, cutoff: 15, attack: 20, release: 15, lfo: 20 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'sawtooth',
@@ -502,6 +514,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 101,
     title: 'Unending Bass Drone',
     clientComplaint: "The bass note won't stop playing when I let go of the keys! It just drones on forever in my recording.",
+    sectionClue: "Listen to what happens after you let go of a key. Which section shapes the sound over time?",
     diagnosticClue: "Check the Amp Envelope. What parameter tells the amplifier how long sound lingers after key release?",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -521,6 +534,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 102,
     title: 'Muffled Underwater Lead',
     clientComplaint: "The synth lead sounds completely muffled and underwater! There are no high frequencies or brightness at all.",
+    sectionClue: "The bright top end is missing. Which section removes high frequencies?",
     diagnosticClue: "Look at the VCF (Filter) section. If the cutoff frequency is choked down to low frequencies, high harmonics cannot pass.",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -539,6 +553,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 103,
     title: 'Seasick Wavering Melody',
     clientComplaint: "My melody is wavering completely out of tune like a warped cassette tape! It won't stay on pitch.",
+    sectionClue: "The pitch is moving up and down on its own. Which part of the synth moves things automatically?",
     diagnosticClue: "Check the LFO modulation section. Is an LFO sending extreme vibrato depth to oscillator pitch?",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -556,6 +571,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 104,
     title: 'The Ghost Organ',
     clientComplaint: "I need a rock organ chord that holds steady, but the sound dies out into silence within half a second even while I hold the keys!",
+    sectionClue: "The note fades away while you are still holding the key. That is about volume over time.",
     diagnosticClue: "Check the Amp Sustain level. If Sustain is 0, the sound will decay to zero volume while keys are held down.",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -574,6 +590,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 105,
     title: 'Ear-Piercing Feedback Shriek',
     clientComplaint: "Whenever I play higher notes, the synth lets out an excruciating high-pitched screaming squeal!",
+    sectionClue: "There is a whistling peak riding on top of the sound. It is coming from the filter.",
     diagnosticClue: "Examine the Filter Resonance (Q). Self-oscillating high resonance creates an intense harmonic spike.",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -590,6 +607,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 106,
     title: 'Sluggish Lagging Brass',
     clientComplaint: "When I hit a key on beat, the sound takes forever to fade in! I can't play rhythms or fast chords.",
+    sectionClue: "The problem is at the very start of each note.",
     diagnosticClue: "Check the Amp Attack time. A high attack value creates a long fade-in swell instead of instant punch.",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -607,6 +625,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 107,
     title: 'Silent Second Oscillator',
     clientComplaint: "I am trying to create a fat dual-synth sound, but moving VCO 2 pitch controls does nothing because VCO 2 is completely silent!",
+    sectionClue: "Only one of the two oscillators is reaching your ears.",
     diagnosticClue: "Look at the Mixer / Oscillator Balance or VCO 2 Level. Is VCO 2 turned down or balance panned all the way left?",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -624,7 +643,8 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 108,
     title: 'The Piercing Buzz',
     clientComplaint: "The producer asked for a smooth, gentle flute/whistle tone, but the synth is producing a harsh, abrasive electronic buzz!",
-    diagnosticClue: "Examine the VCO 1 Waveform. Sawtooth waves have all odd and even harmonics. Sine and Triangle waves are smooth and mellow.",
+    sectionClue: "The buzz is in the raw sound source itself, before the filter touches it.",
+    diagnosticClue: "Check the VCO 1 Waveform. A Sawtooth has every harmonic, so it buzzes. Sine and Triangle have few or none, so they sound smooth.",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'sawtooth', // The bug: harsh sawtooth instead of sine/triangle
@@ -632,7 +652,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
       filterCutoff: 18000,
     },
     paramKey: 'vco1Waveform',
-    targetValue: 'triangle', // or sine
+    targetValues: ['triangle', 'sine'],
     fixExplanation: "Brilliant! Switching to a Sine or Triangle wave removed the harsh harmonic buzz, creating a pure flute tone.",
     recommendedTheme: 'hardware-bench',
   },
@@ -641,6 +661,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 109,
     title: 'Insect Buzz Bass (Missing Low-End)',
     clientComplaint: "Our bass track sounds like an annoying insect buzzing in the high treble register! There is zero low-end bass punch vibrating through the studio monitors.",
+    sectionClue: "Every note is in the wrong register: way too high for a bass.",
     diagnosticClue: "Check the VCO 1 Octave switch. A bassline needs to be pitched down into the low register (-1 or -2 octaves).",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -659,7 +680,8 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     ticketNumber: 110,
     title: 'Pencil-Thin Hollow Mosquito',
     clientComplaint: "I selected a Square wave to build a fat retro chiptune lead, but it sounds like a pencil-thin squeak with all the body sucked out of it.",
-    diagnosticClue: "Inspect the Pulse Width (PWM/Shape) control. When the duty cycle is set to an extreme thin sliver (>90%), the warm fundamental frequency is depleted.",
+    sectionClue: "The shape of VCO 1's wave is lopsided.",
+    diagnosticClue: "Check VCO 1's Pulse Width knob. Near 50% the wave is a full square. Pushed to an extreme (like 90%+), it becomes a thin sliver that loses its body.",
     brokenParams: {
       ...DEFAULT_SYNTH_PARAMS,
       vco1Waveform: 'square',
@@ -670,7 +692,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     paramKey: 'vco1PulseWidth',
     targetMin: 0.35,
     targetMax: 0.65,
-    fixExplanation: "Outstanding! Setting Pulse Width back near 50% restored the rich, full-bodied hollow acoustic tone of the classic symmetrical square wave.",
+    fixExplanation: "Outstanding! Bringing Pulse Width back toward 50% restored the full, hollow tone of a square wave.",
     recommendedTheme: 'studio-retro',
   }
 ];
@@ -896,13 +918,14 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       params: {
         ...DEFAULT_SYNTH_PARAMS,
         vco1Waveform: 'square',
-        lfoDestination: 'cutoff',
-        lfoDepth: 0.5,
+        vco1PulseWidth: 0.5,
+        lfoDestination: 'pwm',
+        lfoDepth: 0.7,
         lfoRate: 1.8,
       }
     },
     correctOption: 'B',
-    explanation: "Tone B uses Pulse Width Modulation (PWM), where an LFO continuously sweeps the pulse duty cycle to generate lush acoustic animation."
+    explanation: "Tone B uses Pulse Width Modulation (PWM): the LFO keeps squeezing and widening the square wave, which gives it a moving, shimmering, chorus-like sound. Tone A is a plain, steady square."
   },
   {
     id: 'ab-10',

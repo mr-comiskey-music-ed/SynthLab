@@ -1,6 +1,6 @@
 import { StudentSubmission, SynthParams } from '../types';
 import { decodeSubmission } from './submissionCodec';
-import { ALL_TASKS, TASK_CATEGORIES, TaskCategory, letterGrade, taskInfo, gradedTaskIds, gradedDoneCount, gradesFor, Grades } from './taskCatalog';
+import { ALL_TASKS, TASK_CATEGORIES, TaskCategory, letterGrade, taskInfo, gradedTaskIds, gradedDoneCount, gradesFor, Grades, isDesignBrief } from './taskCatalog';
 
 /** A Patch Matcher score under this counts as "lost points" in class patterns. */
 export const STRUGGLE_THRESHOLD = 70;
@@ -116,7 +116,8 @@ export interface ClassPattern {
 
 /** Tasks ranked by how many of the students who tried them lost points. */
 export function classPatterns(entries: BatchEntry[]): ClassPattern[] {
-  return ALL_TASKS.map((t) => {
+  // Sound Design Briefs are graded by ear, so they never count as "lost points".
+  return ALL_TASKS.filter((t) => !isDesignBrief(t.id)).map((t) => {
     let attempted = 0;
     let struggled = 0;
     for (const e of entries) {
@@ -149,7 +150,7 @@ export function leastAttempted(
     .sort((a, b) => a.attempted / a.assignedTo - b.attempted / b.assignedTo);
 }
 
-/** "12/15": assigned tasks done, out of assigned (or all 30). */
+/** "12/15": assigned tasks done, out of assigned (or all tasks). */
 export function doneLabel(s: StudentSubmission): string {
   return `${gradedDoneCount(s.completedTasks, s.assignedTasks)}/${gradedTaskIds(s.assignedTasks).length}`;
 }
@@ -169,6 +170,7 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
     'Student', 'Assignment', 'Submitted',
     'Main Grade (Ear + Doctor)', 'Main Letter',
     'Patch Master Grade %', 'Patch Master Tried', 'Patch Master Avg Best Match', 'Patch Master Total Tries',
+    'Sound Design Turned In', 'Sound Design Grade (by ear)',
     'Assigned Tasks Done',
     ...TASK_CATEGORIES.flatMap((c) => [`${c} Done`, `${c} Avg`]),
     ...ALL_TASKS.map((t) => t.title),
@@ -185,15 +187,20 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
       e.grades.patchMaster ? `${e.grades.patchMaster.tried}/${e.grades.patchMaster.total}` : 'N/A',
       e.grades.patchMaster?.avgBestMatch ?? '',
       e.grades.patchMaster?.totalTries ?? '',
+      e.grades.design ? `${e.grades.design.submitted}/${e.grades.design.total}` : 'N/A',
+      '', // left blank for the teacher
       doneLabel(s),
       ...TASK_CATEGORIES.flatMap((c) => [
         `${e.categories[c].done}/${e.categories[c].total}`,
         e.categories[c].done ? e.categories[c].average : '',
       ]),
       // blank = not done; "–" = not part of this student's assignment
-      ...ALL_TASKS.map((t) =>
-        gradedTaskIds(s.assignedTasks).includes(t.id) ? s.completedTasks.find((c) => c.taskId === t.id)?.score ?? '' : '–'
-      ),
+      ...ALL_TASKS.map((t) => {
+        if (!gradedTaskIds(s.assignedTasks).includes(t.id)) return '–';
+        const done = s.completedTasks.find((c) => c.taskId === t.id);
+        if (!done) return '';
+        return isDesignBrief(t.id) ? `turned in${s.briefs?.[t.id]?.hints ? ` (${s.briefs[t.id].hints} hints)` : ''}` : done.score;
+      }),
     ].map(esc).join(',');
   });
   const blob = new Blob([[header.map(esc).join(','), ...rows].join('\n')], { type: 'text/csv;charset=utf-8' });

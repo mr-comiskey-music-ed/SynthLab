@@ -1,4 +1,4 @@
-import { SynthParams, StudentSubmission } from '../types';
+import { SynthParams, StudentSubmission, BriefWork } from '../types';
 import { DEFAULT_SYNTH_PARAMS } from './presets';
 import { taskTitle, gradesFor, headlineScore, cleanTaskList } from './taskCatalog';
 
@@ -17,7 +17,13 @@ import { taskTitle, gradesFor, headlineScore, cleanTaskList } from './taskCatalo
  *
  * Older codes (plain base64 JSON) still decode, so codes students already
  * turned in keep working. Nothing leaves the browser.
+ *
+ * Format version 2 (marked "v": 2) changed two meanings:
+ *   - Pulse width is now the duty cycle (0.5 = square). Before, 0 was square.
+ *   - The default LFO depth is now 0 (it was 0.05).
+ * Codes without the mark are converted when they're read.
  */
+const FORMAT_VERSION = 2;
 
 export const DEFAULT_ASSIGNMENT = 'SYNTH_LAB_01';
 
@@ -59,13 +65,53 @@ export function packParams(params: SynthParams): Record<string, unknown> {
   return out;
 }
 
-export function unpackParams(packed: Record<string, unknown>): SynthParams {
-  const params: any = { ...DEFAULT_SYNTH_PARAMS };
+/** Defaults before format version 2; older codes left these out when unchanged. */
+const LEGACY_DEFAULTS: Partial<SynthParams> = { vco1PulseWidth: 0, vco2PulseWidth: 0, lfoDepth: 0.05 };
+
+/** Old pulse width (Tone.js style, 0 = square) to duty cycle (0.5 = square). */
+const legacyWidthToDuty = (w: unknown) => {
+  const n = Number(w);
+  return Number.isFinite(n) ? Math.max(0.05, Math.min(0.95, (1 + Math.max(-1, Math.min(1, n))) / 2)) : 0.5;
+};
+
+/** Bring settings saved before format version 2 up to date. */
+export function upgradeLegacyParams(p: SynthParams): SynthParams {
+  return { ...p, vco1PulseWidth: legacyWidthToDuty(p.vco1PulseWidth), vco2PulseWidth: legacyWidthToDuty(p.vco2PulseWidth) };
+}
+
+export function unpackParams(packed: Record<string, unknown>, legacy = false): SynthParams {
+  const params: any = { ...DEFAULT_SYNTH_PARAMS, ...(legacy ? LEGACY_DEFAULTS : {}) };
   for (const [k, v] of Object.entries(packed || {})) {
-    const long = PARAM_LONG[k] ?? k;
+    const long = (PARAM_LONG[k] ?? k) as keyof SynthParams;
     params[long] = WAVE_FIELDS.has(long) && typeof v === 'string' ? WAVE_LONG[v] ?? v : v;
   }
-  return params as SynthParams;
+  return legacy ? upgradeLegacyParams(params) : (params as SynthParams);
+}
+
+/** Brief work packs as [patch, hints] or [patch, hints, note]. */
+function packBriefs(briefs: Record<string, BriefWork>): Record<string, unknown[]> {
+  return Object.fromEntries(
+    Object.entries(briefs).map(([id, w]) => {
+      const p = packParams(w.params);
+      const note = (w.note || '').trim();
+      return [id, note ? [p, w.hints, note] : [p, w.hints]];
+    })
+  );
+}
+
+function unpackBriefs(raw: unknown): Record<string, BriefWork> | undefined {
+  if (!raw || typeof raw !== 'object') return undefined;
+  const out: Record<string, BriefWork> = {};
+  for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
+    if (!Array.isArray(v)) continue;
+    const [p, hints, note] = v;
+    out[id] = {
+      params: unpackParams((p as Record<string, unknown>) || {}),
+      hints: Math.max(0, Math.min(2, Number(hints) || 0)),
+      ...(typeof note === 'string' && note ? { note } : {}),
+    };
+  }
+  return Object.keys(out).length ? out : undefined;
 }
 
 // ---------- Compression (deflate + URL-safe base64) ----------
@@ -119,6 +165,7 @@ export interface DecodedSubmission {
 
 export async function encodeSubmission(submission: StudentSubmission, params?: SynthParams): Promise<string> {
   const packed: Record<string, unknown> = {
+    v: FORMAT_VERSION,
     n: submission.studentName.trim(),
     t: Math.floor(submission.timestamp / 1000),
     // score, or [score, tries] for Patch Master
@@ -132,6 +179,7 @@ export async function encodeSubmission(submission: StudentSubmission, params?: S
     const p = packParams(params);
     packed.p = Object.keys(p).length ? p : 0; // 0 = default patch
   }
+  if (submission.briefs && Object.keys(submission.briefs).length) packed.b = packBriefs(submission.briefs);
   const json = JSON.stringify(packed);
   return `${await compress(json)}.${checksum(json)}`;
 }
@@ -161,8 +209,9 @@ export async function decodeSubmission(code: string): Promise<DecodedSubmission 
         completedTasks,
         encodedVerification: raw.slice(dot + 1),
         patchUrl: '',
+        briefs: unpackBriefs(d.b),
       },
-      patchParams: d.p === undefined ? undefined : unpackParams(d.p || {}),
+      patchParams: d.p === undefined ? undefined : unpackParams(d.p || {}, d.v !== FORMAT_VERSION),
     };
   } catch {
     return null;
@@ -190,7 +239,7 @@ function decodeLegacySubmission(raw: string): DecodedSubmission | null {
     if (expected !== d.sig) return null;
     let patchParams: SynthParams | undefined;
     try {
-      if (d.p) patchParams = { ...DEFAULT_SYNTH_PARAMS, ...JSON.parse(d.p) };
+      if (d.p) patchParams = upgradeLegacyParams({ ...DEFAULT_SYNTH_PARAMS, ...LEGACY_DEFAULTS, ...JSON.parse(d.p) });
     } catch {
       /* no patch */
     }
@@ -223,7 +272,7 @@ function legacyHash(input: string): string {
 
 // ---------- Patch codes ----------
 export async function encodePatch(params: SynthParams): Promise<string> {
-  return compress(JSON.stringify(packParams(params)));
+  return compress(JSON.stringify({ ...packParams(params), v: FORMAT_VERSION }));
 }
 
 /** Accepts a new short patch code, an older base64 patch code, or a link containing ?patch=. */
@@ -234,7 +283,10 @@ export async function decodePatch(code: string): Promise<SynthParams | null> {
   if (json) {
     try {
       const parsed = JSON.parse(json);
-      if (parsed && typeof parsed === 'object') return unpackParams(parsed);
+      if (parsed && typeof parsed === 'object') {
+        const { v, ...rest } = parsed;
+        return unpackParams(rest, v !== FORMAT_VERSION);
+      }
     } catch {
       /* fall through to older format */
     }
@@ -247,7 +299,7 @@ export async function decodePatch(code: string): Promise<SynthParams | null> {
       /* already decoded */
     }
     const parsed = JSON.parse(atob(text));
-    if (parsed && typeof parsed === 'object') return { ...DEFAULT_SYNTH_PARAMS, ...parsed };
+    if (parsed && typeof parsed === 'object') return upgradeLegacyParams({ ...DEFAULT_SYNTH_PARAMS, ...LEGACY_DEFAULTS, ...parsed });
   } catch {
     /* not a patch */
   }

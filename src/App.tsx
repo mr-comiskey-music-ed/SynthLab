@@ -5,12 +5,15 @@ import {
   AppMode,
   Preset,
   StudentSubmission,
+  BriefWork,
 } from './types';
 import { SubtractiveEngine } from './audio/synthEngine';
 import { DEFAULT_SYNTH_PARAMS, INITIAL_PRESETS } from './utils/presets';
 import { decodeSubmission, decodePatch } from './utils/submissionCodec';
 import { parseBatch, BatchParseResult } from './utils/batchGrading';
 import { cleanTaskList, isPatchMaster } from './utils/taskCatalog';
+import { briefInfo } from './utils/briefs';
+import { PHRASES, playPhrase } from './utils/playback';
 import { BatchGradeModal } from './components/BatchGradeModal';
 import { BatchReviewBar } from './components/BatchReviewBar';
 import { StudioRetroView } from './components/StudioRetroView';
@@ -46,6 +49,8 @@ export default function App() {
   const [params, setParams] = useState<SynthParams>(DEFAULT_SYNTH_PARAMS);
   const [audioStarted, setAudioStarted] = useState<boolean>(false);
   const [completedTasks, setCompletedTasks] = useState<StudentSubmission['completedTasks']>([]);
+  // Sound Design Brief patches (kept in memory only; they travel in the submission code).
+  const [briefWork, setBriefWork] = useState<Record<string, BriefWork>>({});
   const [highlightSection, setHighlightSection] = useState<string | null>(null);
   const [sharedReport, setSharedReport] = useState<SharedReport | null>(null);
 
@@ -67,6 +72,9 @@ export default function App() {
     engineRef.current = SubtractiveEngine.getInstance(DEFAULT_SYNTH_PARAMS);
   }
   const engine = engineRef.current;
+  // The current patch, for putting it back after a preview plays a different one.
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
 
   // Challenges open on the Modern Synth by default.
   useEffect(() => {
@@ -200,6 +208,18 @@ export default function App() {
   };
   const reviewEntry = review && batchResult ? batchResult.entries[review.order[review.pos]] : null;
 
+  const handleSaveBrief = (briefId: string, work: BriefWork) => {
+    setBriefWork((prev) => ({ ...prev, [briefId]: work }));
+    handleRecordTaskScore(briefId, `Sound Design: ${briefInfo(briefId)?.title ?? briefId}`, 100);
+  };
+
+  /** Hear a student's brief patch in its musical context, then put the synth back. */
+  const handlePlayBrief = (briefId: string, briefParams: SynthParams) => {
+    const brief = briefInfo(briefId);
+    if (!brief) return;
+    playPhrase(engine, PHRASES[brief.phrase].notes, { params: briefParams, restore: () => paramsRef.current });
+  };
+
   const handleRecordTaskScore = (taskId: string, taskTitle: string, score: number) => {
     setCompletedTasks((prev) => {
       const old = prev.find((t) => t.taskId === taskId);
@@ -329,8 +349,9 @@ export default function App() {
             engine={engine}
             theme={theme}
             params={params}
-            onThemeChange={(newTheme) => setTheme(newTheme)}
-            onParamChange={handleParamChange}
+            onLoadParams={loadParams}
+            onHighlight={setHighlightSection}
+            onGoToChallenges={() => setActiveMode('challenges')}
           />
         )}
 
@@ -360,6 +381,8 @@ export default function App() {
               engine.applyParams(newParams);
             }}
             onRecordScore={handleRecordTaskScore}
+            briefWork={briefWork}
+            onSaveBrief={handleSaveBrief}
           />
         )}
 
@@ -373,6 +396,8 @@ export default function App() {
             sharedReport={sharedReport}
             onLoadParams={loadParams}
             onOpenBatchGrade={() => setIsBatchOpen(true)}
+            briefWork={briefWork}
+            onPlayBrief={handlePlayBrief}
           />
         )}
 
@@ -416,6 +441,7 @@ export default function App() {
           setBatchText('');
         }}
         onReview={handleStartReview}
+        onPlayBrief={handlePlayBrief}
       />
       {reviewEntry && review && !isBatchOpen && (
         <BatchReviewBar
