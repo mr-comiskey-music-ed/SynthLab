@@ -29,7 +29,7 @@ export const HINTS_PER_PATCH = 2;
 /** Tries before a student may reveal a Patch Master answer. */
 export const TRIES_BEFORE_REVEAL = 3;
 /** Points a Synth Doctor fix loses for each clue opened. */
-export const DOCTOR_CLUE_COST = 10;
+export const DOCTOR_CLUE_COST = 5;
 
 type Category = 'blind' | 'doctor' | 'matcher' | 'design' | 'mine';
 
