@@ -56,6 +56,8 @@ export function patchGroups(p: SynthParams): Group[] {
   } else {
     osc.push({ label: 'VCO 2', value: 'off', keys: ['vco2Level'] });
   }
+  if (p.voiceMode === 'mono')
+    osc.push({ label: 'Voices', value: `Mono${p.glide > 0 ? ` · glide ${Math.round(p.glide * 1000)} ms` : ''}`, keys: ['voiceMode', 'glide'] });
   if (p.noiseLevel > 0.01) osc.push({ label: 'Noise', value: pct(p.noiseLevel), keys: ['noiseLevel'] });
   if (Math.abs(p.oscBalance) > 0.01) osc.push({ label: 'Balance', value: p.oscBalance < 0 ? `toward VCO 1` : `toward VCO 2`, keys: ['oscBalance'] });
   groups.push({ title: 'Sources', rows: osc });

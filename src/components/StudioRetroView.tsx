@@ -1,6 +1,6 @@
 import { ENVELOPE_CENTER_SECONDS } from '../utils/taper';
 import React, { useState } from 'react';
-import { SynthParams, WaveformType, LfoDestination, FilterRolloff } from '../types';
+import { SynthParams, WaveformType, LfoDestination, FilterRolloff, VoiceMode } from '../types';
 import { Knob } from './Knob';
 import { VerticalSlider } from './Slider';
 import { ToggleSwitch } from './ToggleSwitch';
@@ -600,6 +600,38 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
 
           {/* Master Output Section */}
           <div className="p-2 rounded-lg bg-black/40 border border-slate-600/40 flex flex-col items-center">
+            {/* Voicing: poly (chords) or mono (one note, with glide) */}
+            <div className="flex flex-col items-center gap-1 mb-2 pb-2 border-b border-slate-600/40">
+              <ToggleSwitch<VoiceMode>
+                id="retro-voice-mode"
+                label="Voices"
+                options={[
+                  { label: 'Poly: play chords', value: 'poly', short: 'POLY' },
+                  { label: 'Mono: one note at a time, with glide', value: 'mono', short: 'MONO' },
+                ]}
+                value={params.voiceMode}
+                theme="studio-retro"
+                orientation="horizontal"
+                onChange={(v) => onParamChange('voiceMode', v)}
+              />
+              <Knob
+                id="retro-glide"
+                label="Glide"
+                section="master"
+                value={Math.round(params.glide * 1000)}
+                min={0}
+                max={1000}
+                step={10}
+                defaultValue={0}
+                unit="ms"
+                theme="studio-retro"
+                onChange={(v) => {
+                  onParamChange('glide', v / 1000);
+                  if (v > 0 && params.voiceMode !== 'mono') onParamChange('voiceMode', 'mono');
+                }}
+              />
+              <span className="text-[8px] font-mono font-bold uppercase text-slate-500">{params.voiceMode === 'mono' ? 'GLIDE ON' : 'MONO ONLY'}</span>
+            </div>
             <span className="text-[10px] font-mono text-slate-300 font-bold mb-1 uppercase tracking-wider">
               Master Volume
             </span>

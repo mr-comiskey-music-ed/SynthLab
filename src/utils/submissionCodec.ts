@@ -37,6 +37,7 @@ const PARAM_KEYS: Record<keyof SynthParams, string> = {
   ampAttack: 'aa', ampDecay: 'ad', ampSustain: 'as', ampRelease: 'ar',
   modAttack: 'ma', modDecay: 'md', modSustain: 'ms', modRelease: 'mr',
   lfoRate: 'lr', lfoWaveform: 'lw', lfoDepth: 'ld', lfoDestination: 'lt',
+  voiceMode: 'vm', glide: 'gl',
 };
 const PARAM_LONG = Object.fromEntries(Object.entries(PARAM_KEYS).map(([k, v]) => [v, k])) as Record<string, keyof SynthParams>;
 

@@ -17,7 +17,7 @@ export const SOUND_BRIEFS: SoundBrief[] = [
     listenFor: 'Low notes with a clear, steady wobble in the tone (not the pitch).',
     hints: [
       'Start with a buzzy wave on VCO 1 and keep the notes low. The wobble comes from the LFO.',
-      'Set the LFO target to the filter (Cutoff), Rate around 2–6 Hz, Depth 50% or more. Keep Cutoff fairly low (about 400–900 Hz) and add some Resonance so the wobble “talks.”',
+      'Set the LFO target to the filter (Cutoff), Rate around 2–6 Hz, Depth 50% or more. Keep Cutoff fairly low (about 400–900 Hz) and add some Resonance so the wobble “talks.” Bass is usually played Mono.',
     ],
     phrase: 'bassRiff',
   },
@@ -41,7 +41,7 @@ export const SOUND_BRIEFS: SoundBrief[] = [
     listenFor: 'A bright tone, notes that start right away, and some life (thickness or vibrato).',
     hints: [
       'Buzzy means lots of harmonics: start with Sawtooth or Square, and keep the filter fairly open.',
-      'Amp Attack very short (under 20 ms), Sustain high. Add VCO 2 detuned about 10 cents, or a little vibrato: LFO to Pitch, Depth 10–20%, Rate about 5 Hz.',
+      'Amp Attack very short (under 20 ms), Sustain high. Add VCO 2 detuned about 10 cents, or a little vibrato: LFO to Pitch, Depth 10–20%, Rate about 5 Hz. For a sliding solo feel, set Voices to Mono and add some Glide.',
     ],
     phrase: 'leadLine',
   },

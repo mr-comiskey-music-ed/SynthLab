@@ -1,5 +1,7 @@
 export type WaveformType = 'sine' | 'triangle' | 'sawtooth' | 'square' | 'noise';
 
+export type VoiceMode = 'poly' | 'mono';
+
 export type LfoDestination = 'pitch' | 'cutoff' | 'pwm';
 
 export type FilterType = 'lowpass';
@@ -53,6 +55,10 @@ export interface SynthParams {
   lfoWaveform: 'sine' | 'triangle' | 'sawtooth' | 'square';
   lfoDepth: number; // 0 to 1
   lfoDestination: LfoDestination;
+
+  // Voicing
+  voiceMode: VoiceMode; // 'poly' = chords; 'mono' = one note at a time, with glide
+  glide: number; // seconds to slide between notes (mono only), 0 to 1
 }
 
 export type ThemeMode = 'studio-retro' | 'hardware-bench';

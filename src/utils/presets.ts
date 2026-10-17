@@ -47,6 +47,10 @@ export const DEFAULT_SYNTH_PARAMS: SynthParams = {
   lfoWaveform: 'triangle',
   lfoDepth: 0,
   lfoDestination: 'pitch',
+
+  // Voicing
+  voiceMode: 'poly',
+  glide: 0,
 };
 
 export const INITIAL_PRESETS: Preset[] = [

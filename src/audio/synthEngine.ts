@@ -107,7 +107,7 @@ class Voice {
       this.osc1?.start();
       this.osc2?.start();
     }
-    this.setPitch(this.freq, true);
+    this.setPitch(this.freq, 0);
   }
 
   /** Apply every setting except waveform shape (handled by buildOscillators). */
@@ -135,28 +135,32 @@ class Voice {
     this.filterEnv.sustain = Math.max(0, Math.min(1, p.modSustain));
     this.filterEnv.release = Math.max(0.01, p.modRelease);
 
-    this.setPitch(this.freq, false);
+    this.setPitch(this.freq, 0.01);
   }
 
-  /** Oscillator pitches plus key tracking (the filter follows the keyboard). */
-  setPitch(freq: number, immediate: boolean) {
+  /**
+   * Oscillator pitches plus key tracking (the filter follows the keyboard).
+   * ramp: 0 = jump straight there; otherwise slide over that many seconds (glide).
+   */
+  setPitch(freq: number, ramp: number) {
     const p = this.engine.getParams();
     this.freq = freq;
     const f1 = freq * Math.pow(2, (p.vco1Octave * 12 + p.vco1Semi + p.vco1Fine / 100) / 12);
     const f2 = freq * Math.pow(2, (p.vco2Octave * 12 + p.vco2Semi + p.vco2Fine / 100) / 12);
     const cutoff = clampHz(p.filterCutoff * Math.pow(freq / 261.63, p.filterKeyTracking));
-    if (immediate) {
+    if (ramp <= 0) {
       if (this.osc1) this.osc1.frequency.value = f1;
       if (this.osc2) this.osc2.frequency.value = f2;
       this.filter.frequency.value = cutoff;
     } else {
-      this.osc1?.frequency.rampTo(f1, 0.01);
-      this.osc2?.frequency.rampTo(f2, 0.01);
-      this.filter.frequency.rampTo(cutoff, 0.03);
+      this.osc1?.frequency.exponentialRampTo(f1, ramp);
+      this.osc2?.frequency.exponentialRampTo(f2, ramp);
+      this.filter.frequency.exponentialRampTo(cutoff, ramp);
     }
   }
 
-  attack(note: string, freq: number, velocity: number) {
+  /** Start a note. With glide > 0 (mono mode), the pitch slides from the previous note. */
+  attack(note: string, freq: number, velocity: number, glide = 0) {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
@@ -164,7 +168,7 @@ class Voice {
     this.note = note;
     this.held = true;
     this.startedAt = performance.now();
-    this.setPitch(freq, true);
+    this.setPitch(freq, glide > 0 && this.running ? glide : 0);
     if (!this.running) {
       this.osc1?.start();
       this.osc2?.start();
@@ -173,6 +177,12 @@ class Voice {
     const now = Tone.now();
     this.ampEnv.triggerAttack(now, velocity);
     this.filterEnv.triggerAttack(now);
+  }
+
+  /** Mono legato: move a held note to a new pitch without restarting the envelopes. */
+  slideTo(note: string, freq: number, glide: number) {
+    this.note = note;
+    this.setPitch(freq, glide > 0 ? glide : 0.005);
   }
 
   release() {
@@ -223,6 +233,8 @@ export class SubtractiveEngine {
   // State
   private currentParams: SynthParams;
   private activeNotes: Map<string, number> = new Map(); // held keys: note -> frequency
+  /** Mono mode: held keys in the order they were pressed (last one sounds). */
+  private monoStack: string[] = [];
 
   // Arpeggiator
   private arpConfig: ArpConfig = {
@@ -326,6 +338,12 @@ export class SubtractiveEngine {
 
     if (params.masterVolume !== undefined) this.masterGain.gain.rampTo(p.masterVolume, 0.05);
 
+    if (p.voiceMode !== prev.voiceMode) {
+      // Switching poly <-> mono: let everything ring out and start fresh.
+      for (const v of this.voices) v.release();
+      this.monoStack = [];
+    }
+
     const shapeChanged = p.vco1Waveform !== prev.vco1Waveform || p.vco2Waveform !== prev.vco2Waveform;
     for (const v of this.voices) {
       if (shapeChanged) v.buildOscillators();
@@ -353,13 +371,35 @@ export class SubtractiveEngine {
     return pool.reduce((a, b) => (a.startedAt <= b.startedAt ? a : b));
   }
 
+  private get isMono() {
+    return this.currentParams.voiceMode === 'mono';
+  }
+
   private startVoice(note: string, velocity: number) {
     const freq = Tone.Frequency(note).toFrequency();
+    if (this.isMono) {
+      const v = this.voices[0];
+      const glide = Math.max(0, this.currentParams.glide);
+      // Legato: a key is already held, so slide to the new note without restarting it.
+      if (v.held) v.slideTo(note, freq, glide);
+      else v.attack(note, freq, velocity, glide);
+      return;
+    }
     this.pickVoice(note).attack(note, freq, velocity);
   }
 
   private releaseVoice(note: string) {
     for (const v of this.voices) if (v.note === note && v.held) v.release();
+  }
+
+  /** Mono key release: go back to the last key still held, or stop if none. */
+  private monoNoteOff(note: string) {
+    this.monoStack = this.monoStack.filter((n) => n !== note);
+    const v = this.voices[0];
+    if (v.note !== note) return;
+    const back = this.monoStack[this.monoStack.length - 1];
+    if (back && v.held) v.slideTo(back, Tone.Frequency(back).toFrequency(), Math.max(0, this.currentParams.glide));
+    else v.release();
   }
 
   public noteOn(note: string, velocity: number = 1.0) {
@@ -378,6 +418,7 @@ export class SubtractiveEngine {
       return;
     }
 
+    if (this.isMono) this.monoStack = [...this.monoStack.filter((n) => n !== note), note];
     this.startVoice(note, velocity);
     this.notifyEnvelope(true);
   }
@@ -395,13 +436,15 @@ export class SubtractiveEngine {
       return;
     }
 
-    this.releaseVoice(note);
+    if (this.isMono) this.monoNoteOff(note);
+    else this.releaseVoice(note);
     if (wasHeld && this.activeNotes.size === 0) this.notifyEnvelope(false);
   }
 
   public allNotesOff() {
     this.activeNotes.clear();
     this.heldNotesList = [];
+    this.monoStack = [];
     this.stopArpTimer();
     for (const v of this.voices) v.release();
     this.notifyActiveNotes();
