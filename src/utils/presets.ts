@@ -1,4 +1,5 @@
 import { SynthParams, Preset, PatchMatcherChallenge, SynthDoctorTicket, BlindTestChallenge } from '../types';
+import { seq, chord, at } from './playback';
 
 export const DEFAULT_SYNTH_PARAMS: SynthParams = {
   masterVolume: 0.75,
@@ -380,8 +381,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Beginner',
     description: 'Replicate this snappy, percussive pluck. Notice the zero sustain and fast decay on both Amp and Filter envelopes.',
     hint: 'Lower Amp Sustain to 0, set Amp Decay around 0.2s, and give the filter envelope a strong positive amount.',
-    referenceNotes: ['C4', 'G4', 'C5'],
-    referenceDuration: 0.3,
+    phrase: seq(['C4', 'E4', 'G4', 'C5', 'G4', 'E4', 'C4', 'G3'], 0.18, 0.13),
     gradeOn: { wave: 15, cutoff: 15, resonance: 10, filterEnv: 15, filterDecay: 10, attack: 5, decay: 15, sustain: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -407,8 +407,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Intermediate',
     description: 'Create a deep, punchy sub bass drum. It relies on a low sine wave, quick attack, and zero sustain.',
     hint: 'Use a Sine wave pitched down -2 octaves. Keep Sustain at 0, and add a tiny bit of noise for the transient click.',
-    referenceNotes: ['C2'],
-    referenceDuration: 0.6,
+    phrase: seq(['C2', 'C2', 'C2', 'C2'], 0.5, 0.15),
     gradeOn: { wave: 20, octave: 25, noise: 5, cutoff: 10, attack: 10, decay: 15, sustain: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -433,9 +432,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Intermediate',
     description: 'Match this warm, slowly opening vintage brass pad with dual detuned sawtooth waves.',
     hint: 'Use Sawtooth on both VCO1 and VCO2 with detune (~12 cents). Increase Attack on Amp and Mod EG (~0.5s to 1s).',
-    referenceNotes: ['F3', 'A3', 'C4'],
-    referenceChord: true,
-    referenceDuration: 2.0,
+    phrase: [...chord(['F3', 'A3', 'C4', 'E4'], 0, 2.2), ...chord(['C3', 'E3', 'G3', 'B3'], 2.4, 2.4)],
     gradeOn: { wave: 10, osc2: 15, detune: 15, cutoff: 15, attack: 20, sustain: 10, release: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -463,8 +460,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Advanced',
     description: 'Dial in this rapid sci-fi emergency alarm sound using extreme LFO modulation.',
     hint: 'Route LFO to Pitch, set LFO Rate around 6 to 9 Hz, and crank the LFO Depth up high.',
-    referenceNotes: ['A4'],
-    referenceDuration: 2.5,
+    phrase: at(['A4', 0, 3]),
     gradeOn: { wave: 10, lfo: 50, cutoff: 10, attack: 15, sustain: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -490,8 +486,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Advanced',
     description: 'Shape this high-resonance sawtooth acid line that cuts through the mix.',
     hint: 'High filter resonance (>10), low cutoff (<1000 Hz), with high filter envelope amount (>70%).',
-    referenceNotes: ['D3', 'F3', 'A3'],
-    referenceDuration: 0.8,
+    phrase: seq(['D3', 'D3', 'D4', 'D3', 'F3', 'D3', 'A3', 'C4'], 0.16, 0.12),
     gradeOn: { wave: 10, octave: 10, cutoff: 20, resonance: 20, filterEnv: 20, filterDecay: 10, sustain: 10 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -518,8 +513,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Intermediate',
     description: 'Dial in this funky, reedy clavinet tone. It requires a narrow pulse width duty cycle and a tight acoustic envelope.',
     hint: 'Select Square wave on VCO 1, squeeze Pulse Width (PWM/Shape) down to ~20%, and keep Decay short with zero Sustain.',
-    referenceNotes: ['C3', 'D#3', 'F3', 'G3'],
-    referenceDuration: 0.35,
+    phrase: at(['C3', 0, 0.12], ['C3', 0.3, 0.12], ['D#3', 0.45, 0.12], ['F3', 0.75, 0.12], ['G3', 0.9, 0.2], ['A#3', 1.2, 0.12], ['G3', 1.35, 0.3]),
     gradeOn: { wave: 15, pulseWidth: 25, cutoff: 15, resonance: 10, decay: 15, sustain: 20 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -545,8 +539,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Beginner',
     description: 'Recreate this pure, mellow wooden flute tone with gentle attack and warm filter cutoff.',
     hint: 'Use a Triangle or Sine wave on VCO 1 with a soft attack (~0.08s) and a moderate filter cutoff around 2,400 Hz.',
-    referenceNotes: ['G4', 'B4', 'D5'],
-    referenceDuration: 1.2,
+    phrase: at(['G4', 0, 0.45], ['A4', 0.5, 0.45], ['B4', 1.0, 0.45], ['D5', 1.5, 1.2]),
     gradeOn: { wave: 25, cutoff: 20, attack: 20, sustain: 15, lfo: 20 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -570,8 +563,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Intermediate',
     description: 'Craft this cinematic howling wind sound created purely from sculpted white noise swept through a resonant filter.',
     hint: 'Mute VCO 1 and VCO 2, turn up White Noise, lower the filter cutoff below 1,000 Hz, and add moderate resonance.',
-    referenceNotes: ['C3'],
-    referenceDuration: 2.5,
+    phrase: at(['C3', 0, 3.5]),
     gradeOn: { oscMuted: 15, noise: 15, cutoff: 20, resonance: 15, attack: 10, release: 10, lfo: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -596,8 +588,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Advanced',
     description: 'Shape this stadium rock synth lead utilizing two detuned sawtooth oscillators for maximum harmonic thickness.',
     hint: 'Blend VCO 1 and VCO 2 sawtooths, detune VCO 2 by +16 cents, and dial in a subtle filter envelope punch.',
-    referenceNotes: ['A3', 'E4', 'A4'],
-    referenceDuration: 0.9,
+    phrase: at(['A3', 0, 0.3], ['E4', 0.35, 0.3], ['A4', 0.7, 0.9], ['G4', 1.7, 0.3], ['E4', 2.05, 1.0]),
     gradeOn: { wave: 10, osc2: 15, detune: 20, cutoff: 15, filterEnv: 15, attack: 10, sustain: 15 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -625,9 +616,7 @@ export const PATCH_MATCHER_CHALLENGES: PatchMatcherChallenge[] = [
     difficulty: 'Advanced',
     description: 'Construct this slowly swelling ambient pad with a long release and subtle LFO movement.',
     hint: 'Set slow Amp Attack (>0.8s) and long Release (>1.5s), with an LFO gently undulating cutoff frequency.',
-    referenceNotes: ['F3', 'C4', 'E4', 'G4'],
-    referenceChord: true,
-    referenceDuration: 3.0,
+    phrase: chord(['F3', 'C4', 'E4', 'G4'], 0, 4),
     gradeOn: { wave: 10, osc2: 10, detune: 10, cutoff: 15, attack: 20, release: 15, lfo: 20 },
     targetParams: {
       ...DEFAULT_SYNTH_PARAMS,
@@ -669,6 +658,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMax: 0.6,
     fixExplanation: "Great job! Lowering the Amp Release allows notes to silence cleanly as soon as you let go.",
     recommendedTheme: 'studio-retro',
+    phrase: at(['A2', 0, 0.2], ['C3', 0.7, 0.2], ['E3', 1.4, 0.2]),
   },
   {
     id: 'sd-2',
@@ -688,6 +678,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMin: 2500,
     fixExplanation: "Spot on! Opening the Filter Cutoff restored all the bright harmonics from the sawtooth oscillator.",
     recommendedTheme: 'hardware-bench',
+    phrase: at(['E4', 0, 0.3], ['G4', 0.35, 0.3], ['A4', 0.7, 0.6], ['G4', 1.35, 0.3], ['E4', 1.7, 0.8]),
   },
   {
     id: 'sd-3',
@@ -706,6 +697,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMax: 0.12,
     fixExplanation: "Excellent diagnosis! Reducing or zeroing out the LFO Pitch Depth locked the oscillators back in tune.",
     recommendedTheme: 'studio-retro',
+    phrase: at(['C4', 0, 0.9], ['E4', 1.0, 0.9], ['G4', 2.0, 1.2]),
   },
   {
     id: 'sd-4',
@@ -725,6 +717,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMin: 0.65,
     fixExplanation: "Solved! Raising Amp Sustain keeps the organ at full steady volume for as long as a key is pressed.",
     recommendedTheme: 'hardware-bench',
+    phrase: chord(['C3', 'E3', 'G3', 'C4'], 0, 2.2),
   },
   {
     id: 'sd-5',
@@ -742,6 +735,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMax: 6,
     fixExplanation: "Well done! Taming the filter resonance eliminated the harsh self-oscillation howl.",
     recommendedTheme: 'studio-retro',
+    phrase: seq(['C4', 'G4', 'C5', 'G5'], 0.45, 0.4),
   },
   {
     id: 'sd-6',
@@ -760,6 +754,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMax: 0.08,
     fixExplanation: "Fixed! Lowering Amp Attack delivers crisp, immediate note starts synced to your keystrokes.",
     recommendedTheme: 'hardware-bench',
+    phrase: seq(['C4', 'C4', 'G4', 'C4', 'A#4', 'C4', 'G4', 'C4'], 0.2, 0.15),
   },
   {
     id: 'sd-7',
@@ -778,6 +773,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMin: 0.4,
     fixExplanation: "Problem solved! Turning up VCO 2 Level unlocked the rich, thick beating sound of two detuned oscillators.",
     recommendedTheme: 'studio-retro',
+    phrase: at(['A2', 0, 2.2]),
   },
   {
     id: 'sd-8',
@@ -796,6 +792,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetValues: ['triangle', 'sine'],
     fixExplanation: "Brilliant! Switching to a Sine or Triangle wave removed the harsh harmonic buzz, creating a pure flute tone.",
     recommendedTheme: 'hardware-bench',
+    phrase: at(['G5', 0, 0.45], ['A5', 0.5, 0.45], ['B5', 1.0, 0.45], ['D6', 1.5, 1.0]),
   },
   {
     id: 'sd-9',
@@ -815,6 +812,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMax: -1,
     fixExplanation: "Excellent diagnosis! Lowering the VCO Octave down to -1 or -2 dropped the pitch into true, room-shaking sub-bass territory.",
     recommendedTheme: 'hardware-bench',
+    phrase: at(['C3', 0, 0.35], ['C3', 0.4, 0.2], ['D#3', 0.75, 0.3], ['F3', 1.1, 0.3], ['G3', 1.5, 0.6]),
   },
   {
     id: 'sd-10',
@@ -835,6 +833,7 @@ export const SYNTH_DOCTOR_TICKETS: SynthDoctorTicket[] = [
     targetMax: 0.65,
     fixExplanation: "Outstanding! Bringing Pulse Width back toward 50% restored the full, hollow tone of a square wave.",
     recommendedTheme: 'studio-retro',
+    phrase: seq(['C5', 'E5', 'G5', 'C6', 'G5', 'E5'], 0.22, 0.18),
   }
 ];
 
@@ -862,7 +861,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'B',
-    explanation: "Tone B features high resonance (Q), creating a sharp harmonic peak and whistle-like squelch around the cutoff frequency."
+    explanation: "Tone B features high resonance (Q), creating a sharp harmonic peak and whistle-like squelch around the cutoff frequency.",
+    phrase: seq(['C3', 'E3', 'G3', 'C4'], 0.45, 0.4),
   },
   {
     id: 'ab-2',
@@ -888,7 +888,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'A',
-    explanation: "Tone A has a Sawtooth wave, which contains every integer harmonic, sounding bright and rich compared to the pure fundamental of the Sine wave."
+    explanation: "Tone A has a Sawtooth wave, which contains every integer harmonic, sounding bright and rich compared to the pure fundamental of the Sine wave.",
+    phrase: at(['A3', 0, 1.0]),
   },
   {
     id: 'ab-3',
@@ -910,7 +911,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'B',
-    explanation: "Tone B fades in slowly over nearly a second, characteristic of a string or brass swell, whereas Tone A strikes immediately like a keyboard or mallet."
+    explanation: "Tone B fades in slowly over nearly a second, characteristic of a string or brass swell, whereas Tone A strikes immediately like a keyboard or mallet.",
+    phrase: at(['D4', 0, 1.6]),
   },
   {
     id: 'ab-4',
@@ -934,7 +936,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'A',
-    explanation: "Tone A's pitch fluctuates rhythmically at 6Hz due to the LFO modulating oscillator frequency (vibrato effect)."
+    explanation: "Tone A's pitch fluctuates rhythmically at 6Hz due to the LFO modulating oscillator frequency (vibrato effect).",
+    phrase: at(['E4', 0, 1.8]),
   },
   {
     id: 'ab-5',
@@ -964,7 +967,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'A',
-    explanation: "Tone A has its Low-Pass filter cutoff set to 600 Hz, stripping away all upper harmonics above that point for a warm, muffled tone."
+    explanation: "Tone A has its Low-Pass filter cutoff set to 600 Hz, stripping away all upper harmonics above that point for a warm, muffled tone.",
+    phrase: seq(['G3', 'B3', 'D4'], 0.45, 0.4),
   },
   {
     id: 'ab-6',
@@ -988,7 +992,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'A',
-    explanation: "Tone A continues to ring out for over two seconds after the key is released, resembling church bell or acoustic hall resonance."
+    explanation: "Tone A continues to ring out for over two seconds after the key is released, resembling church bell or acoustic hall resonance.",
+    phrase: at(['C4', 0, 0.25], ['G4', 1.5, 0.25]),
   },
   {
     id: 'ab-7',
@@ -1014,7 +1019,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'B',
-    explanation: "Tone B blends two sawtooth waves tuned 16 cents apart, creating organic acoustic beating and chorus thickness."
+    explanation: "Tone B blends two sawtooth waves tuned 16 cents apart, creating organic acoustic beating and chorus thickness.",
+    phrase: at(['A2', 0, 2.5]),
   },
   {
     id: 'ab-8',
@@ -1038,7 +1044,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'A',
-    explanation: "Tone A contains white noise mixed in, adding a hissing rush of all frequencies across the audio spectrum."
+    explanation: "Tone A contains white noise mixed in, adding a hissing rush of all frequencies across the audio spectrum.",
+    phrase: at(['C3', 0, 1.2]),
   },
   {
     id: 'ab-9',
@@ -1066,7 +1073,8 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'B',
-    explanation: "Tone B uses Pulse Width Modulation (PWM): the LFO keeps squeezing and widening the square wave, which gives it a moving, shimmering, chorus-like sound. Tone A is a plain, steady square."
+    explanation: "Tone B uses Pulse Width Modulation (PWM): the LFO keeps squeezing and widening the square wave, which gives it a moving, shimmering, chorus-like sound. Tone A is a plain, steady square.",
+    phrase: at(['A3', 0, 2.8]),
   },
   {
     id: 'ab-10',
@@ -1095,6 +1103,7 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'A',
-    explanation: "Tone A uses a Filter Envelope with high EG Depth: upon key press, the cutoff frequency snaps open and closes quickly, creating a sharp percussive pluck."
+    explanation: "Tone A uses a Filter Envelope with high EG Depth: upon key press, the cutoff frequency snaps open and closes quickly, creating a sharp percussive pluck.",
+    phrase: seq(['D3', 'D3', 'F3', 'A3'], 0.35, 0.2),
   }
 ];

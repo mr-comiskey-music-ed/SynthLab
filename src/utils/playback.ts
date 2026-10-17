@@ -1,17 +1,13 @@
-import { SynthParams, PhraseId } from '../types';
+import { SynthParams, PhraseId, PhraseNote } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
 
-/** One note in a test phrase. Times are in seconds. */
-export interface PhraseNote {
-  note: string;
-  at: number;
-  dur: number;
-  vel?: number;
-}
+export type { PhraseNote };
 
-const seq = (notes: string[], step: number, dur: number, start = 0): PhraseNote[] =>
+/** Notes one after another, `step` seconds apart, each `dur` long. */
+export const seq = (notes: string[], step: number, dur: number, start = 0): PhraseNote[] =>
   notes.map((note, i) => ({ note, at: start + i * step, dur }));
-const chord = (notes: string[], at: number, dur: number): PhraseNote[] => notes.map((note) => ({ note, at, dur }));
+/** Notes together as a chord. */
+export const chord = (notes: string[], at: number, dur: number): PhraseNote[] => notes.map((note) => ({ note, at, dur }));
 
 /** Short musical contexts for hearing a patch the way it would be used. */
 export const PHRASES: Record<PhraseId, { label: string; notes: PhraseNote[] }> = {
@@ -53,10 +49,8 @@ export const PHRASES: Record<PhraseId, { label: string; notes: PhraseNote[] }> =
   },
 };
 
-/** A phrase from a list of note names: one after another, or all together as a chord. */
-export function notesPhrase(notes: string[], noteLength: number, asChord = false): PhraseNote[] {
-  return asChord ? chord(notes, 0, noteLength * 1.6) : seq(notes, noteLength, noteLength * 0.8);
-}
+/** Notes at chosen times: [note, start, length] triples. */
+export const at = (...items: [string, number, number][]): PhraseNote[] => items.map(([note, t, dur]) => ({ note, at: t, dur }));
 
 let stopCurrent: (() => void) | null = null;
 /** Bumped by every new phrase, so a stale "put the patch back" never lands mid-phrase. */

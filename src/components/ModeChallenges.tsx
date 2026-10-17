@@ -4,7 +4,7 @@ import { SynthParams, ThemeMode, BriefWork } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
 import { PATCH_MATCHER_CHALLENGES, SYNTH_DOCTOR_TICKETS, BLIND_TEST_CHALLENGES } from '../utils/presets';
 import { scorePatch, nextPatchHint, AspectResult } from '../utils/patchScore';
-import { playPhrase, notesPhrase, stopPhrase } from '../utils/playback';
+import { playPhrase, stopPhrase } from '../utils/playback';
 import { PatchParamList } from './PatchParamList';
 import { ModeBriefs } from './ModeBriefs';
 import { ModeMyPresets } from './ModeMyPresets';
@@ -94,7 +94,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
 
   const playBlind = (side: 'A' | 'B') => {
     const opt = shown(side);
-    playPhrase(engine, notesPhrase([opt.note], 1.2), { params: opt.params, restore: restoreMine });
+    playPhrase(engine, currentBlind.phrase, { params: opt.params, restore: restoreMine });
   };
 
   // ---------------- 2. Synth Doctor ----------------
@@ -181,13 +181,13 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   };
 
   const playReference = () =>
-    playPhrase(engine, notesPhrase(currentPatch.referenceNotes, currentPatch.referenceDuration, currentPatch.referenceChord), {
+    playPhrase(engine, currentPatch.phrase, {
       params: currentPatch.targetParams,
       restore: restoreMine,
     });
   const playMine = () => {
     engine.applyParams(params);
-    playPhrase(engine, notesPhrase(currentPatch.referenceNotes, currentPatch.referenceDuration, currentPatch.referenceChord));
+    playPhrase(engine, currentPatch.phrase);
   };
 
   const matchFeedback = (score: number) =>
@@ -387,6 +387,18 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2 mb-3">
+            <button
+              type="button"
+              onClick={() => {
+                engine.applyParams(params);
+                playPhrase(engine, currentTicket.phrase);
+              }}
+              className="mr-auto px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black font-bold font-mono text-xs flex items-center gap-1.5 active:scale-95"
+              title="Plays your current patch, so you can hear the problem, and later the fix"
+            >
+              <Volume2 className="w-4 h-4" />
+              Play test phrase
+            </button>
             <button
               type="button"
               onClick={() => handleLoadTicket(activeTicketIdx)}

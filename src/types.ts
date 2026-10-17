@@ -1,3 +1,11 @@
+/** One note in a test phrase. Times are in seconds. */
+export interface PhraseNote {
+  note: string;
+  at: number;
+  dur: number;
+  vel?: number;
+}
+
 export type WaveformType = 'sine' | 'triangle' | 'sawtooth' | 'square' | 'noise';
 
 export type VoiceMode = 'poly' | 'mono';
@@ -115,10 +123,8 @@ export interface PatchMatcherChallenge {
   targetParams: SynthParams;
   /** What the auto-grader listens for on this patch, with weights that add up to 100. */
   gradeOn: Partial<Record<PatchAspect, number>>;
-  referenceNotes: string[]; // Notes played during reference playback
-  referenceDuration: number;
-  /** Play the reference notes together as a chord (the synth is polyphonic). */
-  referenceChord?: boolean;
+  /** What plays for "Play the Target" and "Play My Synth": chosen to show off what defines this patch. */
+  phrase: PhraseNote[];
 }
 
 export interface SynthDoctorTicket {
@@ -140,6 +146,8 @@ export interface SynthDoctorTicket {
   targetValues?: any[];
   fixExplanation: string;
   recommendedTheme: ThemeMode;
+  /** A test phrase that makes this ticket's problem easy to hear. */
+  phrase: PhraseNote[];
 }
 
 export interface BlindTestChallenge {
@@ -157,6 +165,8 @@ export interface BlindTestChallenge {
   };
   correctOption: 'A' | 'B';
   explanation: string;
+  /** What both tones play: chosen so the difference is easy to hear. */
+  phrase: PhraseNote[];
 }
 
 export type BriefKind = 'Music' | 'Sound FX';
