@@ -102,8 +102,6 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const [ticketStatus, setTicketStatus] = useState<'idle' | 'fixed' | 'failed'>('idle');
   const [cluesByTicket, setCluesByTicket] = useState<Record<string, number>>({});
   const [fixedTickets, setFixedTickets] = useState<Record<string, number>>({});
-  const [showDoctorModal, setShowDoctorModal] = useState(false);
-  const [seenDoctorModal, setSeenDoctorModal] = useState(false);
   const currentTicket = SYNTH_DOCTOR_TICKETS[activeTicketIdx];
   const cluesOpen = cluesByTicket[currentTicket.id] ?? 0;
 
@@ -209,13 +207,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const selectTab = (id: Category) => {
     stopPhrase();
     setActiveCategory(id);
-    if (id === 'doctor') {
-      handleLoadTicket(activeTicketIdx);
-      if (!seenDoctorModal) {
-        setShowDoctorModal(true);
-        setSeenDoctorModal(true);
-      }
-    }
+    if (id === 'doctor') handleLoadTicket(activeTicketIdx);
   };
 
   return (
@@ -362,7 +354,10 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           <div className="p-3 rounded-lg bg-black/40 border border-red-500/20 mb-3">
             <span className="text-[10px] font-mono text-red-400 uppercase font-bold block mb-1">The client says:</span>
             <p className="text-sm text-slate-200 italic">“{currentTicket.clientComplaint}”</p>
-            <p className="text-[11px] text-slate-400 mt-2">Play some notes to hear the problem, find it on the synth, fix it, then press Submit Fix.</p>
+            <p className="text-[11px] text-slate-400 mt-2">
+              Press <b className="text-slate-300">Play test phrase</b> (or play the keys) to hear the problem, find it on the synth, fix it, then
+              Submit Fix. Each clue costs {DOCTOR_CLUE_COST} points on this ticket.
+            </p>
           </div>
 
           <div className="p-3 rounded-lg bg-black/30 border border-white/10 mb-3 space-y-2">
@@ -625,38 +620,6 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
         <ModeMyPresets engine={engine} params={params} saved={briefWork} onSave={onSaveBrief} onLoadParams={onLoadParams} />
       )}
 
-      {/* Synth Doctor instructions (shown the first time only) */}
-      {showDoctorModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-          <div className="relative w-full max-w-md rounded-2xl bg-slate-950 border-2 border-emerald-500/50 p-6 shadow-2xl text-slate-100 space-y-4">
-            <div className="flex items-center gap-3 border-b border-white/10 pb-4">
-              <div className="p-2.5 rounded-xl bg-emerald-500/20 border border-emerald-500/40 text-emerald-400">
-                <Stethoscope className="w-6 h-6" />
-              </div>
-              <div>
-                <span className="text-[10px] font-mono text-emerald-400 uppercase tracking-widest font-bold">HOW IT WORKS</span>
-                <h3 className="text-base font-bold text-white">Synth Doctor</h3>
-              </div>
-            </div>
-            <p className="text-xs text-slate-300 leading-relaxed">
-              Each ticket loads a broken patch. Play notes to hear what's wrong, find the control that's causing it, and fix it.
-              Clues are there if you need them, but each one costs 10 points on that ticket.
-            </p>
-            <div className="p-3 rounded-lg bg-slate-900/90 border border-white/10 space-y-2 text-xs font-mono text-slate-200">
-              <div>Play with your computer keyboard (A–K keys),</div>
-              <div>click the on-screen keys,</div>
-              <div>or plug in a USB/MIDI keyboard.</div>
-            </div>
-            <button
-              type="button"
-              onClick={() => setShowDoctorModal(false)}
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-black font-mono font-bold text-xs uppercase"
-            >
-              Got It
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   );
 };
