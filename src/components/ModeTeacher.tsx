@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { SynthParams, StudentSubmission, BriefWork } from '../types';
+import { SynthParams, StudentSubmission, BriefWork, PhraseId } from '../types';
 import { encodeSubmission, decodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
-import { gradesFor, headlineScore, Grades, taskInfo, gradedTaskIds, gradedDoneCount, isDesignBrief } from '../utils/taskCatalog';
+import { gradesFor, headlineScore, Grades, taskInfo, gradedTaskIds, gradedDoneCount, isByEar } from '../utils/taskCatalog';
 import { BriefReviewList } from './BriefReviewList';
 import { AssignmentLinkBuilder } from './AssignmentLinkBuilder';
 import { formatDate, doneLabel } from '../utils/batchGrading';
@@ -38,13 +38,13 @@ interface ModeTeacherProps {
   onOpenBatchGrade: () => void;
   /** The student's saved Sound Design Brief patches. */
   briefWork: Record<string, BriefWork>;
-  /** Play a brief patch in its musical context. */
-  onPlayBrief: (briefId: string, params: SynthParams) => void;
+  /** Play a saved sound (brief or My Preset) in its musical context. */
+  onPlayBrief: (taskId: string, params: SynthParams, phrase?: PhraseId) => void;
 }
 
 /** "85%", "best 85% · 3 tries" for Patch Master, or "turned in" for a Sound Design Brief. */
 export const scoreLabel = (t: { taskId?: string; score: number; tries?: number }) =>
-  t.taskId && isDesignBrief(t.taskId)
+  t.taskId && isByEar(t.taskId)
     ? 'turned in'
     : t.tries
     ? `best ${Math.round(t.score)}% · ${t.tries} ${t.tries === 1 ? 'try' : 'tries'}`
@@ -79,6 +79,15 @@ const GradeBoxes: React.FC<{ grades: Grades; compact?: boolean }> = ({ grades, c
           <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Sound Design</span>
           <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-fuchsia-300`}>
             {grades.design.submitted}/{grades.design.total}
+          </span>
+          <span className="block text-[10px] text-slate-500">turned in · graded by ear</span>
+        </div>
+      )}
+      {grades.myPresets && (
+        <div className={`${box} border-violet-500/30`} title="My Presets are graded by your teacher's ear">
+          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">My Presets</span>
+          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-violet-300`}>
+            {grades.myPresets.submitted}/{grades.myPresets.total}
           </span>
           <span className="block text-[10px] text-slate-500">turned in · graded by ear</span>
         </div>
@@ -297,7 +306,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                 </div>
               ) : (
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                  {submission.completedTasks.filter((t) => !isDesignBrief(t.taskId)).map((task, idx) => (
+                  {submission.completedTasks.filter((t) => !isByEar(t.taskId)).map((task, idx) => (
                     <div
                       key={task.taskId || idx}
                       className="flex items-center justify-between p-2 rounded bg-slate-900/80 border border-white/5 text-xs font-mono"
@@ -313,7 +322,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             {submission.briefs && (
               <div className="space-y-2">
                 <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
-                  Sound Design Briefs ({Object.keys(submission.briefs).length}):
+                  Your sounds ({Object.keys(submission.briefs).length}):
                 </span>
                 <BriefReviewList briefs={submission.briefs} onPlay={onPlayBrief} />
               </div>
@@ -459,10 +468,10 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
 
             <div className="space-y-2">
               <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
-                Quests Breakdown ({checkedSub.completedTasks.filter((t) => !isDesignBrief(t.taskId)).length}):
+                Quests Breakdown ({checkedSub.completedTasks.filter((t) => !isByEar(t.taskId)).length}):
               </span>
               <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                {checkedSub.completedTasks.filter((t) => !isDesignBrief(t.taskId)).map((t, idx) => (
+                {checkedSub.completedTasks.filter((t) => !isByEar(t.taskId)).map((t, idx) => (
                   <div
                     key={idx}
                     className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-white/5 font-mono text-xs"
@@ -474,14 +483,14 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
               </div>
             </div>
 
-            {(checkedSub.briefs || checkedSub.assignedTasks?.some(isDesignBrief)) && (
+            {(checkedSub.briefs || checkedSub.assignedTasks?.some(isByEar)) && (
               <div className="space-y-2">
                 <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
-                  Sound Design Briefs · press Play to hear each one, open it to see the settings
+                  Sound Design & My Presets · press Play to hear each one, open it to see the settings
                 </span>
                 <BriefReviewList
                   briefs={checkedSub.briefs}
-                  assigned={checkedSub.assignedTasks?.filter(isDesignBrief)}
+                  assigned={checkedSub.assignedTasks?.filter(isByEar)}
                   onPlay={onPlayBrief}
                   onLoad={(p) => {
                     onLoadParams(p);

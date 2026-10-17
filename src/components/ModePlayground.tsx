@@ -154,6 +154,18 @@ export const ModePlayground: React.FC<ModePlaygroundProps> = ({
 
   return (
     <div id="mode-playground-bar" className="mb-4 space-y-3">
+      {(() => {
+        const active = savedPresets.find((p) => p.id === activePresetId);
+        return active?.why ? (
+          <div className="rounded-xl bg-amber-500/5 border border-amber-500/25 px-3 py-2 text-xs text-slate-200 flex flex-wrap items-baseline gap-x-2">
+            <span className="font-mono font-bold text-amber-300">{active.name}:</span>
+            <span className="text-slate-300">{active.description}</span>
+            <span className="text-amber-100">
+              <b className="font-mono text-amber-300">What makes it work:</b> {active.why}
+            </span>
+          </div>
+        ) : null;
+      })()}
       {/* Top Playground Control Rack */}
       <div className="rounded-xl bg-[#12151b] border border-[#2b3342] p-3 shadow-xl text-slate-100 flex flex-wrap items-center justify-between gap-3">
         {/* Left: Presets Selection */}

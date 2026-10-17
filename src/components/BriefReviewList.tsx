@@ -1,6 +1,9 @@
 import React from 'react';
-import { BriefWork, SynthParams } from '../types';
+import { BriefWork, SynthParams, PhraseId } from '../types';
 import { SOUND_BRIEFS } from '../utils/briefs';
+import { MY_PRESET_SLOTS } from '../utils/myPresets';
+import { adventureInfo } from '../utils/adventures';
+import { INITIAL_PRESETS } from '../utils/presets';
 import { PHRASES } from '../utils/playback';
 import { PatchParamList } from './PatchParamList';
 import { Play, Headphones, ChevronDown, Lightbulb, Circle } from 'lucide-react';
@@ -9,7 +12,7 @@ interface BriefReviewListProps {
   briefs?: Record<string, BriefWork>;
   /** Brief ids that were assigned; unsaved assigned briefs are listed as not turned in. */
   assigned?: string[];
-  onPlay?: (briefId: string, params: SynthParams) => void;
+  onPlay?: (taskId: string, params: SynthParams, phrase?: PhraseId) => void;
   onLoad?: (params: SynthParams) => void;
 }
 
@@ -17,8 +20,48 @@ interface BriefReviewListProps {
  * Sound Design Briefs in a grade report: hear each one in context, see how many
  * hints were used, and open a dropdown with the settings the student chose.
  */
+/** What a saved sound was: the brief it answers, or how a My Preset was made. */
+interface Item {
+  id: string;
+  title: string;
+  kind: string;
+  context: React.ReactNode;
+  phrase: PhraseId;
+}
+
+function items(briefs: Record<string, BriefWork>): Item[] {
+  const fromBriefs: Item[] = SOUND_BRIEFS.map((b) => ({
+    id: b.id,
+    title: b.title,
+    kind: b.kind,
+    phrase: b.phrase,
+    context: (
+      <>
+        <b className="text-slate-300">Brief:</b> {b.ask} <b className="text-slate-300">Listen for:</b> {b.listenFor}
+      </>
+    ),
+  }));
+  const fromPresets: Item[] = MY_PRESET_SLOTS.map((s) => {
+    const w = briefs[s.id];
+    const how =
+      s.kind === 'remix'
+        ? `Remix of “${INITIAL_PRESETS.find((p) => p.id === w?.base)?.name ?? 'a preset'}” (at least 3 big changes)`
+        : s.kind === 'adventure'
+        ? `Guided build: ${adventureInfo(w?.base ?? '')?.name ?? 'a sound type'}, from scratch`
+        : 'Original, from scratch';
+    return {
+      id: s.id,
+      title: w?.name ? `${s.title}: “${w.name}”` : s.title,
+      kind: 'My Preset',
+      phrase: w?.phrase ?? adventureInfo(w?.base ?? '')?.phrase ?? 'leadLine',
+      context: <><b className="text-slate-300">How it was made:</b> {how}</>,
+    };
+  });
+  return [...fromBriefs, ...fromPresets];
+}
+
 export const BriefReviewList: React.FC<BriefReviewListProps> = ({ briefs = {}, assigned, onPlay, onLoad }) => {
-  const shown = SOUND_BRIEFS.filter((b) => briefs[b.id] || assigned?.includes(b.id));
+  const shown = items(briefs).filter((b) => briefs[b.id] || assigned?.includes(b.id));
   if (!shown.length) return null;
   return (
     <div className="space-y-1.5">
@@ -49,7 +92,7 @@ export const BriefReviewList: React.FC<BriefReviewListProps> = ({ briefs = {}, a
                     type="button"
                     onClick={(e) => {
                       e.preventDefault();
-                      onPlay(b.id, w.params);
+                      onPlay(b.id, w.params, b.phrase);
                     }}
                     className="px-2 py-0.5 rounded bg-fuchsia-500 hover:bg-fuchsia-400 text-black font-bold flex items-center gap-1"
                     title={`Play it: ${PHRASES[b.phrase].label}`}
@@ -74,7 +117,7 @@ export const BriefReviewList: React.FC<BriefReviewListProps> = ({ briefs = {}, a
             </summary>
             <div className="px-3 pb-2.5 pt-1 space-y-2 border-t border-fuchsia-500/15">
               <p className="text-[11px] text-slate-400">
-                <b className="text-slate-300">Brief:</b> {b.ask} <b className="text-slate-300">Listen for:</b> {b.listenFor}
+                {b.context}
               </p>
               {w.note && <p className="text-[11px] text-fuchsia-100 italic">Student: “{w.note}”</p>}
               <PatchParamList params={w.params} />

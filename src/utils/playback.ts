@@ -47,6 +47,10 @@ export const PHRASES: Record<PhraseId, { label: string; notes: PhraseNote[] }> =
   longHit: { label: 'One long note', notes: [{ note: 'C3', at: 0, dur: 2.0 }] },
   shortHits: { label: 'Short notes', notes: seq(['C5', 'G5', 'C5', 'E5', 'G5', 'C6'], 0.22, 0.1) },
   swell: { label: 'Long held note', notes: [{ note: 'C3', at: 0, dur: 5.0 }] },
+  drumBeat: {
+    label: 'Drum pattern',
+    notes: [0, 0.5, 1.0, 1.25, 1.5, 2.0, 2.5, 2.75, 3.0].map((at) => ({ note: 'C3', at, dur: 0.1 })),
+  },
 };
 
 /** A phrase from a list of note names: one after another, or all together as a chord. */

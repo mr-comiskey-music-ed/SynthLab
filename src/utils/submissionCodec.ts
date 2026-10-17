@@ -89,13 +89,13 @@ export function unpackParams(packed: Record<string, unknown>, legacy = false): S
   return legacy ? upgradeLegacyParams(params) : (params as SynthParams);
 }
 
-/** Brief work packs as [patch, hints] or [patch, hints, note]. */
+/** Saved sounds pack as [patch, hints, note, name, base, phrase], with empty trailing fields dropped. */
 function packBriefs(briefs: Record<string, BriefWork>): Record<string, unknown[]> {
   return Object.fromEntries(
     Object.entries(briefs).map(([id, w]) => {
-      const p = packParams(w.params);
-      const note = (w.note || '').trim();
-      return [id, note ? [p, w.hints, note] : [p, w.hints]];
+      const arr: unknown[] = [packParams(w.params), w.hints, (w.note || '').trim(), (w.name || '').trim(), w.base || '', w.phrase || ''];
+      while (arr.length > 2 && arr[arr.length - 1] === '') arr.pop();
+      return [id, arr];
     })
   );
 }
@@ -105,11 +105,15 @@ function unpackBriefs(raw: unknown): Record<string, BriefWork> | undefined {
   const out: Record<string, BriefWork> = {};
   for (const [id, v] of Object.entries(raw as Record<string, unknown>)) {
     if (!Array.isArray(v)) continue;
-    const [p, hints, note] = v;
+    const [p, hints, note, name, base, phrase] = v;
+    const str = (x: unknown) => (typeof x === 'string' && x ? x : undefined);
     out[id] = {
       params: unpackParams((p as Record<string, unknown>) || {}),
       hints: Math.max(0, Math.min(2, Number(hints) || 0)),
-      ...(typeof note === 'string' && note ? { note } : {}),
+      ...(str(note) ? { note: str(note) } : {}),
+      ...(str(name) ? { name: str(name) } : {}),
+      ...(str(base) ? { base: str(base) } : {}),
+      ...(str(phrase) ? { phrase: str(phrase) as BriefWork['phrase'] } : {}),
     };
   }
   return Object.keys(out).length ? out : undefined;

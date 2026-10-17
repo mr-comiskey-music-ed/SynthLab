@@ -79,8 +79,10 @@ export interface ArpConfig {
 export interface Preset {
   id: string;
   name: string;
-  category: 'Bass' | 'Lead' | 'Pad' | 'Pluck' | 'FX' | 'Drums';
+  category: 'Bass' | 'Lead' | 'Pad' | 'Pluck' | 'FX' | 'Drums' | 'Brass' | 'Strings' | 'Keys' | 'Custom';
   description: string;
+  /** "What makes it work": the 2-3 settings that give this sound its character. */
+  why?: string;
   params: SynthParams;
 }
 
@@ -159,7 +161,7 @@ export interface BlindTestChallenge {
 
 export type BriefKind = 'Music' | 'Sound FX';
 /** What the test button plays so students can hear their patch in context. */
-export type PhraseId = 'bassRiff' | 'padChords' | 'leadLine' | 'pluckArp' | 'longHit' | 'shortHits' | 'swell';
+export type PhraseId = 'bassRiff' | 'padChords' | 'leadLine' | 'pluckArp' | 'longHit' | 'shortHits' | 'swell' | 'drumBeat';
 
 export interface SoundBrief {
   id: string;
@@ -174,13 +176,19 @@ export interface SoundBrief {
   phrase: PhraseId;
 }
 
-/** A student's saved answer to a Sound Design Brief. */
+/** A student's saved sound: a Sound Design Brief answer or one of their My Presets. */
 export interface BriefWork {
   params: SynthParams;
-  /** How many hints they opened (0-2). */
+  /** How many hints they opened (0-2). Briefs only. */
   hints: number;
   /** Optional one-line description in the student's words. */
   note?: string;
+  /** My Presets: the name the student gave it. */
+  name?: string;
+  /** My Presets: the preset it remixes, or the adventure it followed. */
+  base?: string;
+  /** My Presets: which test phrase suits it (for playback in the grade report). */
+  phrase?: PhraseId;
 }
 
 export interface TeacherAssignment {

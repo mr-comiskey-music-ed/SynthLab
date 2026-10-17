@@ -23,8 +23,8 @@ import {
   formatDate,
   STRUGGLE_THRESHOLD,
 } from '../utils/batchGrading';
-import { ALL_TASKS, TASK_CATEGORIES, taskInfo, gradedTaskIds, gradedDoneCount, isDesignBrief } from '../utils/taskCatalog';
-import { SynthParams } from '../types';
+import { ALL_TASKS, TASK_CATEGORIES, taskInfo, gradedTaskIds, gradedDoneCount, isByEar } from '../utils/taskCatalog';
+import { SynthParams, PhraseId } from '../types';
 import { BriefReviewList } from './BriefReviewList';
 import { scoreLabel } from './ModeTeacher';
 
@@ -46,8 +46,8 @@ interface BatchGradeModalProps {
   onClear: () => void;
   /** Load patches in this order (entry ids), starting at position `start`. */
   onReview: (order: number[], start: number) => void;
-  /** Play a student's Sound Design Brief patch in its musical context. */
-  onPlayBrief: (briefId: string, params: SynthParams) => void;
+  /** Play a student's saved sound (brief or My Preset) in its musical context. */
+  onPlayBrief: (taskId: string, params: SynthParams, phrase?: PhraseId) => void;
 }
 
 export const gradeColor = (pct: number) =>
@@ -65,6 +65,7 @@ const CATEGORY_SHORT: Record<string, string> = {
   'Synth Doctor': 'Doctor',
   'Blind Ear Test': 'Ear',
   'Sound Design': 'Design',
+  'My Presets': 'Presets',
 };
 
 export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
@@ -334,7 +335,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                 <div className="border border-white/10 rounded-xl overflow-hidden">
                   <div className="grid grid-cols-[1fr_120px_56px_64px_96px] sm:grid-cols-[1fr_170px_64px_80px_110px] gap-2 px-3 py-2 bg-white/5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
                     <span>Student</span>
-                    <span>Assigned done (Patch · Doctor · Ear · Design)</span>
+                    <span>Assigned done (Patch · Doctor · Ear · Design · Presets)</span>
                     <span className="text-center" title="A/B Ear Training + Synth Doctor">Main</span>
                     <span className="text-center" title="Patch Master: 50% for trying, 50% from match scores">Patch Master</span>
                     <span />
@@ -413,24 +414,24 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                                 </div>
                               ) : null;
                             })()}
-                            {(s.briefs || s.assignedTasks?.some(isDesignBrief)) && (
+                            {(s.briefs || s.assignedTasks?.some(isByEar)) && (
                               <div className="space-y-1">
                                 <div className="text-[10px] uppercase tracking-wider text-fuchsia-300/80">
-                                  Sound Design Briefs (grade by ear)
+                                  Sound Design & My Presets (grade by ear)
                                 </div>
                                 <BriefReviewList
                                   briefs={s.briefs}
-                                  assigned={gradedTaskIds(s.assignedTasks).filter(isDesignBrief)}
+                                  assigned={gradedTaskIds(s.assignedTasks).filter(isByEar)}
                                   onPlay={onPlayBrief}
                                 />
                               </div>
                             )}
-                            {s.completedTasks.filter((t) => !isDesignBrief(t.taskId)).length === 0 ? (
+                            {s.completedTasks.filter((t) => !isByEar(t.taskId)).length === 0 ? (
                               <div className="text-[11px] text-slate-500 italic">No tasks completed.</div>
                             ) : (
                               <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
                                 {s.completedTasks
-                                  .filter((t) => !isDesignBrief(t.taskId))
+                                  .filter((t) => !isByEar(t.taskId))
                                   .sort((a, b) => taskOrder(a.taskId) - taskOrder(b.taskId))
                                   .map((t) => {
                                     const good = t.score >= STRUGGLE_THRESHOLD;

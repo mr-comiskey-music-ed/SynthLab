@@ -6,12 +6,13 @@ import {
   Preset,
   StudentSubmission,
   BriefWork,
+  PhraseId,
 } from './types';
 import { SubtractiveEngine } from './audio/synthEngine';
 import { DEFAULT_SYNTH_PARAMS, INITIAL_PRESETS } from './utils/presets';
 import { decodeSubmission, decodePatch } from './utils/submissionCodec';
 import { parseBatch, BatchParseResult } from './utils/batchGrading';
-import { cleanTaskList, isPatchMaster } from './utils/taskCatalog';
+import { cleanTaskList, isPatchMaster, taskTitle } from './utils/taskCatalog';
 import { briefInfo } from './utils/briefs';
 import { PHRASES, playPhrase } from './utils/playback';
 import { BatchGradeModal } from './components/BatchGradeModal';
@@ -208,16 +209,15 @@ export default function App() {
   };
   const reviewEntry = review && batchResult ? batchResult.entries[review.order[review.pos]] : null;
 
-  const handleSaveBrief = (briefId: string, work: BriefWork) => {
-    setBriefWork((prev) => ({ ...prev, [briefId]: work }));
-    handleRecordTaskScore(briefId, `Sound Design: ${briefInfo(briefId)?.title ?? briefId}`, 100);
+  const handleSaveBrief = (taskId: string, work: BriefWork) => {
+    setBriefWork((prev) => ({ ...prev, [taskId]: work }));
+    handleRecordTaskScore(taskId, taskTitle(taskId), 100);
   };
 
-  /** Hear a student's brief patch in its musical context, then put the synth back. */
-  const handlePlayBrief = (briefId: string, briefParams: SynthParams) => {
-    const brief = briefInfo(briefId);
-    if (!brief) return;
-    playPhrase(engine, PHRASES[brief.phrase].notes, { params: briefParams, restore: () => paramsRef.current });
+  /** Hear a student's saved sound in its musical context, then put the synth back. */
+  const handlePlayBrief = (taskId: string, savedParams: SynthParams, phrase?: PhraseId) => {
+    const id = phrase ?? briefInfo(taskId)?.phrase ?? 'leadLine';
+    playPhrase(engine, PHRASES[id].notes, { params: savedParams, restore: () => paramsRef.current });
   };
 
   const handleRecordTaskScore = (taskId: string, taskTitle: string, score: number) => {

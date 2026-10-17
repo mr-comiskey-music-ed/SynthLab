@@ -7,6 +7,7 @@ import { scorePatch, nextPatchHint, AspectResult } from '../utils/patchScore';
 import { playPhrase, notesPhrase, stopPhrase } from '../utils/playback';
 import { PatchParamList } from './PatchParamList';
 import { ModeBriefs } from './ModeBriefs';
+import { ModeMyPresets } from './ModeMyPresets';
 import {
   Volume2,
   Stethoscope,
@@ -21,6 +22,7 @@ import {
   Eye,
   Palette,
   Lock,
+  Library,
 } from 'lucide-react';
 
 export const HINTS_PER_PATCH = 2;
@@ -29,7 +31,7 @@ export const TRIES_BEFORE_REVEAL = 3;
 /** Points a Synth Doctor fix loses for each clue opened. */
 export const DOCTOR_CLUE_COST = 10;
 
-type Category = 'blind' | 'doctor' | 'matcher' | 'design';
+type Category = 'blind' | 'doctor' | 'matcher' | 'design' | 'mine';
 
 interface ModeChallengesProps {
   engine: SubtractiveEngine;
@@ -201,6 +203,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
     { id: 'doctor', label: '2. Synth Doctor', icon: <Stethoscope className="w-4 h-4" />, on: 'bg-emerald-500 text-black shadow-[0_0_12px_#10b981]' },
     { id: 'matcher', label: '3. Patch Master', icon: <Target className="w-4 h-4" />, on: 'bg-amber-500 text-black shadow-[0_0_12px_#f59e0b]' },
     { id: 'design', label: '4. Sound Design', icon: <Palette className="w-4 h-4" />, on: 'bg-fuchsia-500 text-black shadow-[0_0_12px_#d946ef]' },
+    { id: 'mine', label: '5. My Presets', icon: <Library className="w-4 h-4" />, on: 'bg-violet-500 text-black shadow-[0_0_12px_#8b5cf6]' },
   ];
 
   const selectTab = (id: Category) => {
@@ -603,6 +606,11 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
       {/* ---------------- 4. Sound Design ---------------- */}
       {activeCategory === 'design' && (
         <ModeBriefs engine={engine} params={params} briefWork={briefWork} onSaveBrief={onSaveBrief} onLoadParams={onLoadParams} />
+      )}
+
+      {/* ---------------- 5. My Presets ---------------- */}
+      {activeCategory === 'mine' && (
+        <ModeMyPresets engine={engine} params={params} saved={briefWork} onSave={onSaveBrief} onLoadParams={onLoadParams} />
       )}
 
       {/* Synth Doctor instructions (shown the first time only) */}

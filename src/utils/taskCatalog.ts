@@ -1,12 +1,13 @@
 import { PATCH_MATCHER_CHALLENGES, SYNTH_DOCTOR_TICKETS, BLIND_TEST_CHALLENGES } from './presets';
 import { SOUND_BRIEFS } from './briefs';
+import { MY_PRESET_SLOTS } from './myPresets';
 
 /**
  * Every gradeable task in the lab, in one place. Submission codes only carry
  * task IDs and scores; titles and categories are rebuilt from this list.
  */
 
-export type TaskCategory = 'Patch Matcher' | 'Synth Doctor' | 'Blind Ear Test' | 'Sound Design';
+export type TaskCategory = 'Patch Matcher' | 'Synth Doctor' | 'Blind Ear Test' | 'Sound Design' | 'My Presets';
 
 export interface TaskInfo {
   id: string;
@@ -15,7 +16,7 @@ export interface TaskInfo {
   category: TaskCategory;
 }
 
-export const TASK_CATEGORIES: TaskCategory[] = ['Patch Matcher', 'Synth Doctor', 'Blind Ear Test', 'Sound Design'];
+export const TASK_CATEGORIES: TaskCategory[] = ['Patch Matcher', 'Synth Doctor', 'Blind Ear Test', 'Sound Design', 'My Presets'];
 
 export const ALL_TASKS: TaskInfo[] = [
   ...PATCH_MATCHER_CHALLENGES.map((c) => ({
@@ -41,6 +42,12 @@ export const ALL_TASKS: TaskInfo[] = [
     title: `Sound Design: ${b.title}`,
     shortTitle: `${b.title} (${b.kind})`,
     category: 'Sound Design' as const,
+  })),
+  ...MY_PRESET_SLOTS.map((s) => ({
+    id: s.id,
+    title: `My Presets: ${s.title}`,
+    shortTitle: s.title,
+    category: 'My Presets' as const,
   })),
 ];
 
@@ -114,10 +121,15 @@ export interface Grades {
   patchMaster: PatchMasterGrade | null;
   /** Sound Design Briefs turned in. Null when none were assigned. */
   design: DesignProgress | null;
+  /** My Presets turned in. Null when none were assigned. */
+  myPresets: DesignProgress | null;
 }
 
 export const isPatchMaster = (id: string) => taskInfo(id)?.category === 'Patch Matcher';
 export const isDesignBrief = (id: string) => taskInfo(id)?.category === 'Sound Design';
+export const isMyPreset = (id: string) => taskInfo(id)?.category === 'My Presets';
+/** Creative tasks: saved sounds the teacher grades by ear. */
+export const isByEar = (id: string) => isDesignBrief(id) || isMyPreset(id);
 
 /**
  * Grades, each out of the assigned tasks (or all tasks when nothing was assigned):
@@ -131,8 +143,9 @@ export const isDesignBrief = (id: string) => taskInfo(id)?.category === 'Sound D
 export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
   const graded = gradedTaskIds(assigned);
   const byId = new Map(tasks.map((t) => [t.taskId, t]));
-  const mainIds = graded.filter((id) => !isPatchMaster(id) && !isDesignBrief(id));
+  const mainIds = graded.filter((id) => !isPatchMaster(id) && !isByEar(id));
   const briefIds = graded.filter(isDesignBrief);
+  const myIds = graded.filter(isMyPreset);
   const pmIds = graded.filter(isPatchMaster);
 
   let main: MainGrade | null = null;
@@ -154,7 +167,8 @@ export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
     };
   }
   const design = briefIds.length ? { submitted: briefIds.filter((id) => byId.has(id)).length, total: briefIds.length } : null;
-  return { main, patchMaster, design };
+  const myPresets = myIds.length ? { submitted: myIds.filter((id) => byId.has(id)).length, total: myIds.length } : null;
+  return { main, patchMaster, design, myPresets };
 }
 
 /** The headline number kept on a submission: the main grade, or the Patch Master grade if that's all that was assigned. */
