@@ -1,6 +1,6 @@
 import { ENVELOPE_CENTER_SECONDS } from '../utils/taper';
 import React, { useState } from 'react';
-import { SynthParams, WaveformType, LfoDestination, FilterRolloff } from '../types';
+import { SynthParams, WaveformType, LfoDestination, FilterRolloff, VoiceMode } from '../types';
 import { Knob } from './Knob';
 import { VerticalSlider } from './Slider';
 import { ToggleSwitch } from './ToggleSwitch';
@@ -111,16 +111,17 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
               <div className="flex flex-col items-center">
                 <Knob
                   id="retro-vco1-pw"
-                  label="PWM / Shape"
+                  label="Pulse Width"
                   value={params.vco1PulseWidth * 100}
-                  min={0}
-                  max={100}
+                  min={5}
+                  max={95}
                   step={1}
-                  defaultValue={0}
+                  defaultValue={50}
                   unit="%"
                   theme="studio-retro"
                   section="vco"
-                  lfoDepth={params.lfoDepth}
+                  lfoModulated={params.lfoDestination === 'pwm' && params.vco1Waveform === 'square'}
+                    lfoDepth={params.lfoDepth}
                   onChange={(v) => {
                     onParamChange('vco1PulseWidth', v / 100);
                     if (params.vco1Waveform !== 'square') {
@@ -131,7 +132,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 <span className={`text-[8px] font-mono font-bold tracking-tighter uppercase px-1 rounded mt-0.5 ${
                   params.vco1Waveform === 'square' ? 'text-amber-400 bg-amber-500/20' : 'text-slate-500'
                 }`}>
-                  {params.vco1Waveform === 'square' ? 'PWM ACTIVE' : 'PWM (ON SQR)'}
+                  {params.vco1Waveform !== 'square' ? 'SQUARE ONLY' : Math.abs(params.vco1PulseWidth - 0.5) < 0.03 ? '50/50 SQUARE' : 'THIN PULSE'}
                 </span>
               </div>
             </div>
@@ -586,6 +587,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                   options={[
                     { label: 'Pitch', value: 'pitch', short: 'PITCH' },
                     { label: 'Filter', value: 'cutoff', short: 'CUTOFF' },
+                    { label: 'Pulse Width', value: 'pwm', short: 'PW' },
                   ]}
                   value={params.lfoDestination}
                   theme="studio-retro"
@@ -598,6 +600,38 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
 
           {/* Master Output Section */}
           <div className="p-2 rounded-lg bg-black/40 border border-slate-600/40 flex flex-col items-center">
+            {/* Voicing: poly (chords) or mono (one note, with glide) */}
+            <div className="flex flex-col items-center gap-1 mb-2 pb-2 border-b border-slate-600/40">
+              <ToggleSwitch<VoiceMode>
+                id="retro-voice-mode"
+                label="Voices"
+                options={[
+                  { label: 'Poly: play chords', value: 'poly', short: 'POLY' },
+                  { label: 'Mono: one note at a time, with glide', value: 'mono', short: 'MONO' },
+                ]}
+                value={params.voiceMode}
+                theme="studio-retro"
+                orientation="horizontal"
+                onChange={(v) => onParamChange('voiceMode', v)}
+              />
+              <Knob
+                id="retro-glide"
+                label="Glide"
+                section="master"
+                value={Math.round(params.glide * 1000)}
+                min={0}
+                max={1000}
+                step={10}
+                defaultValue={0}
+                unit="ms"
+                theme="studio-retro"
+                onChange={(v) => {
+                  onParamChange('glide', v / 1000);
+                  if (v > 0 && params.voiceMode !== 'mono') onParamChange('voiceMode', 'mono');
+                }}
+              />
+              <span className="text-[8px] font-mono font-bold uppercase text-slate-500">{params.voiceMode === 'mono' ? 'GLIDE ON' : 'MONO ONLY'}</span>
+            </div>
             <span className="text-[10px] font-mono text-slate-300 font-bold mb-1 uppercase tracking-wider">
               Master Volume
             </span>
