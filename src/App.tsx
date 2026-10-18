@@ -24,7 +24,7 @@ import { ModeLearn } from './components/ModeLearn';
 import { ModePlayground } from './components/ModePlayground';
 import { ModeChallenges } from './components/ModeChallenges';
 import { ModeTeacher, SharedReport } from './components/ModeTeacher';
-import { MarbleWaveLogo } from './components/MarbleWaveLogo';
+import { SynthLabLogo } from './components/SynthLabLogo';
 import {
   BookOpen,
   Gamepad2,
@@ -247,7 +247,7 @@ export default function App() {
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
           {/* Brand & Subtractive Lab Title */}
           <div className="flex items-center gap-3">
-            <MarbleWaveLogo size={48} />
+            <SynthLabLogo size={48} />
             <h1 className="text-base sm:text-lg font-bold tracking-wider font-mono text-white">
               SUBTRACTIVE SYNTHESIS LAB
             </h1>

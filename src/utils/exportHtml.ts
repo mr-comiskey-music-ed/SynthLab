@@ -8,8 +8,9 @@ export function getStandaloneHtml(): string {
   <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.js"><\/script>
   <script src="https://cdn.tailwindcss.com"><\/script>
   <style>
-    @import url('https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&display=swap');
-    body { font-family: 'JetBrains Mono', monospace; }
+    @import url('https://fonts.googleapis.com/css2?family=Barlow:wght@400;500;600;700&family=Barlow+Semi+Condensed:wght@400;500;600;700&display=swap');
+    body { font-family: 'Barlow', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+    .font-mono { font-family: 'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif; }
   </style>
 </head>
 <body class="bg-[#0e1117] text-slate-100 min-h-screen p-4 select-none">

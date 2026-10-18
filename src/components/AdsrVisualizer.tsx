@@ -391,7 +391,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
             fontSize="13"
             fontStyle="italic"
             fontWeight="500"
-            fontFamily="system-ui, -apple-system, sans-serif"
+            fontFamily="'Barlow', system-ui, sans-serif"
             fill="#0f172a"
           >
             Level 100%
@@ -415,7 +415,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
             fontSize="13"
             fontStyle="italic"
             fontWeight="500"
-            fontFamily="system-ui, -apple-system, sans-serif"
+            fontFamily="'Barlow', system-ui, sans-serif"
             fill="#0f172a"
           >
             Time
@@ -423,7 +423,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
 
           {/* 6. ZONE LABELS AT THE BOTTOM */}
           {showLabels && (
-            <g fontSize="12" fontWeight="600" fontFamily="system-ui, -apple-system, sans-serif">
+            <g fontSize="12" fontWeight="600" fontFamily="'Barlow', system-ui, sans-serif">
               {/* Attack Label */}
               <text x={x0 + widthA / 2} y={yZero + 16} textAnchor="middle" fill="#065f46">
                 Attack
@@ -499,7 +499,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
                   textAnchor="middle"
                   fontSize="8"
                   fontWeight="bold"
-                  fontFamily="monospace"
+                  fontFamily="'Barlow Semi Condensed', system-ui, sans-serif"
                   fill="#ffffff"
                 >
                   {dot.stage.toUpperCase()} {Math.round(dot.level * 100)}%

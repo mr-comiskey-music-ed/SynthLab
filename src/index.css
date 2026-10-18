@@ -1,1 +1,14 @@
 @import "tailwindcss";
+
+/* Two roles, one family (Barlow):
+   - font-sans: Barlow, for sentences and general UI
+   - font-mono: Barlow Semi Condensed, for panel labels, readouts and codes
+   (the app's existing font-mono classes now pick up the condensed panel style) */
+@theme {
+  --font-sans: 'Barlow', ui-sans-serif, system-ui, sans-serif;
+  --font-mono: 'Barlow Semi Condensed', 'Barlow', ui-sans-serif, system-ui, sans-serif;
+}
+
+body {
+  font-variant-numeric: tabular-nums;
+}
