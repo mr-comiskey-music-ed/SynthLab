@@ -11,6 +11,8 @@ interface KnobProps {
   step?: number;
   defaultValue?: number;
   unit?: string;
+  /** Custom readout for the value under the knob (overrides the unit formatting). */
+  format?: (v: number) => string;
   section?: 'vco' | 'filter' | 'envelope' | 'lfo' | 'master';
   theme: ThemeMode;
   logarithmic?: boolean;
@@ -31,6 +33,7 @@ export const Knob: React.FC<KnobProps> = ({
   step = 1,
   defaultValue,
   unit = '',
+  format,
   section = 'master',
   theme,
   logarithmic = false,
@@ -138,6 +141,7 @@ export const Knob: React.FC<KnobProps> = ({
 
   // Format value display
   const formatDisplay = (v: number): string => {
+    if (format) return format(v);
     if (unit === 'Hz') {
       return v >= 1000 ? `${(v / 1000).toFixed(1)}k` : `${v.toFixed(1)} Hz`;
     }

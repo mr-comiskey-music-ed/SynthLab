@@ -2,6 +2,7 @@ import { ENVELOPE_CENTER_SECONDS } from '../utils/taper';
 import React, { useState } from 'react';
 import { SynthParams, WaveformType, LfoDestination, FilterRolloff, VoiceMode } from '../types';
 import { Knob } from './Knob';
+import { balanceText } from '../utils/balanceText';
 import { ToggleSwitch } from './ToggleSwitch';
 import { Visualizer } from './Visualizer';
 import { FilterVisualizer } from './FilterVisualizer';
@@ -246,7 +247,8 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
               />
               <Knob
                 id="mini-osc-balance"
-                label="Crossfade"
+                label="VCO Crossfade"
+              format={balanceText}
                 section="vco"
                 value={params.oscBalance}
                 min={-1}
@@ -262,7 +264,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
           {/* VCF Filter Section */}
           <div
             id="minilogue-vcf-section"
-            className={`lg:col-span-3 rounded-xl p-2 border-2 transition-all flex flex-col justify-between ${
+            className={`lg:col-span-3 rounded-xl p-2 border-2 transition-all flex flex-col justify-start ${
               isHighlighted('filter')
                 ? 'border-red-500 bg-red-50/50 shadow-md ring-2 ring-red-400'
                 : 'border-slate-400/40 bg-white/40'
@@ -353,7 +355,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
             </div>
 
             {/* Real-time Spectrometer */}
-            <div className="mt-2">
+            <div className="-mt-px">
               <Visualizer engine={engine} theme="hardware-bench" height={280} />
             </div>
           </div>

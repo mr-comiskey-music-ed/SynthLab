@@ -65,51 +65,83 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
       ctx.shadowColor = theme === 'hardware-bench' ? '#22c55e' : '#f59e0b';
       ctx.shadowBlur = 8;
 
-      let filterStarted = false;
+      // The real response of the engine's filter: Tone cascades one 2-pole biquad per
+      // 12 dB/oct, each with the same Q (in dB, as in Web Audio), so poles x Q dB of peak.
+      const stages = Math.abs(rolloff) / 12;
+      const fs = 48000;
+      const w0 = (2 * Math.PI * Math.min(cutoff, 0.45 * fs)) / fs;
+      const qLin = Math.pow(10, Q / 20);
+      const alpha = Math.sin(w0) / (2 * qLin);
+      const cosw = Math.cos(w0);
+      const b0 = (1 - cosw) / 2, b1 = 1 - cosw, b2 = b0;
+      const a0 = 1 + alpha, a1 = -2 * cosw, a2 = 1 - alpha;
+      const stageDb = (f: number) => {
+        const w = (2 * Math.PI * f) / fs;
+        const c1 = Math.cos(w), s1 = Math.sin(w), c2 = Math.cos(2 * w), s2 = Math.sin(2 * w);
+        const nr = b0 + b1 * c1 + b2 * c2, ni = -(b1 * s1 + b2 * s2);
+        const dr = a0 + a1 * c1 + a2 * c2, di = -(a1 * s1 + a2 * s2);
+        return 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di));
+      };
+
+      const DB_MIN = -48;
+      const DB_MAX = 42;
+      const plotTop = 24;
+      const plotBottom = h - 26;
+      const dbToY = (db: number) => plotBottom - ((Math.max(DB_MIN, Math.min(DB_MAX, db)) - DB_MIN) / (DB_MAX - DB_MIN)) * (plotBottom - plotTop);
+
+      // Level guides: 0 dB is the level of everything the filter lets through.
+      ctx.save();
+      ctx.shadowBlur = 0;
+      ctx.lineWidth = 1;
+      ctx.font = '9px monospace';
+      for (const db of [-24, 0, 24]) {
+        const y = dbToY(db);
+        ctx.strokeStyle = db === 0 ? (theme === 'hardware-bench' ? 'rgba(34, 197, 94, 0.3)' : 'rgba(245, 158, 11, 0.3)') : (theme === 'hardware-bench' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(245, 158, 11, 0.1)');
+        ctx.beginPath();
+        ctx.moveTo(0, y);
+        ctx.lineTo(width, y);
+        ctx.stroke();
+        ctx.fillStyle = theme === 'hardware-bench' ? 'rgba(34, 197, 94, 0.5)' : 'rgba(245, 158, 11, 0.6)';
+        ctx.fillText(`${db > 0 ? '+' : ''}${db} dB`, width - 44, y - 3);
+      }
+      ctx.restore();
+
+      const pts: [number, number, number][] = [];
+      let peakDb = -999;
       let peakX = 0;
-      let peakY = 0;
-      let peakGain = -999;
-
       for (let x = 0; x <= width; x += 1) {
-        const minLog = Math.log10(minFreq);
-        const maxLog = Math.log10(maxFreq);
-        const fLog = minLog + (x / width) * (maxLog - minLog);
-        const freq = Math.pow(10, fLog);
-
-        const w = freq / Math.max(20, cutoff);
-        const poles = rolloff === -24 ? 4 : 2;
-        
-        const denom = Math.sqrt(Math.pow(1 - w * w, poles) + Math.pow(w / Q, 2));
-        let gain = 1 / Math.max(0.01, denom);
-        
-        if (Q > 0.5 && Math.abs(freq - cutoff) < cutoff * 0.28) {
-          gain *= (1 + (Q * 0.22));
-        }
-
-        const dbGain = 20 * Math.log10(Math.max(0.01, gain));
-        const normalizedGain = Math.max(0, Math.min(1, (dbGain + 12) / 36));
-        const y = (h - 26) - (normalizedGain * (h - 45));
-
-        if (dbGain > peakGain) {
-          peakGain = dbGain;
+        const freq = Math.pow(10, Math.log10(minFreq) + (x / width) * (Math.log10(maxFreq) - Math.log10(minFreq)));
+        const db = stages * stageDb(freq);
+        pts.push([x, dbToY(db), db]);
+        if (db > peakDb) {
+          peakDb = db;
           peakX = x;
-          peakY = y;
-        }
-
-        if (!filterStarted) {
-          ctx.moveTo(x, y);
-          filterStarted = true;
-        } else {
-          ctx.lineTo(x, y);
         }
       }
+
+      // Soft fill under the curve, then the curve itself.
+      ctx.beginPath();
+      ctx.moveTo(0, plotBottom);
+      pts.forEach(([x, y]) => ctx.lineTo(x, y));
+      ctx.lineTo(width, plotBottom);
+      ctx.closePath();
+      ctx.fillStyle = theme === 'hardware-bench' ? 'rgba(34, 197, 94, 0.08)' : 'rgba(245, 158, 11, 0.08)';
+      ctx.fill();
+
+      ctx.beginPath();
+      ctx.lineWidth = 2.5;
+      ctx.lineJoin = 'round';
+      ctx.strokeStyle = theme === 'hardware-bench' ? '#22c55e' : '#f59e0b';
+      ctx.shadowColor = ctx.strokeStyle;
+      ctx.shadowBlur = 8;
+      pts.forEach(([x, y], i) => (i === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Draw resonance peak dot (Logic Pro Retro Synth style)
-      if (peakX > 0 && peakY > 0) {
+      // Dot on the resonance peak, only when there is a real peak above the passband.
+      if (peakDb > 0.8) {
         ctx.beginPath();
-        ctx.arc(peakX, peakY, 4.5, 0, Math.PI * 2);
+        ctx.arc(peakX, dbToY(peakDb), 4.5, 0, Math.PI * 2);
         ctx.fillStyle = theme === 'hardware-bench' ? '#22c55e' : '#f59e0b';
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
@@ -130,7 +162,9 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
       ctx.font = '11px monospace';
       const cutoffVal = params.filterCutoff >= 1000 ? (params.filterCutoff / 1000).toFixed(2) + ' kHz' : Math.round(params.filterCutoff) + ' Hz';
       ctx.fillText(`Cutoff: ${cutoffVal}`, 12, h - 7);
-      ctx.fillText(`Res: ${params.filterResonance.toFixed(2)}`, width - 95, h - 7);
+      const peakText = peakDb > 0.8 ? `  (+${Math.round(peakDb)} dB peak)` : '';
+      const resText = `Res: ${params.filterResonance.toFixed(1)}${peakText}`;
+      ctx.fillText(resText, width - 12 - ctx.measureText(resText).width, h - 7);
 
       // CRT Scanline Overlay
       ctx.fillStyle = 'rgba(0, 0, 0, 0.1)';
@@ -152,7 +186,7 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
 
   const containerClasses = isFullScreen
     ? "fixed inset-4 md:inset-12 z-50 flex flex-col p-4 bg-slate-950 border-2 border-amber-500 shadow-2xl rounded-2xl"
-    : `relative rounded-lg overflow-hidden border shadow-inner mb-3 transition-all ${
+    : `relative rounded-lg overflow-hidden border shadow-inner transition-all ${
         theme === 'hardware-bench'
           ? 'bg-[#060a08] border-[#1f2923] shadow-black/80'
           : 'bg-[#050807] border-[#18231d] shadow-black/80'
