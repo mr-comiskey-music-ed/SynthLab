@@ -355,7 +355,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
             </div>
 
             {/* Real-time Spectrometer */}
-            <div className="-mt-px">
+            <div className="mt-1.5">
               <Visualizer engine={engine} theme="hardware-bench" height={280} />
             </div>
           </div>

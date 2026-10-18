@@ -327,7 +327,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
           </div>
 
           {/* Real-time Spectrometer */}
-          <div className="-mt-px">
+          <div className="mt-1.5">
             <Visualizer engine={engine} theme="studio-retro" height={280} />
           </div>
         </div>
