@@ -124,3 +124,73 @@ export function changedSettingsCount(p: SynthParams): number {
 export const MIN_CHANGES_TO_SAVE = 3;
 
 export const BRIEF_NOTE_MAX = 120;
+
+/** How many briefs a student turns in to finish Sound Design. */
+export const BRIEFS_TO_FINISH = 4;
+
+const heardOsc = (p: SynthParams) =>
+  Math.max(p.vco1Waveform === 'noise' ? 0 : p.vco1Level, p.vco2Waveform === 'noise' ? 0 : p.vco2Level);
+const noiseHeard = (p: SynthParams) =>
+  Math.min(1, p.noiseLevel + (p.vco1Waveform === 'noise' ? p.vco1Level : 0) + (p.vco2Waveform === 'noise' ? p.vco2Level : 0));
+const hz = (n: number) => `${n.toLocaleString()} Hz`;
+
+/**
+ * Plain-language tips for a saved sound that does not fit its brief: each names what
+ * is off and which control to try. Empty when the sound is a sensible answer.
+ * (These are sanity checks, not a grade; the teacher still listens.)
+ */
+export function briefTips(id: string, p: SynthParams): string[] {
+  const t: string[] = [];
+  if (heardOsc(p) < 0.05 && noiseHeard(p) < 0.05) {
+    return ['This patch makes no sound: every oscillator and the noise are turned down. Bring up VCO 1 Level (or Noise) first.'];
+  }
+  switch (id) {
+    case 'br-wobble':
+      if (p.lfoDestination !== 'cutoff' || p.lfoDepth < 0.3)
+        t.push('A wobble is the tone opening and closing. Send the LFO to Cutoff and raise LFO Depth to 40% or more.');
+      else if (p.lfoRate > 8 || p.lfoRate < 1) t.push(`Your LFO Rate (${p.lfoRate} Hz) is ${p.lfoRate > 8 ? 'too fast' : 'too slow'} for a rhythmic wobble. Try 2 to 6 Hz.`);
+      if (p.filterCutoff > 3000) t.push(`Your Cutoff (${hz(Math.round(p.filterCutoff))}) is too high to hear the wobble. Pull it down to about 400 to 900 Hz.`);
+      if (p.vco1Octave > 0) t.push('A bass sits low. Drop VCO 1’s Octave to 0 or lower.');
+      break;
+    case 'br-pad':
+      if (p.ampAttack < 0.3) t.push(`A pad fades in slowly, but your Amp Attack is only ${p.ampAttack} s. Try 0.5 s or more.`);
+      if (p.ampRelease < 1) t.push('A pad hangs in the air after the chord. Lengthen Amp Release to 1.5 s or more.');
+      if (p.ampSustain < 0.4) t.push('Your Amp Sustain is too low: a pad holds its volume while the keys are down. Raise it.');
+      if (p.filterCutoff > 6000) t.push('Your Cutoff is too high for a warm, soft pad. Bring it down to about 1,000 to 2,500 Hz.');
+      break;
+    case 'br-lead':
+      if (p.ampAttack > 0.1) t.push('A lead has to speak right away, but your Amp Attack is too slow. Try under 20 ms.');
+      if (p.filterCutoff < 1200) t.push(`Your Cutoff (${hz(Math.round(p.filterCutoff))}) is too low for a bright, buzzy lead. Open it up.`);
+      if (['sine', 'triangle'].includes(p.vco1Waveform) && p.vco2Level < 0.2) t.push('Your waveform is too smooth for “buzzy.” Try Sawtooth or Square.');
+      if (p.ampSustain < 0.4) t.push('Your Amp Sustain is too low: held notes die away. Raise it.');
+      break;
+    case 'br-pluck':
+      if (p.ampSustain > 0.15) t.push('A pluck dies away on its own. Set Amp Sustain to 0 (or close).');
+      if (p.ampDecay > 0.5) t.push(`Your Amp Decay (${p.ampDecay} s) is too long for a quick pop. Try 0.15 to 0.3 s.`);
+      if (p.ampAttack > 0.05) t.push('Your Amp Attack is too slow: a pluck starts instantly.');
+      break;
+    case 'br-ocean':
+      if (heardOsc(p) > 0.15) t.push('Waves have no musical pitch, but your oscillators are still audible. Turn the VCO levels down and use Noise.');
+      if (noiseHeard(p) < 0.3) t.push('Waves are made of noise. Turn the Noise level up.');
+      if (p.lfoDestination !== 'cutoff' || p.lfoDepth < 0.3) t.push('Waves rise and fall. Send a slow LFO to Cutoff with a good amount of Depth.');
+      else if (p.lfoRate > 1) t.push(`Your LFO Rate (${p.lfoRate} Hz) is too fast for rolling waves. Try 0.1 to 0.4 Hz.`);
+      break;
+    case 'br-door':
+      if (noiseHeard(p) < 0.3) t.push('A whoosh is noise. Turn Noise up (and the VCOs down).');
+      if (p.filterEnvAmount < 30 && !(p.lfoDestination === 'cutoff' && p.lfoDepth > 0.3))
+        t.push('The sweep comes from the filter moving. Raise Filter Envelope Amount (EG Depth) and set a lower Cutoff to sweep up from.');
+      break;
+    case 'br-robot':
+      if (noiseHeard(p) > 0.4) t.push('Robot beeps are clean and pitched, but there is a lot of noise. Turn Noise down.');
+      if (p.ampSustain > 0.4 && p.ampDecay > 0.4) t.push('Beeps are short. Shorten Amp Decay and lower Amp Sustain so each note ends quickly.');
+      if (p.ampAttack > 0.05) t.push('Your Amp Attack is too slow for a beep. Try near 0.');
+      break;
+    case 'br-thunder':
+      if (p.filterCutoff > 600) t.push(`Distant thunder is dark. Your Cutoff (${hz(Math.round(p.filterCutoff))}) is too high: try 80 to 250 Hz.`);
+      if (heardOsc(p) > 0.15) t.push('Thunder has no clear pitch, but your oscillators are still audible. Turn the VCOs down and use Noise.');
+      if (noiseHeard(p) < 0.3) t.push('Thunder is a rumble of noise. Turn the Noise level up.');
+      if (p.ampAttack < 0.2) t.push('Thunder builds. Slow the Amp Attack to 0.3 s or more and lengthen the Release.');
+      break;
+  }
+  return t.slice(0, 3);
+}

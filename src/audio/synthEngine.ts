@@ -40,6 +40,8 @@ class Voice {
   filterEnv: Tone.Envelope;
   filterEnvGain: Tone.Gain;
   ampEnv: Tone.AmplitudeEnvelope;
+  /** Fades the LFO's cutoff movement in at each note start, so a note never begins mid-sweep with a click. */
+  lfoFade: Tone.Gain;
 
   note: string | null = null;
   freq = 261.63;
@@ -59,6 +61,7 @@ class Voice {
     this.filterEnv = new Tone.Envelope();
     this.filterEnvGain = new Tone.Gain(0);
     this.ampEnv = new Tone.AmplitudeEnvelope();
+    this.lfoFade = new Tone.Gain(1);
 
     this.osc1Gain.connect(this.filter);
     this.osc2Gain.connect(this.filter);
@@ -66,7 +69,8 @@ class Voice {
     noise.connect(this.noiseGain);
     this.filterEnv.connect(this.filterEnvGain);
     this.filterEnvGain.connect(this.filter.frequency);
-    engine.lfoCutoffGain.connect(this.filter.frequency);
+    engine.lfoCutoffGain.connect(this.lfoFade);
+    this.lfoFade.connect(this.filter.frequency);
     this.filter.connect(this.ampEnv);
     this.ampEnv.connect(out);
 
@@ -126,7 +130,7 @@ class Voice {
     this.filter.Q.rampTo(p.filterResonance, 0.05);
     this.filterEnvGain.gain.rampTo((p.filterEnvAmount / 100) * FILTER_ENV_HZ, 0.05);
 
-    this.ampEnv.attack = Math.max(0.001, p.ampAttack);
+    this.ampEnv.attack = Math.max(0.003, p.ampAttack);
     this.ampEnv.decay = Math.max(0.01, p.ampDecay);
     this.ampEnv.sustain = Math.max(0, Math.min(1, p.ampSustain));
     this.ampEnv.release = Math.max(0.01, p.ampRelease);
@@ -175,6 +179,10 @@ class Voice {
       this.running = true;
     }
     const now = Tone.now();
+    // Dial the LFO in over a few tens of ms rather than letting it hit mid-wave.
+    this.lfoFade.gain.cancelScheduledValues(now);
+    this.lfoFade.gain.setValueAtTime(0, now);
+    this.lfoFade.gain.linearRampToValueAtTime(1, now + 0.06);
     this.ampEnv.triggerAttack(now, velocity);
     this.filterEnv.triggerAttack(now);
   }

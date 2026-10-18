@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { SynthParams, BriefWork, SoundBrief } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
-import { SOUND_BRIEFS, changedSettingsCount, MIN_CHANGES_TO_SAVE, BRIEF_NOTE_MAX } from '../utils/briefs';
+import { SOUND_BRIEFS, changedSettingsCount, MIN_CHANGES_TO_SAVE, BRIEF_NOTE_MAX, BRIEFS_TO_FINISH, briefTips } from '../utils/briefs';
+import { QuestComplete } from './QuestComplete';
 import { DEFAULT_SYNTH_PARAMS } from '../utils/presets';
 import { PHRASES, playPhrase } from '../utils/playback';
 import { PatchParamList } from './PatchParamList';
@@ -13,6 +14,8 @@ interface ModeBriefsProps {
   briefWork: Record<string, BriefWork>;
   onSaveBrief: (briefId: string, work: BriefWork) => void;
   onLoadParams: (p: SynthParams) => void;
+  onGoToPlayground?: () => void;
+  onGoToReport?: () => void;
 }
 
 // Kept for this visit only (nothing is stored): hints opened and notes typed, per brief.
@@ -24,10 +27,12 @@ const draftNotes: Record<string, string> = {};
  * Students build a patch, test it in a musical context, and save it into their
  * submission code. The teacher listens and grades by ear.
  */
-export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWork, onSaveBrief, onLoadParams }) => {
+export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWork, onSaveBrief, onLoadParams, onGoToPlayground, onGoToReport }) => {
   const [activeId, setActiveId] = useState(SOUND_BRIEFS[0].id);
   const [, rerender] = useState(0);
   const [justSaved, setJustSaved] = useState<string | null>(null);
+  // Tips from the last save of each brief (this visit only).
+  const [tips, setTips] = useState<Record<string, string[]>>({});
   const brief = SOUND_BRIEFS.find((b) => b.id === activeId)!;
   const hints = Math.max(openedHints[brief.id] ?? 0, briefWork[brief.id]?.hints ?? 0);
   const note = draftNotes[brief.id] ?? briefWork[brief.id]?.note ?? '';
@@ -35,6 +40,8 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
   const changes = changedSettingsCount(params);
   const canSave = changes >= MIN_CHANGES_TO_SAVE;
   const phrase = PHRASES[brief.phrase];
+  const savedCount = SOUND_BRIEFS.filter((b) => briefWork[b.id]).length;
+  const brieTips = tips[brief.id] ?? [];
 
   const openHint = () => {
     openedHints[brief.id] = Math.min(2, hints + 1);
@@ -43,6 +50,7 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
 
   const save = () => {
     if (!canSave) return;
+    setTips((prev) => ({ ...prev, [brief.id]: briefTips(brief.id, params) }));
     onSaveBrief(brief.id, { params: { ...params }, hints, ...(note.trim() ? { note: note.trim() } : {}) });
     setJustSaved(brief.id);
     setTimeout(() => setJustSaved((id) => (id === brief.id ? null : id)), 2500);
@@ -91,7 +99,7 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
             </div>
           ))}
           <p className="text-[10px] text-slate-500 font-mono">
-            {Object.keys(briefWork).length} of {SOUND_BRIEFS.length} saved
+            {savedCount} of {BRIEFS_TO_FINISH} needed to finish ({savedCount}/{SOUND_BRIEFS.length} saved). Pick any {BRIEFS_TO_FINISH}.
           </p>
         </div>
 
@@ -195,6 +203,19 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
                 {saved ? 'Save Again' : 'Save This Sound'}
               </button>
             </div>
+            {brieTips.length > 0 && (
+              <div className="p-2.5 rounded-lg bg-amber-400/10 border border-amber-300/40 text-xs text-amber-50 space-y-1" data-testid="brief-tips">
+                <b className="text-amber-300 font-mono flex items-center gap-1">
+                  <Lightbulb className="w-3.5 h-3.5" /> Saved, but this might not fit the brief yet. Tips:
+                </b>
+                <ul className="list-disc pl-5 space-y-0.5">
+                  {brieTips.map((t) => (
+                    <li key={t}>{t}</li>
+                  ))}
+                </ul>
+                <p className="text-amber-100/80">Adjust and save again to replace it, or keep it if you like how it sounds.</p>
+              </div>
+            )}
             {saved && (
               <details className="group">
                 <summary className="cursor-pointer text-[11px] font-mono text-slate-400 hover:text-slate-200 flex items-center gap-1 list-none">
@@ -206,6 +227,15 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
           </div>
         </div>
       </div>
+      {savedCount >= BRIEFS_TO_FINISH && (
+        <QuestComplete
+          quest="Sound Design"
+          tone="fuchsia"
+          summary={`${savedCount} sounds saved. Extra briefs are welcome: they show your teacher more of your style.`}
+          onGoToPlayground={onGoToPlayground}
+          onGoToReport={onGoToReport}
+        />
+      )}
     </div>
   );
 };

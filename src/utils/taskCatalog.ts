@@ -16,9 +16,9 @@ export interface TaskInfo {
   category: TaskCategory;
 }
 
-export const TASK_CATEGORIES: TaskCategory[] = ['Patch Matcher', 'Synth Doctor', 'Blind Ear Test', 'Sound Design', 'My Presets'];
+export const TASK_CATEGORIES: TaskCategory[] = ['Blind Ear Test', 'Synth Doctor', 'My Presets', 'Sound Design', 'Patch Matcher'];
 
-export const ALL_TASKS: TaskInfo[] = [
+const TASKS_UNSORTED: TaskInfo[] = [
   ...PATCH_MATCHER_CHALLENGES.map((c) => ({
     id: c.id,
     title: `Patch Matcher: ${c.title}`,
@@ -50,6 +50,11 @@ export const ALL_TASKS: TaskInfo[] = [
     category: 'My Presets' as const,
   })),
 ];
+
+/** Listed in quest order: Ear Training, Synth Doctor, My Presets, Sound Design, Patch Master. */
+export const ALL_TASKS: TaskInfo[] = [...TASKS_UNSORTED].sort(
+  (a, b) => TASK_CATEGORIES.indexOf(a.category) - TASK_CATEGORIES.indexOf(b.category)
+);
 
 /** With no assignment, the grade is the average across all tasks. */
 export const TOTAL_TASK_COUNT = ALL_TASKS.length;
@@ -108,6 +113,9 @@ export interface PatchMasterGrade {
   totalTries: number;
 }
 
+/** How many Sound Design Briefs a student must turn in to finish that quest. */
+export const DESIGN_REQUIRED = 4;
+
 /** Sound Design Briefs are graded by the teacher's ear; the app only counts what was turned in. */
 export interface DesignProgress {
   submitted: number;
@@ -137,7 +145,7 @@ export const isByEar = (id: string) => isDesignBrief(id) || isMyPreset(id);
  *    (an unfinished task counts as 0).
  *  - Patch Master grade: average over assigned patches of 50 points for trying plus up
  *    to 50 more from the best match (85%+ = full points); untried patches get 0.
- *  - Sound Design: how many assigned briefs were turned in (the teacher grades them by ear).
+ *  - Sound Design: briefs turned in, out of the 4 required (the teacher grades them by ear).
  * Tasks done outside the assignment are shown but don't change any grade.
  */
 export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
@@ -166,7 +174,10 @@ export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
       totalTries: tried.reduce((s, t) => s + (t.tries || 1), 0),
     };
   }
-  const design = briefIds.length ? { submitted: briefIds.filter((id) => byId.has(id)).length, total: briefIds.length } : null;
+  const designNeeded = Math.min(DESIGN_REQUIRED, briefIds.length);
+  const design = briefIds.length
+    ? { submitted: Math.min(designNeeded, briefIds.filter((id) => byId.has(id)).length), total: designNeeded }
+    : null;
   const myPresets = myIds.length ? { submitted: myIds.filter((id) => byId.has(id)).length, total: myIds.length } : null;
   return { main, patchMaster, design, myPresets };
 }

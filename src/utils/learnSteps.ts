@@ -23,6 +23,8 @@ export interface LearnStep {
   phrase: PhraseNote[];
   missions: Mission[];
   extra?: 'waves' | 'ampEnv' | 'filterEnv';
+  /** A nudge to watch the oscilloscope while trying this step. */
+  scope?: string;
 }
 
 /** A plain, neutral starting patch: one sawtooth, filter open, nothing moving. */
@@ -78,6 +80,7 @@ export const LEARN_STEPS: LearnStep[] = [
     what:
       'Every synth sound starts as a raw wave from an oscillator (VCO). Each wave shape has its own mix of harmonics: extra, higher frequencies stacked above the note that give it its color. More harmonics means a brighter, buzzier sound.',
     listen: 'Saw is bright and buzzy. Square is hollow, like a clarinet or an 8-bit game. Triangle and Sine are soft and pure.',
+    scope: 'Watch the oscilloscope as you switch waves. Saw is a ramp, Square is a flat-topped box, Triangle is a zig-zag, Sine is one smooth curve. More corners and edges means more harmonics, so a brighter sound.',
     start: {},
     phrase: run(['C3', 'G3', 'C4'], 0.55, 0.45),
     missions: [
@@ -93,6 +96,7 @@ export const LEARN_STEPS: LearnStep[] = [
     what:
       'A second oscillator (VCO 2) makes the sound bigger. Tune it slightly away from VCO 1 and the two waves drift in and out of line, which makes a slow wobble called “beating.” Detune is measured in cents: 100 cents is one semitone, so 10 cents is a tiny change.',
     listen: 'A thicker, wider tone, then slow wobbling once VCO 2 is detuned.',
+    scope: 'Watch the oscilloscope: with VCO 2 detuned, the wave slowly changes shape and swells and shrinks. That is the beating you hear.',
     start: {},
     phrase: [one('A2', 1.8), one('E3', 1.6, 2.0)],
     missions: [
@@ -108,6 +112,7 @@ export const LEARN_STEPS: LearnStep[] = [
     what:
       'A square wave spends half its time up and half down: 50%. The Pulse Width knob makes it lopsided. The further you move from 50%, the thinner and more nasal it sounds, like an oboe or a funky clavinet.',
     listen: 'The tone getting thinner and reedier as you move away from 50%.',
+    scope: 'Watch the oscilloscope as you turn Pulse Width. The flat top gets shorter and the bottom gets longer: the wave spends less time up than down. That lopsided shape is what you hear as thinner and nasal.',
     start: { vco1Waveform: 'square', vco1PulseWidth: 0.5 },
     phrase: run(['D3', 'F#3', 'A3'], 0.55, 0.45),
     missions: [
@@ -124,6 +129,7 @@ export const LEARN_STEPS: LearnStep[] = [
     what:
       'White noise has no pitch at all. It is every frequency at once, like static or a hiss. Synths use it for breath, wind, snare drums and whooshes.',
     listen: 'A hiss under the tone, then pure noise with no musical note in it.',
+    scope: 'Watch the oscilloscope as you add noise: the clean wave turns fuzzy and jagged, and with only noise there is no repeating shape at all.',
     start: {},
     phrase: [one('C3', 1.2)],
     missions: [
@@ -141,6 +147,7 @@ export const LEARN_STEPS: LearnStep[] = [
     what:
       'This is the “subtractive” part. A low-pass filter lets low frequencies through and cuts the highs above its Cutoff. Turning the Cutoff down takes harmonics away: buzzy, then warm, then muffled.',
     listen: 'The sound going from bright to dark, like music moving from in the room to behind a wall.',
+    scope: 'Watch the oscilloscope as you lower the Cutoff: sharp corners round off and the wave smooths toward a sine. Harmonics are being removed.',
     start: { vco2Level: 0.6, vco2Fine: 8 },
     phrase: run(['F3', 'A3', 'C4'], 0.65, 0.55),
     missions: [
@@ -172,10 +179,10 @@ export const LEARN_STEPS: LearnStep[] = [
     what:
       'The Amp Envelope (Amp EG) shapes the volume every time you press a key. Attack: how fast it fades in. Decay: how fast it drops to the Sustain level. Sustain: the level while you hold the key. Release: how long it fades after you let go.',
     listen: 'A pluck is a quick “tick” that dies away. A pad swells in slowly and lingers after you let go.',
-    start: { filterCutoff: 5000 },
+    start: { filterCutoff: 5000, ampSustain: 0, ampDecay: 0.9 },
     phrase: [one('C3', 1.4), one('E3', 1.4), one('G3', 1.4), one('C4', 0.5, 2.6)],
     missions: [
-      { text: 'Make a pluck: Amp Sustain at 0 and Decay 0.3 s or shorter.', check: (p) => p.ampSustain <= 0.05 && p.ampDecay <= 0.3 },
+      { text: 'Make a pluck: Sustain starts at 0, so the note dies away on its own. Shorten Amp Decay to 0.3 s or less to tighten it.', check: (p) => p.ampSustain <= 0.05 && p.ampDecay <= 0.3 },
       {
         text: 'Now a pad: Attack 0.5 s or longer, Sustain 50% or more, Release 1.5 s or longer.',
         check: (p) => p.ampAttack >= 0.5 && p.ampSustain >= 0.5 && p.ampRelease >= 1.5,
@@ -208,6 +215,7 @@ export const LEARN_STEPS: LearnStep[] = [
     what:
       'The LFO (low-frequency oscillator) is a slow wave you don’t hear directly. Instead it moves a knob for you, over and over. Send it to Pitch for vibrato, to Cutoff for a wobble, or to Pulse Width for shimmer.',
     listen: 'Vibrato: the pitch wavering. Wobble: the tone opening and closing in a rhythm.',
+    scope: 'Watch the oscilloscope: Pitch makes the wave squeeze and stretch, Cutoff makes its sharp edges come and go, and Pulse Width makes the shape slowly change.',
     start: { filterCutoff: 900, filterResonance: 4, ampSustain: 1 },
     phrase: [one('A3', 2.4)],
     missions: [

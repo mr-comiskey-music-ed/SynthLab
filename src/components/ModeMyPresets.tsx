@@ -4,6 +4,7 @@ import { SubtractiveEngine } from '../audio/synthEngine';
 import { INITIAL_PRESETS, DEFAULT_SYNTH_PARAMS } from '../utils/presets';
 import { LEARN_BASE } from '../utils/learnSteps';
 import { ADVENTURES, adventureInfo } from '../utils/adventures';
+import { QuestComplete } from './QuestComplete';
 import { MY_PRESET_SLOTS, MyPresetSlot, REMIX_MIN_CHANGES, ORIGINAL_MIN_CHANGES, PRESET_NAME_MAX } from '../utils/myPresets';
 import { significantChanges } from '../utils/significance';
 import { PHRASES, playPhrase } from '../utils/playback';
@@ -17,6 +18,8 @@ interface ModeMyPresetsProps {
   saved: Record<string, BriefWork>;
   onSave: (taskId: string, work: BriefWork) => void;
   onLoadParams: (p: SynthParams) => void;
+  onGoToPlayground?: () => void;
+  onGoToReport?: () => void;
 }
 
 /** Which test phrase suits each kind of preset. */
@@ -39,7 +42,7 @@ const stateFor = (id: string) => (slotState[id] ??= { step: 0, name: '', note: '
 
 const REMIXABLE = INITIAL_PRESETS.filter((p) => p.id !== 'init-patch');
 
-export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, saved, onSave, onLoadParams }) => {
+export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, saved, onSave, onLoadParams, onGoToPlayground, onGoToReport }) => {
   const [activeId, setActiveId] = useState(MY_PRESET_SLOTS[0].id);
   const [, rerender] = useState(0);
   const [justSaved, setJustSaved] = useState<string | null>(null);
@@ -124,7 +127,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
     <div className="rounded-xl bg-gradient-to-r from-violet-950/40 via-slate-900 to-slate-900 border border-violet-500/30 p-4 shadow-xl">
       <div className="border-b border-white/10 pb-3 mb-3">
         <span className="text-[10px] font-mono text-violet-300 uppercase tracking-widest font-bold">
-          QUEST 5: MY PRESETS
+          QUEST 3: MY PRESETS
           <span className="ml-2 normal-case tracking-normal text-sky-300 font-normal">· build your own sounds. Your teacher listens to what you made.</span>
         </span>
         <h3 className="text-base font-bold text-white">Remix it, build it, invent it</h3>
@@ -433,6 +436,15 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
           </div>
         </div>
       </div>
+      {MY_PRESET_SLOTS.every((x) => saved[x.id]) && (
+        <QuestComplete
+          quest="My Presets"
+          tone="violet"
+          summary="All five of your own sounds are saved. That is a real patch library!"
+          onGoToPlayground={onGoToPlayground}
+          onGoToReport={onGoToReport}
+        />
+      )}
     </div>
   );
 };

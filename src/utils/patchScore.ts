@@ -75,7 +75,7 @@ export function aspectGap(aspect: PatchAspect, p: SynthParams, t: SynthParams): 
     case 'lfo':
       if (!lfoActive(t)) return clamp01(p.lfoDepth / 0.3);
       if (!lfoActive(p) || p.lfoDestination !== t.lfoDestination) return 1;
-      return clamp01(0.5 * (logGap(p.lfoRate, t.lfoRate, 0.1) / 0.7) + 0.5 * (Math.abs(p.lfoDepth - t.lfoDepth) / 0.5));
+      return clamp01(0.5 * (logGap(p.lfoRate, t.lfoRate, 0.1) / 0.9) + 0.5 * (Math.abs(p.lfoDepth - t.lfoDepth) / 0.6));
   }
 }
 
@@ -91,113 +91,96 @@ export interface PatchScore {
   aspects: AspectResult[];
 }
 
+const forgive = (gap: number) => clamp01((gap - 0.15) / 0.85);
+
 export function scorePatch(p: SynthParams, patch: PatchMatcherChallenge): PatchScore {
   const aspects = (Object.entries(patch.gradeOn) as [PatchAspect, number][]).map(([aspect, weight]) => ({
     aspect,
     label: ASPECT_LABELS[aspect],
     weight,
-    gap: aspectGap(aspect, p, patch.targetParams),
+    // Close is close: the first 15% of distance costs nothing, so nobody chases perfection.
+    gap: forgive(aspectGap(aspect, p, patch.targetParams)),
   }));
   const lost = aspects.reduce((s, a) => s + a.weight * a.gap, 0);
   return { score: Math.max(0, Math.min(100, Math.round(100 - lost))), aspects };
 }
 
 // ---------- Hints ----------
-const nice = (n: number) => {
-  if (n <= 0) return 0;
-  return Number(n.toPrecision(n >= 10 ? 2 : 1));
-};
-const fmtTime = (s: number) => (s < 1 ? `${Math.round(nice(s * 1000))} ms` : `${nice(s)} s`);
-const fmtHz = (n: number) => `${nice(n).toLocaleString()} Hz`;
-const pct = (n: number) => `${Math.round(n * 100)}%`;
-
-/** "should be above 3", "below 1,500 Hz", "between 2 & 5 Hz": points the right way without the exact value. */
-function rangeClue(
-  name: string,
-  current: number,
-  lo: number,
-  hi: number,
-  fmt: (n: number) => string,
-  words: { up: string; down: string } = { up: 'above', down: 'below' }
-): string {
-  if (current < lo) return `${name} should be ${words.up} ${fmt(lo)}.`;
-  if (current > hi) return `${name} should be ${words.down} ${fmt(hi)}.`;
-  return `${name} should be between ${fmt(lo)} & ${fmt(hi)}.`;
-}
-
 const LFO_TARGET_NAMES: Record<string, string> = { pitch: 'Pitch', cutoff: 'Filter Cutoff', pwm: 'Pulse Width' };
 
+const tooHigh = (cur: number, tgt: number) => (cur > tgt ? 'too high' : 'too low');
+const tooLong = (cur: number, tgt: number) => (cur > tgt ? 'too long' : 'too short');
+
+/** A context-specific nudge: what is off right now, and which way to move it. */
 function hintText(aspect: PatchAspect, p: SynthParams, t: SynthParams): string {
   switch (aspect) {
     case 'wave':
       return SMOOTH.includes(t.vco1Waveform)
-        ? 'VCO 1 needs a smooth, mellow waveform (not a buzzy one).'
-        : 'VCO 1 needs a bright, buzzy waveform (not a smooth one).';
+        ? `Your VCO 1 waveform is too buzzy. The target is soft and mellow: try Triangle or Sine.`
+        : SMOOTH.includes(p.vco1Waveform)
+        ? 'Your VCO 1 waveform is too smooth. The target is brighter and buzzier: try Sawtooth or Square.'
+        : `Your VCO 1 waveform is the wrong kind of buzzy. Compare Sawtooth (full, buzzy) with Square (hollow) and match the target.`;
     case 'octave':
-      return t.vco1Octave < p.vco1Octave ? 'This sound sits lower. Try VCO 1’s Octave switch.' : 'This sound sits higher. Try VCO 1’s Octave switch.';
+      return `Your VCO 1 is pitched too ${p.vco1Octave > t.vco1Octave ? 'high' : 'low'}. Move the Octave switch ${p.vco1Octave > t.vco1Octave ? 'down' : 'up'}.`;
     case 'pulseWidth':
       return p.vco1Waveform !== 'square'
-        ? 'This one uses VCO 1’s Square wave, with the Pulse Width knob moved away from 50%.'
-        : 'The square wave here is thinner and more nasal. Move Pulse Width further from 50%.';
+        ? 'This one needs VCO 1 on Square, with the Pulse Width knob moved away from 50%.'
+        : `Your Pulse Width is too ${dutyGap(p.vco1PulseWidth, 0.5) < dutyGap(t.vco1PulseWidth, 0.5) ? 'close to 50%' : 'far from 50%'}. The target is ${
+            dutyGap(t.vco1PulseWidth, 0.5) > 0.2 ? 'thin and nasal' : 'only a little squeezed'
+          }.`;
     case 'osc2':
-      return osc2On(t) ? 'Listen for a second oscillator. Bring VCO 2 into the mix.' : 'This one is a single oscillator. Turn VCO 2 down.';
+      return osc2On(t)
+        ? osc2On(p)
+          ? `Your VCO 2 level is too ${p.vco2Level > t.vco2Level ? 'loud' : 'quiet'}${p.vco2Waveform !== t.vco2Waveform ? ' (and check its waveform)' : ''}.`
+          : 'Your VCO 2 is too quiet: the target has a second oscillator in the mix. Bring VCO 2 up.'
+        : 'Your VCO 2 is too loud: the target is a single oscillator. Turn VCO 2 down.';
     case 'detune':
       return osc2On(t) && !osc2On(p)
-        ? 'There’s slow wobbling “beating” in this sound. That needs VCO 2 turned up and detuned.'
-        : rangeClue('VCO 2 Fine detune (either direction)', Math.abs(p.vco2Fine), Math.max(0, Math.abs(t.vco2Fine) - 5), Math.abs(t.vco2Fine) + 5, (n) => `${n} cents`);
+        ? 'The target has slow, wobbling “beating.” Turn VCO 2 up, then detune it a little.'
+        : `Your VCO 2 detune is ${tooHigh(Math.abs(p.vco2Fine), Math.abs(t.vco2Fine))}. The target is around ${Math.round(Math.abs(t.vco2Fine))} cents (either direction).`;
     case 'noise':
-      return rangeClue('Noise level', p.noiseLevel, Math.max(0, t.noiseLevel - 0.2), Math.min(1, t.noiseLevel + 0.2), pct);
+      return `Your noise level is ${tooHigh(p.noiseLevel, t.noiseLevel)}${t.noiseLevel < 0.2 ? ': the target only has a touch of it' : ''}.`;
     case 'oscMuted':
-      return 'There’s no pitched tone in this sound at all. Turn both VCO levels all the way down.';
+      return 'Your oscillators are too loud. There is no pitched tone in this sound at all: turn the VCO levels all the way down.';
     case 'cutoff':
-      return rangeClue('Filter Cutoff', p.filterCutoff, t.filterCutoff / 1.6, t.filterCutoff * 1.6, fmtHz);
+      return `Your filter Cutoff is ${tooHigh(p.filterCutoff, t.filterCutoff)}. The target sounds ${p.filterCutoff > t.filterCutoff ? 'darker and more muffled' : 'brighter and more open'}.`;
     case 'resonance':
-      return rangeClue('Filter Resonance', p.filterResonance, t.filterResonance * 0.6, t.filterResonance * 1.5 + 0.5, (n) => `${nice(n)}`);
+      return `Your Resonance is ${tooHigh(p.filterResonance, t.filterResonance)}. The target has ${p.filterResonance > t.filterResonance ? 'a gentler peak' : 'a more ringing, whistly peak'}.`;
     case 'filterEnv':
-      return rangeClue('Filter Envelope Amount', p.filterEnvAmount, t.filterEnvAmount - 15, t.filterEnvAmount + 15, (n) => `${Math.round(n)}%`);
+      return `Your Filter Envelope Amount is ${tooHigh(p.filterEnvAmount, t.filterEnvAmount)}.`;
     case 'filterDecay':
-      return t.modSustain <= 0.05
-        ? `The filter snaps shut after each note: Filter Envelope Sustain near 0 and Decay ${t.modDecay < 0.5 ? 'short' : 'long'}.`
-        : rangeClue('Filter Envelope Decay', p.modDecay, t.modDecay / 2, t.modDecay * 2, fmtTime, { up: 'longer than', down: 'shorter than' });
+      return `Your Filter Envelope Decay is ${tooLong(p.modDecay, t.modDecay)}.`;
     case 'attack':
-      return rangeClue('Amp Attack', p.ampAttack, t.ampAttack / 2, t.ampAttack * 2 + 0.005, fmtTime, { up: 'slower than', down: 'faster than' });
+      return `Your Amp Attack is too ${p.ampAttack > t.ampAttack ? 'slow' : 'fast'}. The target fades in ${p.ampAttack > t.ampAttack ? 'sooner' : 'more slowly'}.`;
     case 'decay':
-      return rangeClue('Amp Decay', p.ampDecay, t.ampDecay / 2, t.ampDecay * 2, fmtTime, { up: 'longer than', down: 'shorter than' });
+      return `Your Amp Decay is ${tooLong(p.ampDecay, t.ampDecay)}. The target ${p.ampDecay > t.ampDecay ? 'drops away faster' : 'rings on longer'}.`;
     case 'sustain':
-      return rangeClue(
-        'Amp Sustain',
-        p.ampSustain,
-        Math.max(0, Math.floor((t.ampSustain - 0.15) * 10) / 10),
-        Math.min(1, Math.ceil((t.ampSustain + 0.15) * 10) / 10),
-        pct
-      );
+      return `Your Amp Sustain is ${tooHigh(p.ampSustain, t.ampSustain)}${t.ampSustain <= 0.05 ? ': the target dies away completely while you hold the key' : ''}.`;
     case 'release':
-      return rangeClue('Amp Release', p.ampRelease, t.ampRelease / 2, t.ampRelease * 2, fmtTime, { up: 'longer than', down: 'shorter than' });
-    case 'lfo':
-      if (!lfoActive(t)) return 'Nothing in this sound is wobbling. Turn LFO Depth down.';
-      if (p.lfoDestination !== t.lfoDestination || !lfoActive(p))
-        return `The LFO is moving the ${LFO_TARGET_NAMES[t.lfoDestination]}. Set the LFO target there and give it some depth.`;
-      return `LFO Rate should be between ${nice(Math.max(0.1, t.lfoRate * 0.6))} & ${nice(t.lfoRate * 1.5)} Hz.`;
+      return `Your Amp Release is ${tooLong(p.ampRelease, t.ampRelease)}. The target ${p.ampRelease > t.ampRelease ? 'stops sooner after you let go' : 'lingers longer after you let go'}.`;
+    case 'lfo': {
+      if (!lfoActive(t)) return 'Your LFO is moving things that should stay still. Turn LFO Depth down.';
+      if (!lfoActive(p)) return `Your LFO is too quiet to hear. The target has it moving the ${LFO_TARGET_NAMES[t.lfoDestination]}: raise LFO Depth.`;
+      if (p.lfoDestination !== t.lfoDestination) return `Your LFO is sent to the wrong place. The target has it moving the ${LFO_TARGET_NAMES[t.lfoDestination]}.`;
+      if (logGap(p.lfoRate, t.lfoRate, 0.1) > 0.15) return `Your LFO Rate is too ${p.lfoRate > t.lfoRate ? 'fast' : 'slow'}.`;
+      return `Your LFO Depth is ${tooHigh(p.lfoDepth, t.lfoDepth)}.`;
+    }
   }
 }
 
 /**
- * The next hint: the graded aspect the student is furthest from (weighted), skipping
- * ones already hinted. The first hint goes to the filter when it's off; only one
- * filter hint per patch.
+ * The next hint: the graded aspect the student is furthest from right now (weighted),
+ * skipping ones already hinted. Each hint says what is off and which way to move it.
  */
 export function nextPatchHint(
   p: SynthParams,
   patch: PatchMatcherChallenge,
   alreadyShown: string[]
 ): { key: string; text: string } | null {
-  const FILTER: PatchAspect[] = ['cutoff', 'resonance'];
-  const filterUsed = alreadyShown.some((k) => FILTER.includes(k as PatchAspect));
   const open = scorePatch(p, patch)
     .aspects.map((a) => ({ ...a, cost: a.weight * a.gap }))
-    .filter((a) => a.cost >= 2 && !alreadyShown.includes(a.aspect) && !(filterUsed && FILTER.includes(a.aspect)))
+    .filter((a) => a.cost >= 1 && !alreadyShown.includes(a.aspect))
     .sort((a, b) => b.cost - a.cost);
-  const firstFilter = alreadyShown.length === 0 ? open.find((a) => FILTER.includes(a.aspect)) : undefined;
-  const next = firstFilter ?? open[0];
+  const next = open[0];
   return next ? { key: next.aspect, text: hintText(next.aspect, p, patch.targetParams) } : null;
 }
