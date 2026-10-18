@@ -1,403 +1,337 @@
-import React, { useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { ThemeMode, SynthParams } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
 import { AdsrVisualizer } from './AdsrVisualizer';
 import { WaveformIcon } from './WaveformIcons';
-import { CheckCircle2, ChevronRight, ChevronLeft, Volume2, Sparkles, RefreshCw } from 'lucide-react';
+import { LEARN_STEPS, LEARN_BASE, FlowPart, fillKnobNames } from '../utils/learnSteps';
+import { playPhrase } from '../utils/playback';
+import { CheckCircle2, ChevronRight, ChevronLeft, Volume2, RotateCcw, Circle, Ear, Trophy, ArrowRight } from 'lucide-react';
 
 interface ModeLearnProps {
   engine: SubtractiveEngine;
   theme: ThemeMode;
   params: SynthParams;
-  onThemeChange: (theme: ThemeMode) => void;
-  onParamChange: (key: keyof SynthParams, val: any) => void;
+  onLoadParams: (p: SynthParams) => void;
+  /** Glow a panel on the synth ('vco', 'filter', 'envelope', 'lfo'), or null for none. */
+  onHighlight: (section: string | null) => void;
+  onGoToChallenges: () => void;
 }
 
-interface StepInfo {
-  stepNumber: number;
-  title: string;
-  concept: string;
-  themeTarget: ThemeMode;
-  highlightSection: 'vco' | 'filter' | 'envelope' | 'lfo';
-  goalDescription: string;
-  interactiveChallenge: string;
-  targetParam: keyof SynthParams;
-  initialValue: any;
-  requiredCheck: (p: SynthParams) => boolean;
-  notesToPlay: string[];
-}
+// Progress lives for this visit only (nothing is stored), and survives switching tabs.
+const progress = {
+  step: 0,
+  started: false,
+  /** Missions finished, per step. */
+  done: LEARN_STEPS.map(() => 0),
+  finished: false,
+};
 
-export const ModeLearn: React.FC<ModeLearnProps> = ({
-  engine,
-  theme,
-  params,
-  onThemeChange,
-  onParamChange,
-}) => {
-  const [currentStepIndex, setCurrentStepIndex] = useState<number>(0);
-  const [hasInteracted, setHasInteracted] = useState<boolean>(false);
-  const [soundPlayed, setSoundPlayed] = useState<boolean>(false);
+const FLOW: { part: FlowPart; label: string }[] = [
+  { part: 'osc', label: 'VCO 1 + 2' },
+  { part: 'noise', label: 'Noise' },
+  { part: 'filter', label: 'Filter' },
+  { part: 'amp', label: 'Amp' },
+];
+const MODS: { part: FlowPart; label: string; to: string }[] = [
+  { part: 'filterEnv', label: 'Filter EG', to: 'filter' },
+  { part: 'ampEnv', label: 'Amp EG', to: 'amp' },
+  { part: 'lfo', label: 'LFO', to: 'pitch · filter · PW' },
+];
 
-  const steps: StepInfo[] = [
-    {
-      stepNumber: 1,
-      title: 'Step 1: The Raw Waveform (Oscillator Vibration)',
-      concept:
-        'Subtractive synthesis begins with a raw, harmonically rich vibration. A Sawtooth wave contains all integer harmonics (buzzy and bright), while a Square wave has only odd harmonics (hollow and wooden, like a clarinet or retro 8-bit game).',
-      themeTarget: 'studio-retro',
-      highlightSection: 'vco',
-      goalDescription:
-        'Switch the VCO 1 waveform to Square or Sawtooth, and play a test tone to hear the contrast in harmonic content.',
-      interactiveChallenge: 'Switch VCO 1 to "Square" wave and click "Audition Tone".',
-      targetParam: 'vco1Waveform',
-      initialValue: 'sawtooth',
-      requiredCheck: (p) => p.vco1Waveform === 'square',
-      notesToPlay: ['C3', 'G3', 'C4'],
-    },
-    {
-      stepNumber: 2,
-      title: 'Step 2: Dual Oscillator Voicing & Mixer (VCO 1 + VCO 2)',
-      concept:
-        'Analog synthesizers use dual oscillators to build thick acoustic weight. By turning up VCO 2 in the mixer, you combine two independent vibrating pitch generators into a single, powerhouse voice.',
-      themeTarget: 'hardware-bench',
-      highlightSection: 'vco',
-      goalDescription:
-        'Turn up VCO 2 Level in the mixer to at least 50% so both oscillators sing together.',
-      interactiveChallenge: 'Raise VCO 2 Level to at least 0.50 (50%).',
-      targetParam: 'vco2Level',
-      initialValue: 0,
-      requiredCheck: (p) => p.vco2Level >= 0.5,
-      notesToPlay: ['C3', 'G3', 'C4'],
-    },
-    {
-      stepNumber: 3,
-      title: 'Step 3: Oscillator Detuning & Chorus Beating',
-      concept:
-        'When two oscillators play the exact same note slightly out of tune (cents detune), their waveforms drift in and out of phase. This creates a natural, lush acoustic chorus effect and thick "beating" that gives analog synths their famous warmth.',
-      themeTarget: 'studio-retro',
-      highlightSection: 'vco',
-      goalDescription:
-        'Detune VCO 2 by at least +10 or -10 cents to create an organic, chorused analog beating.',
-      interactiveChallenge: 'Adjust VCO 2 Fine Detune to at least 10 cents (positive or negative).',
-      targetParam: 'vco2Fine',
-      initialValue: 0,
-      requiredCheck: (p) => Math.abs(p.vco2Fine) >= 10,
-      notesToPlay: ['A3', 'C4', 'E4'],
-    },
-    {
-      stepNumber: 4,
-      title: 'Step 4: Pulse Width Modulation (PWM) - Altering the Wave Symmetry',
-      concept:
-        'A square wave is normally balanced 50% high and 50% low. Adjusting the Pulse Width changes the duty cycle: narrowing it produces a thin, nasal, reed-like tone like an oboe or funky clavinet. Modulating this continuously with an LFO produces iconic Pulse Width Modulation (PWM)! By viewing that oscillator on the oscilloscope visualizer, you will be able to see the actual shape change in real time as you adjust the pulse width.',
-      themeTarget: 'hardware-bench',
-      highlightSection: 'vco',
-      goalDescription:
-        'Set VCO 1 to Square wave, then turn the Shape/PWM knob to thin out the duty cycle (< 35% or > 65%).',
-      interactiveChallenge: 'Switch VCO 1 to Square and set Pulse Width (Shape) below 35% or above 65%.',
-      targetParam: 'vco1PulseWidth',
-      initialValue: 0.5,
-      requiredCheck: (p) => p.vco1Waveform === 'square' && (p.vco1PulseWidth <= 0.38 || p.vco1PulseWidth >= 0.62),
-      notesToPlay: ['D3', 'F#3', 'A3'],
-    },
-    {
-      stepNumber: 5,
-      title: 'Step 5: White Noise Generator (Percussion & Transients)',
-      concept:
-        'Unlike oscillators that play a definite pitch, White Noise contains every frequency in the audio spectrum with equal energy. Noise is crucial for programming percussive snare snaps, flute chiff breath, ocean breezes, and storm gusts.',
-      themeTarget: 'studio-retro',
-      highlightSection: 'vco',
-      goalDescription:
-        'Raise the Noise level in the mixer to blend white noise into your sound.',
-      interactiveChallenge: 'Turn Noise Level to at least 25% in the mixer.',
-      targetParam: 'noiseLevel',
-      initialValue: 0,
-      requiredCheck: (p) => p.noiseLevel >= 0.2,
-      notesToPlay: ['C3'],
-    },
-    {
-      stepNumber: 6,
-      title: 'Step 6: The Subtractive Door (Low-Pass Filter Cutoff)',
-      concept:
-        'The filter is the signature engine of subtractive synthesis! A Low-Pass Filter allows low frequencies to pass while progressively cutting off ("subtracting") upper harmonics. Sweeping Cutoff downward turns bright buzzing brass into deep, warm, muffled velvet.',
-      themeTarget: 'hardware-bench',
-      highlightSection: 'filter',
-      goalDescription:
-        'Lower the Filter Cutoff below 1,600 Hz to muffle the top-end buzz and hear the subtractive carving.',
-      interactiveChallenge: 'Turn Filter Cutoff down below 1,600 Hz.',
-      targetParam: 'filterCutoff',
-      initialValue: 12000,
-      requiredCheck: (p) => p.filterCutoff <= 1800,
-      notesToPlay: ['F3', 'A3', 'C4'],
-    },
-    {
-      stepNumber: 7,
-      title: 'Step 7: Resonance (Q) & Self-Oscillation Peak',
-      concept:
-        'Resonance (Q) feeds the filtered audio back into the filter circuit, creating a sharp emphasis spike right at the Cutoff frequency. At moderate levels, it gives an expressive vocal "wah-wah" or squelch. Cranked to maximum, it self-oscillates into a whistling feedback laser!',
-      themeTarget: 'studio-retro',
-      highlightSection: 'filter',
-      goalDescription:
-        'Boost Filter Resonance above 7.0 and hear the whistling harmonic peak ringing at the cutoff.',
-      interactiveChallenge: 'Set Filter Resonance to 7.0 or higher.',
-      targetParam: 'filterResonance',
-      initialValue: 1,
-      requiredCheck: (p) => p.filterResonance >= 7,
-      notesToPlay: ['G3', 'B3', 'D4'],
-    },
-    {
-      stepNumber: 8,
-      title: 'Step 8: The Sculptor of Time (Amp ADSR Envelope)',
-      concept:
-        'Natural acoustic instruments do not turn on and off like light switches. The Amplitude ADSR Envelope shapes volume across time: Attack (initial rise time), Decay (fall to sustain), Sustain (steady volume while holding the key), and Release (fade out after letting go). Watch the visualizer below and the keys on your keyboard glow in real time with the envelope contour!',
-      themeTarget: 'hardware-bench',
-      highlightSection: 'envelope',
-      goalDescription:
-        'Transform this into a slow, evolving pad or ambient string sound: increase Amp Attack above 0.4s and Release above 1.0s.',
-      interactiveChallenge: 'Set Amp Attack (A) >= 0.4s and Amp Release (R) >= 1.0s.',
-      targetParam: 'ampAttack',
-      initialValue: 0.01,
-      requiredCheck: (p) => p.ampAttack >= 0.35 && p.ampRelease >= 0.8,
-      notesToPlay: ['C4', 'E4', 'G4', 'B4'],
-    },
-    {
-      stepNumber: 9,
-      title: 'Step 9: Dynamic Keystroke Sweeps (Filter / Mod Envelope)',
-      concept:
-        'Instead of leaving the filter cutoff frozen, the Filter Envelope sweeps the cutoff frequency dynamically with each keystroke. A fast decay with zero sustain creates snappy bass plucks and 80s brass stabs, while a slow attack creates expressive swells.',
-      themeTarget: 'studio-retro',
-      highlightSection: 'filter',
-      goalDescription:
-        'Keep Cutoff low (< 1,500 Hz), set Filter Envelope Amount (EG Depth) to at least +45%, and hear the filter open and close dynamically.',
-      interactiveChallenge: 'Set Filter Cutoff < 1500 Hz AND Filter Env Amount >= 45%.',
-      targetParam: 'filterEnvAmount',
-      initialValue: 0,
-      requiredCheck: (p) => p.filterCutoff <= 1600 && p.filterEnvAmount >= 45,
-      notesToPlay: ['D3', 'F3', 'A3', 'D4'],
-    },
-    {
-      stepNumber: 10,
-      title: 'Step 10: The Automated Robot Hand (LFO Modulation)',
-      concept:
-        'The LFO (Low Frequency Oscillator) cycles at sub-audible rates (0.1 to 20Hz). It acts like a robotic hand continuously wiggling a control knob. Route it to Pitch for pitch vibrato, to Filter Cutoff for an automated pulsing wah-wah, or to PWM for chorused shimmer!',
-      themeTarget: 'hardware-bench',
-      highlightSection: 'lfo',
-      goalDescription:
-        'Assign LFO to Pitch, set LFO Rate around 5 Hz, and turn up Depth above 25% to generate rhythmic pitch vibrato.',
-      interactiveChallenge: 'Set LFO Target to "Pitch" and increase LFO Depth to at least 25%.',
-      targetParam: 'lfoDepth',
-      initialValue: 0,
-      requiredCheck: (p) => p.lfoDestination === 'pitch' && p.lfoDepth >= 0.22,
-      notesToPlay: ['A3', 'C#4', 'E4'],
-    },
-  ];
+/** The whole signal path in one line, with this step's parts lit. */
+const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
+  const box = (on: boolean) =>
+    `px-2 py-1 rounded-md border text-[10px] font-mono font-bold uppercase tracking-wide transition-colors ${
+      on ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.5)]' : 'bg-black/40 text-slate-400 border-white/10'
+    }`;
+  return (
+    <div className="flex flex-col gap-1 items-start md:items-end" aria-label="Signal path">
+      <div className="flex items-center gap-1 flex-wrap">
+        <div className="flex flex-col gap-0.5">
+          <span className={box(lit.includes('osc'))}>{FLOW[0].label}</span>
+          <span className={box(lit.includes('noise'))}>{FLOW[1].label}</span>
+        </div>
+        <span className="text-slate-500 text-xs">→</span>
+        <span className={box(lit.includes('filter'))}>{FLOW[2].label}</span>
+        <span className="text-slate-500 text-xs">→</span>
+        <span className={box(lit.includes('amp'))}>{FLOW[3].label}</span>
+        <span className="text-slate-500 text-xs">→ 🔊</span>
+      </div>
+      <div className="flex items-center gap-1 flex-wrap">
+        <span className="text-[9px] font-mono text-slate-500 uppercase">moved by:</span>
+        {MODS.map((m) => (
+          <span key={m.part} className={box(lit.includes(m.part))} title={`moves the ${m.to}`}>
+            {m.label} <span className="font-normal normal-case opacity-70">→ {m.to}</span>
+          </span>
+        ))}
+      </div>
+    </div>
+  );
+};
 
-  const currentStep = steps[currentStepIndex];
-  const isRequirementMet = currentStep.requiredCheck(params) && soundPlayed;
+const WAVES = [
+  { type: 'sawtooth', name: 'Saw', desc: 'every harmonic: bright, buzzy' },
+  { type: 'square', name: 'Square', desc: 'odd harmonics: hollow' },
+  { type: 'triangle', name: 'Triangle', desc: 'a few: soft, flute-like' },
+  { type: 'sine', name: 'Sine', desc: 'none: pure, round' },
+];
 
-  const handlePlayNotes = async () => {
-    await engine.startAudioContext();
-    setSoundPlayed(true);
-    setHasInteracted(true);
+export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onLoadParams, onHighlight, onGoToChallenges }) => {
+  const [stepIdx, setStepIdx] = useState(progress.step);
+  const [done, setDone] = useState<number[]>(progress.done);
+  const [finished, setFinished] = useState(progress.finished);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const step = LEARN_STEPS[stepIdx];
+  const missionsDone = done[stepIdx];
+  const stepComplete = missionsDone >= step.missions.length;
+  const current = step.missions[missionsDone];
 
-    // Play notes sequence
-    currentStep.notesToPlay.forEach((note, index) => {
-      setTimeout(() => {
-        engine.noteOn(note, 0.85);
-        setTimeout(() => {
-          engine.noteOff(note);
-        }, 500);
-      }, index * 600);
+  // Latest values for the "did they listen?" check, which runs from an engine callback.
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
+  const stateRef = useRef({ stepIdx, done });
+  stateRef.current = { stepIdx, done };
+
+  useEffect(() => {
+    progress.step = stepIdx;
+    progress.done = done;
+    progress.finished = finished;
+  }, [stepIdx, done, finished]);
+
+  const loadStep = (idx: number) => onLoadParams({ ...LEARN_BASE, ...LEARN_STEPS[idx].start });
+
+  // First visit: load step 1's starting patch. Glow the step's panel while Learn is open.
+  useEffect(() => {
+    if (!progress.started) {
+      progress.started = true;
+      loadStep(stepIdx);
+    }
+    return () => onHighlight(null);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  useEffect(() => {
+    onHighlight(finished ? null : step.section);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stepIdx, finished]);
+
+  // A mission counts once its settings are right AND a note is heard with them
+  // (from Listen, the on-screen keys, the computer keyboard or MIDI).
+  // One mission per listen: notes of a chord arrive together, so ignore the rest of that burst.
+  const lastAdvanceRef = useRef(0);
+  useEffect(() => {
+    return engine.subscribeEnvelope((isHeld) => {
+      if (!isHeld || performance.now() - lastAdvanceRef.current < 400) return;
+      const i = stateRef.current.stepIdx;
+      const m = LEARN_STEPS[i].missions[stateRef.current.done[i]];
+      if (!m || !m.check(paramsRef.current)) return;
+      lastAdvanceRef.current = performance.now();
+      setDone((prev) => prev.map((n, j) => (j === i ? Math.min(LEARN_STEPS[i].missions.length, n + 1) : n)));
     });
+  }, [engine]);
+
+  const goTo = (idx: number) => {
+    if (idx < 0 || idx >= LEARN_STEPS.length) return;
+    setFinished(false);
+    setStepIdx(idx);
+    loadStep(idx);
   };
 
-  const handleNextStep = () => {
-    if (currentStepIndex < steps.length - 1) {
-      const nextIdx = currentStepIndex + 1;
-      setCurrentStepIndex(nextIdx);
-      setSoundPlayed(false);
-      // Auto-switch theme to demonstrate both interfaces
-      onThemeChange(steps[nextIdx].themeTarget);
-    }
+  const listen = async () => {
+    setIsPlaying(true);
+    await playPhrase(engine, step.phrase, { onDone: () => setIsPlaying(false) });
   };
 
-  const handlePrevStep = () => {
-    if (currentStepIndex > 0) {
-      const prevIdx = currentStepIndex - 1;
-      setCurrentStepIndex(prevIdx);
-      setSoundPlayed(false);
-      onThemeChange(steps[prevIdx].themeTarget);
-    }
-  };
+  const settingsRight = current ? current.check(params) : false;
+  const firstUnfinished = done.findIndex((n, i) => n < LEARN_STEPS[i].missions.length);
+  const reachable = (i: number) => i <= (firstUnfinished === -1 ? LEARN_STEPS.length - 1 : firstUnfinished);
+
+  if (finished) {
+    return (
+      <div id="mode-learn-overlay" className="rounded-xl bg-gradient-to-r from-emerald-950/70 via-slate-900 to-indigo-950/70 p-5 border border-emerald-500/40 shadow-2xl text-slate-100">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+          <div>
+            <span className="text-[10px] font-mono tracking-widest text-emerald-300 uppercase font-bold">Walkthrough complete</span>
+            <h3 className="text-lg font-bold text-white">You’ve been through the whole signal path.</h3>
+            <p className="text-sm text-slate-300 mt-1 max-w-2xl">
+              Oscillators make the raw sound, the filter carves it, the amp shapes its volume, and envelopes and the LFO move things
+              for you. Now put it to work: train your ears, fix broken patches, match sounds, and design your own.
+            </p>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => goTo(0)}
+              className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-mono border border-white/10 flex items-center gap-1.5"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Review steps
+            </button>
+            <button
+              type="button"
+              onClick={onGoToChallenges}
+              className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-mono font-bold uppercase flex items-center gap-1.5"
+            >
+              <Trophy className="w-4 h-4" /> Go to Challenges <ArrowRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div id="mode-learn-overlay" className="mb-4">
-      {/* Top Walkthrough Banner Card */}
-      <div className="rounded-xl bg-gradient-to-r from-amber-950/80 via-slate-900 to-indigo-950/80 p-4 border border-amber-500/40 shadow-2xl text-slate-100">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-amber-500/20 pb-3 mb-3">
-          <div className="flex items-center gap-3">
-            <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black font-bold text-sm shadow-[0_0_12px_#f59e0b]">
-              {currentStep.stepNumber}
+    <div id="mode-learn-overlay" className="rounded-xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-indigo-950/70 p-4 border border-amber-500/40 shadow-2xl text-slate-100">
+      {/* Header: step + flow strip */}
+      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 border-b border-amber-500/20 pb-3 mb-3">
+        <div className="flex items-center gap-3">
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black font-bold text-sm shrink-0">{stepIdx + 1}</span>
+          <div>
+            <span className="text-[10px] font-mono tracking-widest text-amber-300 uppercase font-bold">
+              Step {stepIdx + 1} of {LEARN_STEPS.length}
             </span>
-            <div>
-              <span className="text-[10px] font-mono tracking-widest text-amber-300 uppercase font-bold">
-                GUIDED WALKTHROUGH • STEP {currentStep.stepNumber} OF {steps.length}
-              </span>
-              <h3 className="text-base sm:text-lg font-bold text-white flex items-center gap-2">
-                {currentStep.title}
-              </h3>
-            </div>
-          </div>
-
-          {/* Theme Target Indicator */}
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-slate-300 font-mono">Current Theme:</span>
-            <span
-              className={`text-xs px-2.5 py-1 rounded font-bold font-mono uppercase ${
-                theme === 'studio-retro'
-                  ? 'bg-amber-500/20 text-amber-300 border border-amber-500/40'
-                  : 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-              }`}
-            >
-              {theme === 'studio-retro' ? 'Retro Synth' : 'Modern Synth'}
-            </span>
-            <button
-              type="button"
-              onClick={() =>
-                onThemeChange(theme === 'studio-retro' ? 'hardware-bench' : 'studio-retro')
-              }
-              className="text-xs px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-200 border border-white/10 flex items-center gap-1 transition-colors"
-              title="Toggle theme manually"
-            >
-              <RefreshCw className="w-3 h-3" />
-              Switch
-            </button>
+            <h3 className="text-lg font-bold text-white leading-tight">{step.title}</h3>
           </div>
         </div>
+        <FlowStrip lit={step.flow} />
+      </div>
 
-        {/* Pedagogical Explanation Text */}
-        <p className="text-sm text-slate-200 leading-relaxed mb-4 max-w-4xl">
-          {currentStep.concept}
-        </p>
-
-        {/* Step 1 Waveform Reference Guide */}
-        {currentStep.stepNumber === 1 && (
-          <div className="mb-4 grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {[
-              { type: 'sawtooth', name: 'Sawtooth', desc: 'All integer harmonics. Rich, bright, buzzing tone for brass and leads.' },
-              { type: 'square', name: 'Square', desc: 'Odd harmonics only. Hollow, wooden, clarinet or pulse character.' },
-              { type: 'triangle', name: 'Triangle', desc: 'Few odd harmonics. Soft, mellow, flute-like warm tone.' },
-              { type: 'sine', name: 'Sine', desc: 'Pure fundamental frequency. Smooth, round, sub-bass tone.' },
-            ].map((w) => (
-              <div key={w.type} className="p-3 rounded-lg bg-black/50 border border-amber-500/30 flex flex-col items-center text-center">
-                <div className="p-2.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20 mb-2 shadow">
-                  <WaveformIcon type={w.type as any} size={32} className="w-8 h-8" />
-                </div>
-                <span className="text-xs font-bold text-amber-300 font-mono mb-1">{w.name}</span>
-                <p className="text-[10px] text-slate-300 leading-tight">{w.desc}</p>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* Live ADSR Visualizer Diagram on Envelope Steps */}
-        {(currentStep.stepNumber === 8 || currentStep.stepNumber === 9) && (
-          <div className="mb-4 p-3 rounded-lg bg-black/50 border border-amber-500/30 max-w-xl">
-            <span className="text-[11px] font-mono text-amber-300 font-bold block mb-1.5 uppercase tracking-wide">
-              {currentStep.stepNumber === 8 ? 'Active Amplitude ADSR Envelope Contour' : 'Active Filter ADSR Envelope Contour'}
+      <div className="grid grid-cols-1 md:grid-cols-[1.25fr_1fr] gap-4">
+        {/* Explanation */}
+        <div className="space-y-2.5 min-w-0">
+          <p className="text-sm text-slate-200 leading-relaxed">{fillKnobNames(step.what, theme)}</p>
+          <p className="text-xs text-sky-200 flex items-start gap-1.5">
+            <Ear className="w-4 h-4 shrink-0 text-sky-300" />
+            <span>
+              <b>Listen for:</b> {step.listen}
             </span>
-            <AdsrVisualizer
-              attack={currentStep.stepNumber === 8 ? params.ampAttack : params.modAttack}
-              decay={currentStep.stepNumber === 8 ? params.ampDecay : params.modDecay}
-              sustain={currentStep.stepNumber === 8 ? params.ampSustain : params.modSustain}
-              release={currentStep.stepNumber === 8 ? params.ampRelease : params.modRelease}
-              height={120}
-              theme="diagram"
-              engine={engine}
-            />
-          </div>
-        )}
-
-        {/* Interactive Challenge & Progress Status */}
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 p-3 rounded-lg bg-black/40 border border-white/10">
-          <div className="flex items-start gap-2.5">
-            <Sparkles className="w-5 h-5 text-amber-400 mt-0.5 flex-shrink-0" />
-            <div>
-              <span className="text-xs font-bold text-amber-300 uppercase tracking-wider block">
-                Your Hands-On Mission:
-              </span>
-              <span className="text-xs text-slate-200 font-mono">
-                {currentStep.interactiveChallenge}
-              </span>
+          </p>
+          {step.extra === 'waves' && (
+            <div className="grid grid-cols-4 gap-1.5">
+              {WAVES.map((w) => (
+                <div
+                  key={w.type}
+                  className={`p-1.5 rounded-lg border flex flex-col items-center text-center ${
+                    params.vco1Waveform === w.type ? 'bg-amber-500/15 border-amber-400/60' : 'bg-black/40 border-white/10'
+                  }`}
+                >
+                  <WaveformIcon type={w.type as any} size={22} className="w-5 h-5 text-amber-300" />
+                  <span className="text-[11px] font-bold text-amber-200 font-mono">{w.name}</span>
+                  <span className="text-[9px] text-slate-400 leading-tight">{w.desc}</span>
+                </div>
+              ))}
             </div>
-          </div>
+          )}
+          {(step.extra === 'ampEnv' || step.extra === 'filterEnv') && (
+            <div className="p-2 rounded-lg bg-black/50 border border-amber-500/30 max-w-md">
+              <span className="text-[10px] font-mono text-amber-300 font-bold block mb-1 uppercase tracking-wide">
+                {step.extra === 'ampEnv' ? 'Your Amp EG' : 'Your Filter EG'}
+              </span>
+              <AdsrVisualizer
+                attack={step.extra === 'ampEnv' ? params.ampAttack : params.modAttack}
+                decay={step.extra === 'ampEnv' ? params.ampDecay : params.modDecay}
+                sustain={step.extra === 'ampEnv' ? params.ampSustain : params.modSustain}
+                release={step.extra === 'ampEnv' ? params.ampRelease : params.modRelease}
+                height={84}
+                theme="diagram"
+                engine={engine}
+              />
+            </div>
+          )}
+        </div>
 
-          <div className="flex items-center gap-2">
+        {/* Missions */}
+        <div className="p-3 rounded-lg bg-black/40 border border-white/10 flex flex-col gap-2.5">
+          <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider font-mono">Try it</span>
+          <ol className="space-y-1.5">
+            {step.missions.map((m, i) => {
+              const isDone = i < missionsDone;
+              const isCurrent = i === missionsDone;
+              return (
+                <li key={i} className={`flex items-start gap-2 text-xs ${isDone ? 'text-emerald-300' : isCurrent ? 'text-slate-100' : 'text-slate-500'}`}>
+                  {isDone ? (
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  ) : (
+                    <Circle className={`w-4 h-4 shrink-0 ${isCurrent ? 'text-amber-400' : 'text-slate-600'}`} />
+                  )}
+                  <span>{fillKnobNames(m.text, theme)}</span>
+                </li>
+              );
+            })}
+          </ol>
+
+          <div className="flex flex-wrap items-center gap-2 mt-auto">
             <button
               type="button"
-              onClick={handlePlayNotes}
-              className="px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-bold text-xs flex items-center gap-1.5 shadow-[0_0_12px_rgba(245,158,11,0.4)] active:scale-95 transition-all"
+              onClick={listen}
+              className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all ${
+                settingsRight ? 'bg-amber-400 hover:bg-amber-300 text-black animate-pulse' : 'bg-amber-500 hover:bg-amber-400 text-black'
+              }`}
             >
               <Volume2 className="w-4 h-4" />
-              Audition Tone
+              {isPlaying ? 'Playing…' : 'Listen'}
             </button>
-
-            {/* Checkmark requirement badge */}
-            <div
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-mono font-bold transition-all border ${
-                isRequirementMet
-                  ? 'bg-emerald-500/20 text-emerald-300 border-emerald-500/50'
-                  : 'bg-slate-800 text-slate-400 border-white/10'
-              }`}
-            >
-              <CheckCircle2
-                className={`w-4 h-4 ${isRequirementMet ? 'text-emerald-400' : 'text-slate-500'}`}
-              />
-              <span>{isRequirementMet ? 'Parameter & Sound Heard!' : 'Tweak & Audition'}</span>
-            </div>
+            <span className="text-[11px] font-mono text-slate-400">
+              {stepComplete
+                ? 'Step done!'
+                : settingsRight
+                ? 'Settings look right. Now listen to it!'
+                : 'Change the setting, then listen (or play the keys).'}
+            </span>
           </div>
         </div>
+      </div>
 
-        {/* Navigation Step Buttons */}
-        <div className="flex items-center justify-between mt-4 pt-2 border-t border-white/10 text-xs">
+      {/* Navigation */}
+      <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/10 text-xs">
+        <div className="flex items-center gap-1.5">
           <button
             type="button"
-            disabled={currentStepIndex === 0}
-            onClick={handlePrevStep}
-            className="px-3 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-slate-300 flex items-center gap-1 transition-colors"
+            disabled={stepIdx === 0}
+            onClick={() => goTo(stepIdx - 1)}
+            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:pointer-events-none text-slate-300 flex items-center gap-1"
           >
             <ChevronLeft className="w-4 h-4" />
-            Previous Step
+            Back
           </button>
-
-          <div className="flex items-center gap-1.5">
-            {steps.map((_, i) => (
-              <div
-                key={i}
-                className={`w-2.5 h-2.5 rounded-full transition-all ${
-                  i === currentStepIndex
-                    ? 'bg-amber-400 scale-125 shadow-[0_0_6px_#f59e0b]'
-                    : i < currentStepIndex
-                    ? 'bg-emerald-400'
-                    : 'bg-slate-700'
-                }`}
-              />
-            ))}
-          </div>
-
           <button
             type="button"
-            disabled={!isRequirementMet && currentStepIndex !== steps.length - 1}
-            onClick={handleNextStep}
-            className={`px-4 py-1.5 rounded font-bold flex items-center gap-1 transition-all ${
-              isRequirementMet
-                ? 'bg-amber-400 hover:bg-amber-300 text-black shadow-[0_0_15px_rgba(245,158,11,0.5)]'
-                : 'bg-slate-800 text-slate-500 cursor-not-allowed'
-            }`}
+            onClick={() => loadStep(stepIdx)}
+            className="px-2.5 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 flex items-center gap-1"
+            title="Put this step's starting sound back on the synth"
           >
-            <span>{currentStepIndex === steps.length - 1 ? 'Walkthrough Complete' : 'Next Step'}</span>
-            <ChevronRight className="w-4 h-4" />
+            <RotateCcw className="w-3.5 h-3.5" />
+            Reset sound
           </button>
         </div>
+
+        <div className="hidden sm:flex items-center gap-1.5">
+          {LEARN_STEPS.map((s, i) => {
+            const complete = done[i] >= s.missions.length;
+            return (
+              <button
+                key={i}
+                type="button"
+                disabled={!reachable(i)}
+                onClick={() => goTo(i)}
+                title={`${i + 1}. ${s.title}`}
+                className={`w-2.5 h-2.5 rounded-full transition-all disabled:cursor-not-allowed ${
+                  i === stepIdx ? 'bg-amber-400 scale-125' : complete ? 'bg-emerald-400' : 'bg-slate-700'
+                }`}
+              />
+            );
+          })}
+        </div>
+
+        <button
+          type="button"
+          disabled={!stepComplete}
+          onClick={() => (stepIdx === LEARN_STEPS.length - 1 ? setFinished(true) : goTo(stepIdx + 1))}
+          className={`px-4 py-1.5 rounded font-bold flex items-center gap-1 transition-all ${
+            stepComplete ? 'bg-amber-400 hover:bg-amber-300 text-black' : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+          }`}
+        >
+          <span>{stepIdx === LEARN_STEPS.length - 1 ? 'Finish' : 'Next Step'}</span>
+          <ChevronRight className="w-4 h-4" />
+        </button>
       </div>
     </div>
   );
