@@ -5,7 +5,7 @@ import { AdsrVisualizer } from './AdsrVisualizer';
 import { WaveformIcon } from './WaveformIcons';
 import { LEARN_STEPS, LEARN_BASE, FlowPart, fillKnobNames } from '../utils/learnSteps';
 import { playPhrase } from '../utils/playback';
-import { CheckCircle2, ChevronRight, ChevronLeft, Volume2, RotateCcw, Circle, Ear, Trophy, ArrowRight } from 'lucide-react';
+import { CheckCircle2, ChevronRight, ChevronLeft, Volume2, RotateCcw, Circle, Ear, Trophy, ArrowRight, Activity } from 'lucide-react';
 
 interface ModeLearnProps {
   engine: SubtractiveEngine;
@@ -204,6 +204,12 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
               <b>Listen for:</b> {step.listen}
             </span>
           </p>
+          {step.scope && (
+            <p className="text-xs text-emerald-200 flex items-start gap-1.5 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25" data-testid="learn-scope-tip">
+              <Activity className="w-4 h-4 shrink-0 text-emerald-300" />
+              <span>{step.scope}</span>
+            </p>
+          )}
           {step.extra === 'waves' && (
             <div className="grid grid-cols-4 gap-1.5">
               {WAVES.map((w) => (

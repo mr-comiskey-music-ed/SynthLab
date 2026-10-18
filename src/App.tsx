@@ -383,6 +383,8 @@ export default function App() {
             onRecordScore={handleRecordTaskScore}
             briefWork={briefWork}
             onSaveBrief={handleSaveBrief}
+            onGoToPlayground={() => setActiveMode('playground')}
+            onGoToReport={() => setActiveMode('teacher')}
           />
         )}
 

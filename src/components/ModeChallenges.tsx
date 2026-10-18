@@ -8,6 +8,7 @@ import { playPhrase, stopPhrase } from '../utils/playback';
 import { PatchParamList } from './PatchParamList';
 import { ModeBriefs } from './ModeBriefs';
 import { ModeMyPresets } from './ModeMyPresets';
+import { QuestComplete } from './QuestComplete';
 import {
   Volume2,
   Stethoscope,
@@ -25,7 +26,7 @@ import {
   Library,
 } from 'lucide-react';
 
-export const HINTS_PER_PATCH = 2;
+export const HINTS_PER_PATCH = 4;
 /** Tries before a student may reveal a Patch Master answer. */
 export const TRIES_BEFORE_REVEAL = 3;
 /** Points a Synth Doctor fix loses for each clue opened. */
@@ -42,6 +43,8 @@ interface ModeChallengesProps {
   onRecordScore?: (taskId: string, title: string, score: number) => void;
   briefWork: Record<string, BriefWork>;
   onSaveBrief: (briefId: string, work: BriefWork) => void;
+  onGoToPlayground?: () => void;
+  onGoToReport?: () => void;
 }
 
 /** Swap "Tone A" and "Tone B" in an explanation when the two sides were shuffled. */
@@ -58,6 +61,8 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   onRecordScore,
   briefWork,
   onSaveBrief,
+  onGoToPlayground,
+  onGoToReport,
 }) => {
   const [activeCategory, setActiveCategory] = useState<Category>('blind');
   // The student's latest patch, for putting back after a reference sound plays.
@@ -152,10 +157,26 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const isRevealed = !!revealed[currentPatch.id];
   const result = lastResult?.patchId === currentPatch.id ? lastResult : null;
 
+  // Each patch keeps the student's work-in-progress while they look at another one.
+  const workByPatch = useRef<Record<string, SynthParams>>({});
+  const loadPatch = (idx: number) => {
+    const p = PATCH_MATCHER_CHALLENGES[idx];
+    onLoadParams({ ...(workByPatch.current[p.id] ?? p.startParams) });
+  };
   const choosePatch = (idx: number) => {
+    workByPatch.current[currentPatch.id] = { ...params };
+    stopPhrase();
     setActivePatchIdx(idx);
     setNoMoreHints(null);
+    loadPatch(idx);
   };
+  const restartPatch = () => {
+    delete workByPatch.current[currentPatch.id];
+    onLoadParams({ ...currentPatch.startParams });
+    setNoMoreHints(null);
+  };
+  const allPatchesTried = PATCH_MATCHER_CHALLENGES.every((p) => bestByPatch[p.id] !== undefined);
+  const isLastPatch = activePatchIdx === PATCH_MATCHER_CHALLENGES.length - 1;
 
   const handleHint = () => {
     if (hintsLeft <= 0) return;
@@ -199,15 +220,17 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const tabs: { id: Category; label: string; icon: React.ReactNode; on: string }[] = [
     { id: 'blind', label: '1. A/B Ear Training', icon: <Ear className="w-4 h-4" />, on: 'bg-cyan-500 text-black shadow-[0_0_12px_#06b6d4]' },
     { id: 'doctor', label: '2. Synth Doctor', icon: <Stethoscope className="w-4 h-4" />, on: 'bg-emerald-500 text-black shadow-[0_0_12px_#10b981]' },
-    { id: 'matcher', label: '3. Patch Master', icon: <Target className="w-4 h-4" />, on: 'bg-amber-500 text-black shadow-[0_0_12px_#f59e0b]' },
+    { id: 'mine', label: '3. My Presets', icon: <Library className="w-4 h-4" />, on: 'bg-violet-500 text-black shadow-[0_0_12px_#8b5cf6]' },
     { id: 'design', label: '4. Sound Design', icon: <Palette className="w-4 h-4" />, on: 'bg-fuchsia-500 text-black shadow-[0_0_12px_#d946ef]' },
-    { id: 'mine', label: '5. My Presets', icon: <Library className="w-4 h-4" />, on: 'bg-violet-500 text-black shadow-[0_0_12px_#8b5cf6]' },
+    { id: 'matcher', label: '5. Patch Master', icon: <Target className="w-4 h-4" />, on: 'bg-amber-500 text-black shadow-[0_0_12px_#f59e0b]' },
   ];
 
   const selectTab = (id: Category) => {
     stopPhrase();
+    if (activeCategory === 'matcher') workByPatch.current[currentPatch.id] = { ...params };
     setActiveCategory(id);
     if (id === 'doctor') handleLoadTicket(activeTicketIdx);
+    if (id === 'matcher') loadPatch(activePatchIdx);
   };
 
   return (
@@ -293,6 +316,16 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
               </div>
             ))}
           </div>
+
+          {blindAnsweredCount === BLIND_TEST_CHALLENGES.length && (
+            <QuestComplete
+              quest="A/B Ear Training"
+              tone="cyan"
+              summary={`${blindCorrectCount} of ${BLIND_TEST_CHALLENGES.length} correct. Your ears are getting sharp!`}
+              onGoToPlayground={onGoToPlayground}
+              onGoToReport={onGoToReport}
+            />
+          )}
 
           {blindAnswer && (
             <div className="p-3 rounded-lg bg-black/60 border border-cyan-500/40 flex items-center justify-between gap-3">
@@ -443,6 +476,23 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
               )}
             </div>
           )}
+
+          {Object.keys(fixedTickets).length === SYNTH_DOCTOR_TICKETS.length && (
+            <QuestComplete
+              quest="Synth Doctor"
+              tone="emerald"
+              summary={`All ${SYNTH_DOCTOR_TICKETS.length} tickets fixed. The clinic is officially closed for the day!`}
+              onGoToPlayground={onGoToPlayground}
+              onGoToReport={onGoToReport}
+            />
+          )}
+          {ticketStatus === 'fixed' &&
+            activeTicketIdx === SYNTH_DOCTOR_TICKETS.length - 1 &&
+            Object.keys(fixedTickets).length < SYNTH_DOCTOR_TICKETS.length && (
+              <p className="mt-2 text-xs text-amber-200">
+                That was the last ticket, but you skipped some. Use the numbered buttons above to go back and fix the rest.
+              </p>
+            )}
         </div>
       )}
 
@@ -452,7 +502,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-white/10 pb-3 mb-3">
             <div>
               <span className="text-[10px] font-mono text-amber-400 uppercase tracking-widest font-bold">
-                QUEST 3: PATCH MASTER
+                QUEST 5: PATCH MASTER
                 <span className="ml-2 normal-case tracking-normal text-sky-300 font-normal">· you get 50% for trying. The other 50% is based on your scores</span>
               </span>
               <h3 className="text-base font-bold text-white flex flex-wrap items-center gap-2">
@@ -462,7 +512,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
                   type="button"
                   onClick={handleHint}
                   disabled={hintsLeft <= 0 || isRevealed}
-                  title={hintsLeft > 0 ? `A clue about the setting you're furthest from right now (${hintsLeft} of ${HINTS_PER_PATCH} left)` : 'No hints left for this patch. Trust your ears!'}
+                  title={hintsLeft > 0 ? `A clue about a setting that is still off right now (${hintsLeft} of ${HINTS_PER_PATCH} left)` : 'No hints left for this patch. Trust your ears!'}
                   className={`px-2.5 py-0.5 rounded-full text-xs font-mono font-bold flex items-center gap-1 ${
                     hintsLeft > 0 && !isRevealed
                       ? 'bg-yellow-300 hover:bg-yellow-200 text-black'
@@ -540,6 +590,14 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
               {tries > 0 && <span className="text-[11px] font-mono text-slate-400">{tries} {tries === 1 ? 'try' : 'tries'} · best {bestByPatch[currentPatch.id]}%</span>}
               <button
                 type="button"
+                onClick={restartPatch}
+                className="px-3 py-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono text-xs flex items-center gap-1.5 border border-white/10"
+                title="Put the synth back to this patch's starting point"
+              >
+                <RotateCcw className="w-3.5 h-3.5" /> Restart patch
+              </button>
+              <button
+                type="button"
                 onClick={handleTestMatch}
                 className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black font-bold font-mono text-xs uppercase flex items-center gap-2 active:scale-95"
               >
@@ -574,6 +632,27 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
                   ))}
               </div>
             </div>
+          )}
+
+          {tries > 0 && !isLastPatch && (
+            <div className="mt-3 flex justify-end">
+              <button
+                type="button"
+                onClick={() => choosePatch(activePatchIdx + 1)}
+                className="px-4 py-2 rounded-lg bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs uppercase flex items-center gap-1.5 active:scale-95"
+              >
+                Next patch <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          )}
+          {allPatchesTried && (
+            <QuestComplete
+              quest="Patch Master"
+              tone="amber"
+              summary={`You matched all ${PATCH_MATCHER_CHALLENGES.length} patches.`}
+              onGoToPlayground={onGoToPlayground}
+              onGoToReport={onGoToReport}
+            />
           )}
 
           {tries >= TRIES_BEFORE_REVEAL && !isRevealed && (
@@ -612,12 +691,28 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
 
       {/* ---------------- 4. Sound Design ---------------- */}
       {activeCategory === 'design' && (
-        <ModeBriefs engine={engine} params={params} briefWork={briefWork} onSaveBrief={onSaveBrief} onLoadParams={onLoadParams} />
+        <ModeBriefs
+          engine={engine}
+          params={params}
+          briefWork={briefWork}
+          onSaveBrief={onSaveBrief}
+          onLoadParams={onLoadParams}
+          onGoToPlayground={onGoToPlayground}
+          onGoToReport={onGoToReport}
+        />
       )}
 
       {/* ---------------- 5. My Presets ---------------- */}
       {activeCategory === 'mine' && (
-        <ModeMyPresets engine={engine} params={params} saved={briefWork} onSave={onSaveBrief} onLoadParams={onLoadParams} />
+        <ModeMyPresets
+          engine={engine}
+          params={params}
+          saved={briefWork}
+          onSave={onSaveBrief}
+          onLoadParams={onLoadParams}
+          onGoToPlayground={onGoToPlayground}
+          onGoToReport={onGoToReport}
+        />
       )}
 
     </div>

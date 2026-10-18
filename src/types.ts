@@ -121,6 +121,8 @@ export interface PatchMatcherChallenge {
   description: string;
   hint: string;
   targetParams: SynthParams;
+  /** The patch loaded when the student opens this challenge: the target with a few graded settings knocked off. */
+  startParams: SynthParams;
   /** What the auto-grader listens for on this patch, with weights that add up to 100. */
   gradeOn: Partial<Record<PatchAspect, number>>;
   /** What plays for "Play the Target" and "Play My Synth": chosen to show off what defines this patch. */
