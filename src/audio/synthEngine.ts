@@ -5,9 +5,14 @@ import { SynthParams, ArpConfig } from '../types';
 export const MAX_VOICES = 8;
 
 /** Mix level for each voice, so chords don't slam into the limiter. */
-const VOICE_LEVEL = 0.6;
+const VOICE_LEVEL = 0.45;
 
 /** Pitch LFO depth in cents: depth² curve so small values are gentle vibrato and high values are a siren. */
+/**
+ * Level trim for resonance. Q is in dB and every 12 dB/oct stage adds its own peak, so a
+ * resonant 4-pole filter can be 30+ dB hotter at the cutoff. Trim about a third of that.
+ */
+export const resonanceComp = (q: number, rolloff: number) => Math.pow(10, (-0.35 * Math.max(0, q - 2) * (Math.abs(rolloff) / 12)) / 20);
 export const lfoPitchCents = (depth: number) => 800 * depth * depth;
 
 /** Cutoff LFO swing in Hz at full depth. */
@@ -42,6 +47,8 @@ class Voice {
   ampEnv: Tone.AmplitudeEnvelope;
   /** Fades the LFO's cutoff movement in at each note start, so a note never begins mid-sweep with a click. */
   lfoFade: Tone.Gain;
+  /** Pulls the level down as resonance rises (real filters lose body too), so peaky patches don't clip. */
+  resComp: Tone.Gain;
 
   note: string | null = null;
   freq = 261.63;
@@ -62,6 +69,7 @@ class Voice {
     this.filterEnvGain = new Tone.Gain(0);
     this.ampEnv = new Tone.AmplitudeEnvelope();
     this.lfoFade = new Tone.Gain(1);
+    this.resComp = new Tone.Gain(1);
 
     this.osc1Gain.connect(this.filter);
     this.osc2Gain.connect(this.filter);
@@ -71,7 +79,8 @@ class Voice {
     this.filterEnvGain.connect(this.filter.frequency);
     engine.lfoCutoffGain.connect(this.lfoFade);
     this.lfoFade.connect(this.filter.frequency);
-    this.filter.connect(this.ampEnv);
+    this.filter.connect(this.resComp);
+    this.resComp.connect(this.ampEnv);
     this.ampEnv.connect(out);
 
     this.buildOscillators();
@@ -128,6 +137,7 @@ class Voice {
 
     if (this.filter.rolloff !== p.filterRolloff) this.filter.rolloff = p.filterRolloff;
     this.filter.Q.rampTo(p.filterResonance, 0.05);
+    this.resComp.gain.rampTo(resonanceComp(p.filterResonance, p.filterRolloff), 0.05);
     this.filterEnvGain.gain.rampTo((p.filterEnvAmount / 100) * FILTER_ENV_HZ, 0.05);
 
     this.ampEnv.attack = Math.max(0.003, p.ampAttack);
@@ -227,6 +237,7 @@ export class SubtractiveEngine {
   private voiceBus!: Tone.Gain;
   private masterGain!: Tone.Gain;
   private limiter!: Tone.Compressor;
+  private softClip!: Tone.WaveShaper;
   private waveformAnalyzer!: Tone.Waveform;
   private fftAnalyzer!: Tone.FFT;
   private recorder!: Tone.Recorder;
@@ -295,7 +306,7 @@ export class SubtractiveEngine {
   private setupAudioGraph() {
     // Voices -> bus -> master -> limiter -> speakers & analyzers
     // Safety limiter with a hard knee, so chords don't distort but single notes keep their dynamics.
-    this.limiter = new Tone.Compressor({ threshold: -3, ratio: 20, attack: 0.003, release: 0.08, knee: 2 });
+    this.limiter = new Tone.Compressor({ threshold: -6, ratio: 12, attack: 0.002, release: 0.12, knee: 6 });
     this.masterGain = new Tone.Gain(this.currentParams.masterVolume);
     this.voiceBus = new Tone.Gain(VOICE_LEVEL);
     this.waveformAnalyzer = new Tone.Waveform(1024);
@@ -304,10 +315,13 @@ export class SubtractiveEngine {
 
     this.voiceBus.connect(this.masterGain);
     this.masterGain.connect(this.limiter);
-    this.limiter.connect(Tone.getDestination());
-    this.limiter.connect(this.waveformAnalyzer);
-    this.limiter.connect(this.fftAnalyzer);
-    this.limiter.connect(this.recorder);
+    // A gentle soft clipper after the limiter: anything that still overshoots is rounded off, not hard-clipped.
+    this.softClip = new Tone.WaveShaper((x) => Math.tanh(x * 1.1) / Math.tanh(1.1), 2048);
+    this.limiter.connect(this.softClip);
+    this.softClip.connect(Tone.getDestination());
+    this.softClip.connect(this.waveformAnalyzer);
+    this.softClip.connect(this.fftAnalyzer);
+    this.softClip.connect(this.recorder);
 
     // One LFO for the whole synth, so every note wobbles together (like most analog polysynths).
     this.lfo = new Tone.LFO({

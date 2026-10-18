@@ -2,6 +2,7 @@ import { ENVELOPE_CENTER_SECONDS } from '../utils/taper';
 import React, { useState } from 'react';
 import { SynthParams, WaveformType, LfoDestination, FilterRolloff, VoiceMode } from '../types';
 import { Knob } from './Knob';
+import { balanceText } from '../utils/balanceText';
 import { VerticalSlider } from './Slider';
 import { ToggleSwitch } from './ToggleSwitch';
 import { Visualizer } from './Visualizer';
@@ -217,7 +218,8 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
             />
             <Knob
               id="retro-osc-balance"
-              label="VCO Balance"
+              label="VCO Crossfade"
+              format={balanceText}
               value={params.oscBalance}
               min={-1}
               max={1}
@@ -233,7 +235,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
         {/* Module 2: VCF Filter Section */}
         <div
           id="module-filter"
-          className={`lg:col-span-3 rounded-xl p-2 border transition-all flex flex-col justify-between ${
+          className={`lg:col-span-3 rounded-xl p-2 border transition-all flex flex-col justify-start ${
             isHighlighted('filter')
               ? 'ring-2 ring-red-400 border-red-400 bg-red-500/10'
               : 'bg-[#181c24]/90 border-red-500/30'
@@ -325,7 +327,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
           </div>
 
           {/* Real-time Spectrometer */}
-          <div className="mt-2">
+          <div className="-mt-px">
             <Visualizer engine={engine} theme="studio-retro" height={280} />
           </div>
         </div>
