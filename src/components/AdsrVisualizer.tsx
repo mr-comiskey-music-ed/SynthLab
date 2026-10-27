@@ -299,14 +299,14 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
 
             {/* ADSR Curve Stroke Gradient */}
             <linearGradient id="adsr-curve-stroke" x1="0%" y1="100%" x2="0%" y2="0%">
-              <stop offset="0%" stopColor={theme === 'diagram' ? '#0f172a' : '#f59e0b'} />
-              <stop offset="100%" stopColor={theme === 'diagram' ? '#0f172a' : '#f59e0b'} />
+              <stop offset="0%" stopColor={theme === 'diagram' ? '#0f172a' : '#fbbf24'} />
+              <stop offset="100%" stopColor={theme === 'diagram' ? '#0f172a' : '#fbbf24'} />
             </linearGradient>
 
             {/* Area gradient under curve */}
             <linearGradient id="adsr-curve-fill" x1="0%" y1="0%" x2="0%" y2="100%">
-              <stop offset="0%" stopColor={theme === 'studio-retro' ? '#f59e0b' : '#0284c7'} stopOpacity="0.02" />
-              <stop offset="100%" stopColor={theme === 'studio-retro' ? '#f59e0b' : '#0284c7'} stopOpacity="0.15" />
+              <stop offset="0%" stopColor={theme === 'studio-retro' ? '#f59e0b' : '#0284c7'} stopOpacity={dark ? 0.12 : 0.02} />
+              <stop offset="100%" stopColor={theme === 'studio-retro' ? '#f59e0b' : '#0284c7'} stopOpacity={dark ? 0.75 : 0.15} />
             </linearGradient>
           </defs>
 
@@ -314,7 +314,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
           <path
             d={areaPath}
             fill="url(#adsr-curve-fill)"
-            fillOpacity={theme === 'diagram' ? '0.85' : '0.18'}
+            fillOpacity={theme === 'diagram' ? '0.85' : '0.6'}
           />
 
           {/* 2. VERTICAL DASHED DIVIDING LINES */}
@@ -323,30 +323,30 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
             y1={yPeak}
             x2={xA}
             y2={yZero}
-            stroke="#94a3b8"
+            stroke={dark ? '#e2e8f0' : '#94a3b8'}
             strokeWidth="1"
             strokeDasharray="2 2"
-            opacity="0.5"
+            opacity={dark ? 0.4 : 0.5}
           />
           <line
             x1={xD}
             y1={ySustain}
             x2={xD}
             y2={yZero}
-            stroke="#94a3b8"
+            stroke={dark ? '#e2e8f0' : '#94a3b8'}
             strokeWidth="1"
             strokeDasharray="2 2"
-            opacity="0.5"
+            opacity={dark ? 0.4 : 0.5}
           />
           <line
             x1={xS}
             y1={ySustain}
             x2={xS}
             y2={yZero}
-            stroke="#94a3b8"
+            stroke={dark ? '#e2e8f0' : '#94a3b8'}
             strokeWidth="1"
             strokeDasharray="2 2"
-            opacity="0.5"
+            opacity={dark ? 0.4 : 0.5}
           />
 
           {/* Sustain Level Horizontal Guideline */}
@@ -355,10 +355,10 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
             y1={ySustain}
             x2={xS}
             y2={ySustain}
-            stroke="#0284c7"
+            stroke={dark ? '#fde68a' : '#0284c7'}
             strokeWidth="1.25"
             strokeDasharray="3 3"
-            opacity="0.65"
+            opacity={dark ? 0.85 : 0.65}
           />
 
           {/* 3. SOLID ADSR ENVELOPE CURVE */}
@@ -435,7 +435,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
               <text x={x0 + widthA / 2} y={yZero + 16} textAnchor="middle" fill={zoneColors.a}>
                 Attack
               </text>
-              <text x={x0 + widthA / 2} y={yZero + 28} textAnchor="middle" fontSize="9" fill={zoneColors.aSub} opacity="0.95">
+              <text x={x0 + widthA / 2} y={yZero + 28} textAnchor="middle" fontSize="10.5" fill={zoneColors.aSub} opacity="0.95">
                 {rawA >= 1 ? `${rawA.toFixed(2)}s` : `${Math.round(rawA * 1000)}ms`}
               </text>
 
@@ -443,7 +443,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
               <text x={xA + widthD / 2} y={yZero + 16} textAnchor="middle" fill={zoneColors.d}>
                 Decay
               </text>
-              <text x={xA + widthD / 2} y={yZero + 28} textAnchor="middle" fontSize="9" fill={zoneColors.dSub} opacity="0.95">
+              <text x={xA + widthD / 2} y={yZero + 28} textAnchor="middle" fontSize="10.5" fill={zoneColors.dSub} opacity="0.95">
                 {rawD >= 1 ? `${rawD.toFixed(2)}s` : `${Math.round(rawD * 1000)}ms`}
               </text>
 
@@ -451,7 +451,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
               <text x={xS + widthR / 2} y={yZero + 16} textAnchor="middle" fill={zoneColors.r}>
                 Release
               </text>
-              <text x={xS + widthR / 2} y={yZero + 28} textAnchor="middle" fontSize="9" fill={zoneColors.rSub} opacity="0.95">
+              <text x={xS + widthR / 2} y={yZero + 28} textAnchor="middle" fontSize="10.5" fill={zoneColors.rSub} opacity="0.95">
                 {rawR >= 1 ? `${rawR.toFixed(2)}s` : `${Math.round(rawR * 1000)}ms`}
               </text>
             </g>

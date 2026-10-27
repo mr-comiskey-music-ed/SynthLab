@@ -378,7 +378,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
               decay={activeEgTab === 'amp' ? params.ampDecay : params.modDecay}
               sustain={activeEgTab === 'amp' ? params.ampSustain : params.modSustain}
               release={activeEgTab === 'amp' ? params.ampRelease : params.modRelease}
-              height={100}
+              height={170}
               theme="studio-retro"
               engine={engine}
             />
