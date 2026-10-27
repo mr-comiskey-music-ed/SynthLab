@@ -397,7 +397,12 @@ export default function App() {
             assignedTasks={assignedTasks}
             sharedReport={sharedReport}
             onLoadParams={loadParams}
-            onOpenBatchGrade={() => setIsBatchOpen(true)}
+            batchText={batchText}
+            onBatchTextChange={setBatchText}
+            onGradeBatch={() => {
+              setIsBatchOpen(true);
+              handleGradeBatch();
+            }}
             briefWork={briefWork}
             onPlayBrief={handlePlayBrief}
           />

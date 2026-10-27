@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SynthParams, StudentSubmission, BriefWork, PhraseId } from '../types';
-import { encodeSubmission, decodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
+import { encodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
 import { gradesFor, headlineScore, Grades, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
 import { QuestBoxes, scoreLabel } from './QuestBoxes';
 import { learnSummary } from '../utils/learnProgress';
@@ -36,7 +36,11 @@ interface ModeTeacherProps {
   /** A code that arrived in the page link (?report=...). */
   sharedReport?: SharedReport | null;
   onLoadParams: (params: SynthParams) => void;
-  onOpenBatchGrade: () => void;
+  /** The class paste box: codes live in the app so the results window can reuse them. */
+  batchText: string;
+  onBatchTextChange: (text: string) => void;
+  /** Open the batch results and grade what is in the box. */
+  onGradeBatch: () => void;
   /** The student's saved Sound Design Brief patches. */
   briefWork: Record<string, BriefWork>;
   /** Play a saved sound (brief or My Preset) in its musical context. */
@@ -130,7 +134,9 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
   assignedTasks = [],
   sharedReport = null,
   onLoadParams,
-  onOpenBatchGrade,
+  batchText,
+  onBatchTextChange,
+  onGradeBatch,
   briefWork,
   onPlayBrief,
 }) => {
@@ -144,9 +150,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
 
   // A code the teacher checked (or that came in the link)
   const [checked, setChecked] = useState<DecodedSubmission | null>(null);
-  const [manualReportInput, setManualReportInput] = useState<string>('');
   const [verificationError, setVerificationError] = useState<string | null>(null);
-  const [isChecking, setIsChecking] = useState(false);
   const [patchLoaded, setPatchLoaded] = useState(false);
   const [showLinkBuilder, setShowLinkBuilder] = useState(false);
 
@@ -160,20 +164,6 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
     }
   }, [sharedReport]);
 
-  const handleCheckCode = async () => {
-    if (!manualReportInput.trim()) return;
-    setVerificationError(null);
-    setIsChecking(true);
-    const decoded = await decodeSubmission(manualReportInput);
-    setIsChecking(false);
-    if (decoded) {
-      setChecked(decoded);
-      setPatchLoaded(false);
-      setManualReportInput('');
-    } else {
-      setVerificationError(BAD_CODE);
-    }
-  };
 
   const grades = gradesFor(completedTasks, assignedTasks);
   const gradedIds = gradedTaskIds(assignedTasks);
@@ -366,46 +356,41 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
           </div>
         )}
 
-        {/* Teacher tools */}
+        {/* Teacher tools: paste a whole class's codes to grade them */}
         <div className="mt-6 pt-4 border-t border-white/10 space-y-2">
-          <div className="flex flex-col sm:flex-row items-center gap-2">
-            <span className="text-xs font-mono text-amber-400 font-bold whitespace-nowrap">Teacher Code Check:</span>
-            <input
-              type="text"
-              placeholder="Paste one student's code..."
-              value={manualReportInput}
-              onChange={(e) => {
-                setManualReportInput(e.target.value);
-                setVerificationError(null);
-              }}
-              onKeyDown={(e) => e.key === 'Enter' && handleCheckCode()}
-              className="flex-1 w-full px-3 py-1.5 rounded bg-black/70 text-slate-100 font-mono text-xs border border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-400"
-            />
-            <button
-              type="button"
-              onClick={handleCheckCode}
-              disabled={isChecking}
-              className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 text-black font-mono font-bold text-xs uppercase flex items-center gap-1 flex-shrink-0"
-            >
-              <ShieldCheck className="w-3.5 h-3.5" />
-              Check
-            </button>
-            <button
-              type="button"
-              onClick={() => setShowLinkBuilder(true)}
-              className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs uppercase flex items-center gap-1 flex-shrink-0"
-            >
-              <Link2 className="w-3.5 h-3.5" />
-              Assignment Link
-            </button>
-            <button
-              type="button"
-              onClick={onOpenBatchGrade}
-              className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs uppercase flex items-center gap-1 flex-shrink-0"
-            >
-              <ListChecks className="w-3.5 h-3.5" />
-              Batch Grade a Class
-            </button>
+          <div className="flex flex-col lg:flex-row lg:items-stretch gap-2">
+            <div className="flex-1 min-w-0">
+              <label htmlFor="batch-codes" className="block text-xs font-mono text-amber-400 font-bold mb-1">
+                Teacher: Grade a Class
+              </label>
+              <textarea
+                id="batch-codes"
+                rows={2}
+                value={batchText}
+                onChange={(e) => onBatchTextChange(e.target.value)}
+                placeholder="Paste your students' codes here: one per line, or a whole column copied from Google Classroom or a spreadsheet..."
+                className="w-full px-3 py-1.5 rounded bg-black/70 text-slate-100 font-mono text-xs border border-amber-500/30 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-y"
+              />
+            </div>
+            <div className="flex lg:flex-col gap-2 lg:justify-end shrink-0">
+              <button
+                type="button"
+                onClick={onGradeBatch}
+                disabled={!batchText.trim()}
+                className="px-3 py-1.5 rounded bg-amber-500 hover:bg-amber-400 disabled:opacity-40 disabled:cursor-not-allowed text-black font-mono font-bold text-xs uppercase flex items-center justify-center gap-1"
+              >
+                <ListChecks className="w-3.5 h-3.5" />
+                Grade Class
+              </button>
+              <button
+                type="button"
+                onClick={() => setShowLinkBuilder(true)}
+                className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs uppercase flex items-center justify-center gap-1"
+              >
+                <Link2 className="w-3.5 h-3.5" />
+                Assignment Link
+              </button>
+            </div>
           </div>
           {verificationError && (
             <div className="p-2 rounded bg-red-950/80 border border-red-500/60 text-red-200 text-xs font-mono flex items-center gap-2">

@@ -61,6 +61,34 @@ const CATEGORY_SHORT: Record<string, string> = {
   'My Presets': 'Presets',
 };
 
+/** One tiny, fixed-width grade cell so six of them fit on a single line per student. */
+const TONES: Record<string, { on: string; off: string }> = {
+  indigo: { on: 'text-indigo-200 bg-indigo-500/20 border-indigo-400/50', off: 'text-indigo-300/60 bg-transparent border-indigo-500/20' },
+  violet: { on: 'text-violet-200 bg-violet-500/20 border-violet-400/50', off: 'text-violet-300/60 bg-transparent border-violet-500/20' },
+  fuchsia: { on: 'text-fuchsia-200 bg-fuchsia-500/20 border-fuchsia-400/50', off: 'text-fuchsia-300/60 bg-transparent border-fuchsia-500/20' },
+};
+const Cell: React.FC<{
+  kind: 'pct' | 'count';
+  value: number | null;
+  total?: number;
+  tone?: 'indigo' | 'violet' | 'fuchsia';
+  /** Learn only: an older code that never recorded it. */
+  unknown?: boolean;
+  title?: string;
+}> = ({ kind, value, total, tone, unknown, title }) => {
+  const base = 'text-center text-[10px] leading-4 font-bold rounded border px-0.5 tabular-nums whitespace-nowrap';
+  if (unknown) return <span className={`${base} text-slate-500 border-transparent`} title="Older code: Learn wasn't recorded">?</span>;
+  if (value === null) return <span className={`${base} text-slate-600 border-transparent`} title={title ? `${title}: not assigned` : undefined}>–</span>;
+  if (kind === 'pct') return <span className={`${base} ${gradeColor(value)}`} title={title}>{value}%</span>;
+  const full = total !== undefined && value >= total;
+  const t = TONES[tone ?? 'indigo'];
+  return (
+    <span className={`${base} ${full ? t.on : t.off}`} title={title}>
+      {value}/{total}
+    </span>
+  );
+};
+
 export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
   isOpen,
   onClose,
@@ -101,7 +129,8 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
   const patterns = useMemo(() => classPatterns(visible), [visible]);
   const skipped = useMemo(() => leastAttempted(visible), [visible]);
   const avgOf = (nums: number[]) => (nums.length ? Math.round(nums.reduce((a, b) => a + b, 0) / nums.length) : null);
-  const mainAverage = avgOf(visible.flatMap((e) => (e.grades.main ? [e.grades.main.score] : [])));
+  const earAverage = avgOf(visible.flatMap((e) => (e.grades.ear ? [e.grades.ear.score] : [])));
+  const doctorAverage = avgOf(visible.flatMap((e) => (e.grades.doctor ? [e.grades.doctor.score] : [])));
   const effortAverage = avgOf(visible.flatMap((e) => (e.grades.patchMaster ? [e.grades.patchMaster.score] : [])));
   const letterCounts = useMemo(() => {
     const m = new Map<string, number>();
@@ -115,7 +144,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
-      <div className="w-full max-w-4xl rounded-2xl bg-slate-950 border-2 border-amber-500/40 p-5 shadow-2xl text-slate-100 font-mono flex flex-col max-h-[92vh]">
+      <div className="w-full max-w-5xl rounded-2xl bg-slate-950 border-2 border-amber-500/40 p-5 shadow-2xl text-slate-100 font-mono flex flex-col max-h-[92vh]">
         {/* Header */}
         <div className="flex items-center justify-between border-b border-white/10 pb-4 mb-4">
           <div className="flex items-center gap-3">
@@ -172,9 +201,14 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
               <span className="px-3 py-1.5 rounded-lg bg-white/5 border border-white/10">
                 <b className="text-white">{visible.length}</b> graded
               </span>
-              {mainAverage !== null && (
-                <span className={`px-3 py-1.5 rounded-lg border font-bold ${gradeColor(mainAverage)}`} title="A/B Ear Training + Synth Doctor">
-                  Main grade avg {mainAverage}%
+              {earAverage !== null && (
+                <span className={`px-3 py-1.5 rounded-lg border font-bold ${gradeColor(earAverage)}`} title="A/B Ear Training">
+                  Ear avg {earAverage}%
+                </span>
+              )}
+              {doctorAverage !== null && (
+                <span className={`px-3 py-1.5 rounded-lg border font-bold ${gradeColor(doctorAverage)}`} title="Synth Doctor">
+                  Doctor avg {doctorAverage}%
                 </span>
               )}
               {letterCounts.map(([letter, n]) => (
@@ -294,7 +328,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                         sortKey === k ? 'bg-amber-500 text-black border-amber-400 font-bold' : 'bg-white/5 border-white/10 text-slate-300'
                       }`}
                     >
-                      {k === 'name' ? 'Last name' : k === 'score' ? 'Main grade' : k === 'effort' ? 'Patch Master' : 'Tasks done'}
+                      {k === 'name' ? 'Last name' : k === 'score' ? 'Ear + Doctor' : k === 'effort' ? 'Patch Master' : 'Tasks done'}
                     </button>
                   ))}
                   {assignments.length > 1 && (
@@ -326,11 +360,14 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
 
                 {/* Table */}
                 <div className="border border-white/10 rounded-xl overflow-hidden">
-                  <div className="grid grid-cols-[1fr_120px_56px_64px_96px] sm:grid-cols-[1fr_170px_64px_80px_110px] gap-2 px-3 py-2 bg-white/5 text-[10px] font-bold uppercase tracking-wider text-slate-400">
+                  <div className="grid grid-cols-[minmax(0,1fr)_repeat(6,3.1rem)_4.5rem] gap-1 px-2 py-1.5 bg-white/5 text-[9px] font-bold uppercase tracking-wider text-slate-400 items-end">
                     <span>Student</span>
-                    <span>Assigned done (Patch · Doctor · Ear · Design · Presets)</span>
-                    <span className="text-center" title="A/B Ear Training + Synth Doctor">Main</span>
-                    <span className="text-center" title="Patch Master: 50% for trying, 50% from match scores">Patch Master</span>
+                    <span className="text-center text-indigo-300/80" title="Learn walkthrough: steps finished">Learn</span>
+                    <span className="text-center text-cyan-300/80" title="Quest 1: A/B Ear Training">Ear</span>
+                    <span className="text-center text-emerald-300/80" title="Quest 2: Synth Doctor">Doctor</span>
+                    <span className="text-center text-violet-300/80" title="Quest 3: My Presets turned in (graded by ear)">Presets</span>
+                    <span className="text-center text-fuchsia-300/80" title="Quest 4: Sound Design briefs turned in (graded by ear)">Design</span>
+                    <span className="text-center text-amber-300/80" title="Quest 5: Patch Master: 50% for trying, 50% from match scores">Patch</span>
                     <span />
                   </div>
                   {visible.map((e, pos) => {
@@ -340,42 +377,29 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                       <div key={e.id} className="border-t border-white/5">
                         <div
                           onClick={() => setExpandedId(open ? null : e.id)}
-                          className="grid grid-cols-[1fr_120px_56px_64px_96px] sm:grid-cols-[1fr_170px_64px_80px_110px] gap-2 px-3 py-2 items-center hover:bg-white/5 cursor-pointer"
+                          className="grid grid-cols-[minmax(0,1fr)_repeat(6,3.1rem)_4.5rem] gap-1 px-2 py-1 items-center hover:bg-white/5 cursor-pointer"
                         >
-                          <span className="font-bold text-white truncate flex items-center gap-1.5">
+                          <span className="font-bold text-white flex items-center gap-1 min-w-0" title={s.studentName || 'Unnamed student'}>
                             {open ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
-                            {s.studentName || 'Unnamed student'}
+                            <span className="truncate">{s.studentName || 'Unnamed student'}</span>
                             {e.hasMultipleSubmissions && (
-                              <span className="text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1.5 rounded shrink-0">
-                                multiple codes
+                              <span className="text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1 rounded shrink-0" title="This student turned in more than one code">
+                                x2
                               </span>
                             )}
                           </span>
-                          <span className="text-slate-300">
-                            {doneLabel(s)}{' '}
-                            <span className="text-slate-500">
-                              ({TASK_CATEGORIES.map((c) => e.categories[c].done).join(' · ')})
-                            </span>
-                          </span>
-                          {e.grades.main ? (
-                            <span className={`text-center font-bold rounded border px-1.5 py-0.5 ${gradeColor(e.grades.main.score)}`}>
-                              {e.grades.main.score}%
-                            </span>
-                          ) : (
-                            <span className="text-center text-slate-500">–</span>
-                          )}
-                          {e.grades.patchMaster ? (
-                            <span
-                              className={`text-center font-bold rounded border px-1.5 py-0.5 ${gradeColor(e.grades.patchMaster.score)}`}
-                              title={`Tried ${e.grades.patchMaster.tried} of ${e.grades.patchMaster.total} patches · ${e.grades.patchMaster.totalTries} tries${
-                                e.grades.patchMaster.avgBestMatch !== null ? ` · avg best match ${e.grades.patchMaster.avgBestMatch}%` : ''
-                              }`}
-                            >
-                              {e.grades.patchMaster.score}%
-                            </span>
-                          ) : (
-                            <span className="text-center text-slate-500">–</span>
-                          )}
+                          <Cell kind="count" tone="indigo" value={s.learn ? s.learn.done : null} total={s.learn?.total} unknown={!s.learn} title="Learn steps finished" />
+                          <Cell kind="pct" value={e.grades.ear?.score ?? null} title="Ear Training average" />
+                          <Cell kind="pct" value={e.grades.doctor?.score ?? null} title="Synth Doctor average" />
+                          <Cell kind="count" tone="violet" value={e.grades.myPresets ? e.grades.myPresets.submitted : null} total={e.grades.myPresets?.total} title="My Presets turned in" />
+                          <Cell kind="count" tone="fuchsia" value={e.grades.design ? e.grades.design.submitted : null} total={e.grades.design?.total} title="Sound Design briefs turned in" />
+                          <Cell
+                            kind="pct"
+                            value={e.grades.patchMaster?.score ?? null}
+                            title={e.grades.patchMaster ? `Tried ${e.grades.patchMaster.tried} of ${e.grades.patchMaster.total} patches · ${e.grades.patchMaster.totalTries} tries${
+                              e.grades.patchMaster.avgBestMatch !== null ? ` · avg best match ${e.grades.patchMaster.avgBestMatch}%` : ''
+                            }` : undefined}
+                          />
                           <button
                             type="button"
                             onClick={(ev) => {
@@ -384,9 +408,9 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                             }}
                             disabled={!e.patchParams}
                             title={e.patchParams ? 'Load this student’s patch onto the synth' : 'This code has no patch saved in it'}
-                            className="justify-self-end px-2.5 py-1 rounded-lg bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-[11px] flex items-center gap-1 disabled:opacity-40"
+                            className="justify-self-end px-1.5 py-0.5 rounded-md bg-emerald-500/20 hover:bg-emerald-500/30 border border-emerald-500/40 text-emerald-300 font-bold text-[10px] flex items-center gap-1 disabled:opacity-40"
                           >
-                            <Headphones className="w-3.5 h-3.5" /> Hear patch
+                            <Headphones className="w-3 h-3" /> Hear
                           </button>
                         </div>
                         {open && (
