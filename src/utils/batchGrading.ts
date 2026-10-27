@@ -16,7 +16,7 @@ export interface BatchEntry {
   submission: StudentSubmission;
   patchParams?: SynthParams;
   grades: Grades;
-  /** Letter for the main grade (Ear Training + Synth Doctor); '' when not assigned. */
+  /** Letter for the Ear Training + Synth Doctor grade; '' when not assigned. */
   letter: string;
   categories: Record<TaskCategory, CategorySummary>;
   /** True when the same student name appears with more than one different code. */
@@ -168,7 +168,7 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
   };
   const header = [
     'Student', 'Assignment', 'Submitted',
-    'Main Grade (Ear + Doctor)', 'Main Letter',
+    'Ear + Doctor Grade', 'Ear + Doctor Letter',
     'Patch Master Grade %', 'Patch Master Tried', 'Patch Master Avg Best Match', 'Patch Master Total Tries',
     'Sound Design Turned In', 'Sound Design Grade (by ear)',
     'My Presets Turned In', 'My Presets Grade (by ear)',

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useId, useRef, useState } from 'react';
 import { ThemeMode, SynthParams } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
 import { AdsrVisualizer } from './AdsrVisualizer';
@@ -38,6 +38,8 @@ const CAPTIONS: Record<FlowPart, string> = {
  * each with a dashed arrow into exactly what it moves.
  */
 const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const mk = { flow: `flow-arrow-${uid}`, on: `mod-arrow-on-${uid}`, off: `mod-arrow-off-${uid}` };
   const on = (p: FlowPart) => lit.includes(p);
   const box = (p: FlowPart) =>
     on(p)
@@ -63,13 +65,13 @@ const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
     <div className="w-full md:flex-1 md:max-w-[46rem] min-w-0" aria-label="Signal path">
       <svg viewBox="0 0 700 100" className="w-full h-auto block" role="img" aria-label="Oscillators and noise go through the filter and amp to the speaker; the filter envelope, amp envelope and LFO move settings along the way">
         <defs>
-          <marker id="flow-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <marker id={mk.flow} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0 0 L8 4 L0 8 z" fill={sound} />
           </marker>
-          <marker id="mod-arrow-on" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <marker id={mk.on} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0 0 L8 4 L0 8 z" fill="#22d3ee" />
           </marker>
-          <marker id="mod-arrow-off" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+          <marker id={mk.off} viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0 0 L8 4 L0 8 z" fill="rgba(148,163,184,0.6)" />
           </marker>
         </defs>
@@ -78,11 +80,11 @@ const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
         <Block part="noise" x={0} y={0} w={120} h={20} label="NOISE" />
         <Block part="osc" x={0} y={24} w={120} h={30} label="VCO 1 + 2" />
         <path d="M120 10 H190 V39" fill="none" stroke={sound} strokeWidth={1.5} />
-        <path d="M120 39 H268" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <path d="M120 39 H268" fill="none" stroke={sound} strokeWidth={1.5} markerEnd={`url(#${mk.flow})`} />
         <Block part="filter" x={272} y={24} w={120} h={30} label="FILTER" />
-        <path d="M392 39 H508" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <path d="M392 39 H508" fill="none" stroke={sound} strokeWidth={1.5} markerEnd={`url(#${mk.flow})`} />
         <Block part="amp" x={512} y={24} w={100} h={30} label="AMP" />
-        <path d="M612 39 H648" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <path d="M612 39 H648" fill="none" stroke={sound} strokeWidth={1.5} markerEnd={`url(#${mk.flow})`} />
         <text x={672} y={47} textAnchor="middle" fontSize={24}>🔊</text>
 
         {/* What moves them: dashed arrows into exactly what they move */}
@@ -90,18 +92,21 @@ const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
         <Block part="filterEnv" x={272} y={76} w={120} h={24} label="FILTER EG" />
         <Block part="ampEnv" x={512} y={76} w={100} h={24} label="AMP EG" />
 
-        <path d="M40 76 V56" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('lfo') ? 'on' : 'off'})`} />
+        <path d="M40 76 V56" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#${on('lfo') ? mk.on : mk.off})`} />
         <text x={46} y={69} fontSize={10} fill={mod('lfo')} fontFamily={FONT}>pitch · PW</text>
-        <path d="M112 76 V64 H300 V56" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('lfo') ? 'on' : 'off'})`} />
+        <path d="M112 76 V64 H300 V56" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#${on('lfo') ? mk.on : mk.off})`} />
         <text x={150} y={60} fontSize={10} fill={mod('lfo')} fontFamily={FONT}>cutoff</text>
-        <path d="M352 76 V56" fill="none" stroke={mod('filterEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('filterEnv') ? 'on' : 'off'})`} />
+        <path d="M352 76 V56" fill="none" stroke={mod('filterEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#${on('filterEnv') ? mk.on : mk.off})`} />
         <text x={358} y={69} fontSize={10} fill={mod('filterEnv')} fontFamily={FONT}>cutoff</text>
-        <path d="M562 76 V56" fill="none" stroke={mod('ampEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('ampEnv') ? 'on' : 'off'})`} />
+        <path d="M562 76 V56" fill="none" stroke={mod('ampEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#${on('ampEnv') ? mk.on : mk.off})`} />
         <text x={568} y={69} fontSize={10} fill={mod('ampEnv')} fontFamily={FONT}>volume</text>
       </svg>
     </div>
   );
 };
+
+/** Tight labels for the step buttons. */
+const SHORT_TITLES = ['Waves', 'Two VCOs', 'Pulse width', 'Noise', 'Cutoff', 'Resonance', 'Amp EG', 'Filter EG', 'LFO'];
 
 const WAVES = [
   { type: 'sawtooth', name: 'Saw', desc: 'every harmonic: bright, buzzy' },
@@ -175,7 +180,6 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
     await playPhrase(engine, step.phrase, { onDone: () => setIsPlaying(false) });
   };
 
-  const settingsRight = current ? current.check(params) : false;
   const firstUnfinished = done.findIndex((n, i) => n < LEARN_STEPS[i].missions.length);
   // Once every step has been completed, the student can jump to any step and move on freely:
   // nothing has to be redone just to review.
@@ -215,42 +219,50 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
     );
   }
 
-  return (
-    <div id="mode-learn-overlay" className="rounded-xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-indigo-950/70 p-4 border border-amber-500/40 shadow-2xl text-slate-100">
+  // Every step is drawn in the same grid cell and only the current one is visible, so the panel is always
+  // as tall as the tallest step and nothing below it jumps around when the student changes steps.
+  const renderStep = (i: number, active: boolean) => {
+    const st = LEARN_STEPS[i];
+    const md = done[i];
+    const cur = st.missions[md];
+    const right = active && cur ? cur.check(params) : false;
+    const complete = md >= st.missions.length;
+    return (
+      <div key={i} className={`[grid-area:1/1] min-w-0 ${active ? '' : 'invisible pointer-events-none'}`} aria-hidden={!active} inert={!active}>
       {/* Header: step + flow strip */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-amber-500/20 pb-3 mb-3">
         <div className="flex items-center gap-3">
-          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black font-bold text-sm shrink-0">{stepIdx + 1}</span>
+          <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black font-bold text-sm shrink-0">{i + 1}</span>
           <div>
             <span className="text-[10px] font-mono tracking-widest text-amber-300 uppercase font-bold">
-              Step {stepIdx + 1} of {LEARN_STEPS.length}
+              Step {i + 1} of {LEARN_STEPS.length}
             </span>
-            <h3 className="text-lg font-bold text-white leading-tight">{step.title}</h3>
+            <h3 className="text-lg font-bold text-white leading-tight">{st.title}</h3>
             <p className="text-[11px] font-mono text-amber-200/80 leading-snug mt-0.5">
-              {step.flow.map((p) => CAPTIONS[p]).join('  ·  ')}
+              {st.flow.map((p) => CAPTIONS[p]).join('  ·  ')}
             </p>
           </div>
         </div>
-        <FlowStrip lit={step.flow} />
+        <FlowStrip lit={st.flow} />
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-[1.25fr_1fr] gap-4">
         {/* Explanation */}
         <div className="space-y-2.5 min-w-0">
-          <p className="text-sm text-slate-200 leading-relaxed">{fillKnobNames(step.what, theme)}</p>
+          <p className="text-sm text-slate-200 leading-relaxed">{fillKnobNames(st.what, theme)}</p>
           <p className="text-xs text-sky-200 flex items-start gap-1.5">
             <Ear className="w-4 h-4 shrink-0 text-sky-300" />
             <span>
-              <b>Listen for:</b> {step.listen}
+              <b>Listen for:</b> {st.listen}
             </span>
           </p>
-          {step.scope && (
+          {st.scope && (
             <p className="text-xs text-emerald-200 flex items-start gap-1.5 p-2 rounded-lg bg-emerald-500/10 border border-emerald-500/25" data-testid="learn-scope-tip">
               <Activity className="w-4 h-4 shrink-0 text-emerald-300" />
-              <span>{step.scope}</span>
+              <span>{st.scope}</span>
             </p>
           )}
-          {step.extra === 'waves' && (
+          {st.extra === 'waves' && (
             <div>
               {/* A reference chart, not controls: nothing here is clickable or "selected" */}
               <span className="block text-[10px] font-mono text-slate-400 uppercase tracking-wide mb-1">
@@ -267,16 +279,16 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
               </div>
             </div>
           )}
-          {(step.extra === 'ampEnv' || step.extra === 'filterEnv') && (
+          {(st.extra === 'ampEnv' || st.extra === 'filterEnv') && (
             <div className="p-2 rounded-lg bg-black/50 border border-amber-500/30 max-w-md">
               <span className="text-[10px] font-mono text-amber-300 font-bold block mb-1 uppercase tracking-wide">
-                {step.extra === 'ampEnv' ? 'Your Amp EG' : 'Your Filter EG'}
+                {st.extra === 'ampEnv' ? 'Your Amp EG' : 'Your Filter EG'}
               </span>
               <AdsrVisualizer
-                attack={step.extra === 'ampEnv' ? params.ampAttack : params.modAttack}
-                decay={step.extra === 'ampEnv' ? params.ampDecay : params.modDecay}
-                sustain={step.extra === 'ampEnv' ? params.ampSustain : params.modSustain}
-                release={step.extra === 'ampEnv' ? params.ampRelease : params.modRelease}
+                attack={st.extra === 'ampEnv' ? params.ampAttack : params.modAttack}
+                decay={st.extra === 'ampEnv' ? params.ampDecay : params.modDecay}
+                sustain={st.extra === 'ampEnv' ? params.ampSustain : params.modSustain}
+                release={st.extra === 'ampEnv' ? params.ampRelease : params.modRelease}
                 height={84}
                 theme="diagram"
                 engine={engine}
@@ -289,9 +301,9 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
         <div className="p-3 rounded-lg bg-black/40 border border-white/10 flex flex-col gap-2.5">
           <span className="text-[10px] font-bold text-amber-300 uppercase tracking-wider font-mono">Try it</span>
           <ol className="space-y-1.5">
-            {step.missions.map((m, i) => {
-              const isDone = i < missionsDone;
-              const isCurrent = i === missionsDone;
+            {st.missions.map((m, i) => {
+              const isDone = i < md;
+              const isCurrent = i === md;
               return (
                 <li key={i} className={`flex items-start gap-2 text-xs ${isDone ? 'text-emerald-300' : isCurrent ? 'text-slate-100' : 'text-slate-500'}`}>
                   {isDone ? (
@@ -308,27 +320,62 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
           <div className="flex flex-wrap items-center gap-2 mt-auto">
             <button
               type="button"
-              onClick={listen}
+              onClick={active ? listen : undefined}
               className={`px-3 py-1.5 rounded-lg font-bold text-xs flex items-center gap-1.5 active:scale-95 transition-all ${
-                settingsRight ? 'bg-amber-400 hover:bg-amber-300 text-black animate-pulse' : 'bg-amber-500 hover:bg-amber-400 text-black'
+                right ? 'bg-amber-400 hover:bg-amber-300 text-black animate-pulse' : 'bg-amber-500 hover:bg-amber-400 text-black'
               }`}
             >
               <Volume2 className="w-4 h-4" />
-              {isPlaying ? 'Playing…' : 'Listen'}
+              {active && isPlaying ? 'Playing…' : 'Listen'}
             </button>
             <span className="text-[11px] font-mono text-slate-400">
-              {stepComplete
+              {complete
                 ? 'Step done!'
-                : settingsRight
+                : right
                 ? 'Settings look right. Now listen to it!'
                 : 'Change the setting, then listen (or play the keys).'}
             </span>
           </div>
         </div>
       </div>
+      </div>
+    );
+  };
+
+  return (
+    <div id="mode-learn-overlay" className="rounded-xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-indigo-950/70 p-4 border border-amber-500/40 shadow-2xl text-slate-100">
+      <div className="grid">{LEARN_STEPS.map((_, i) => renderStep(i, i === stepIdx))}</div>
+
+      {/* Jump to any step you've reached: numbers plus short topic names */}
+      <div className="flex flex-wrap items-center gap-1 mt-3 pt-2 border-t border-white/10" role="group" aria-label="Learn steps">
+        {LEARN_STEPS.map((st, i) => {
+          const complete = done[i] >= st.missions.length;
+          const current = i === stepIdx;
+          return (
+            <button
+              key={i}
+              type="button"
+              disabled={!reachable(i)}
+              onClick={() => goTo(i)}
+              title={`${i + 1}. ${st.title}${reachable(i) ? '' : ' (finish the earlier steps first)'}`}
+              aria-current={current ? 'step' : undefined}
+              className={`px-1.5 py-0.5 rounded text-[10px] font-mono leading-4 border flex items-center gap-1 transition-colors disabled:opacity-35 disabled:cursor-not-allowed ${
+                current
+                  ? 'bg-amber-400 text-black border-amber-300 font-bold'
+                  : complete
+                  ? 'bg-emerald-500/10 text-emerald-200 border-emerald-500/40 hover:bg-emerald-500/20'
+                  : 'bg-black/30 text-slate-300 border-white/10 hover:bg-white/10'
+              }`}
+            >
+              <span className={current ? '' : complete ? 'text-emerald-300' : 'text-slate-500'}>{complete && !current ? '✓' : i + 1}</span>
+              {SHORT_TITLES[i] ?? st.title}
+            </button>
+          );
+        })}
+      </div>
 
       {/* Navigation */}
-      <div className="flex items-center justify-between mt-3 pt-2 border-t border-white/10 text-xs">
+      <div className="flex items-center justify-between mt-2 text-xs">
         <div className="flex items-center gap-1.5">
           <button
             type="button"
@@ -350,23 +397,6 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
           </button>
         </div>
 
-        <div className="hidden sm:flex items-center gap-1.5">
-          {LEARN_STEPS.map((s, i) => {
-            const complete = done[i] >= s.missions.length;
-            return (
-              <button
-                key={i}
-                type="button"
-                disabled={!reachable(i)}
-                onClick={() => goTo(i)}
-                title={`${i + 1}. ${s.title}`}
-                className={`w-2.5 h-2.5 rounded-full transition-all disabled:cursor-not-allowed ${
-                  i === stepIdx ? 'bg-amber-400 scale-125' : complete ? 'bg-emerald-400' : 'bg-slate-700'
-                }`}
-              />
-            );
-          })}
-        </div>
 
         <button
           type="button"

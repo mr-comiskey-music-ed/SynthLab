@@ -144,7 +144,7 @@ export const isByEar = (id: string) => isDesignBrief(id) || isMyPreset(id);
 
 /**
  * Grades, each out of the assigned tasks (or all tasks when nothing was assigned):
- *  - Main grade: average score on assigned Ear Training + Synth Doctor tasks
+ *  - Ear + Doctor grade: average score on assigned Ear Training + Synth Doctor tasks
  *    (an unfinished task counts as 0).
  *  - Patch Master grade: average over assigned patches of 50 points for trying plus up
  *    to 50 more from the best match (85%+ = full points); untried patches get 0.
@@ -194,7 +194,7 @@ export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
   return { main, ear, doctor, patchMaster, design, myPresets };
 }
 
-/** The headline number kept on a submission: the main grade, or the Patch Master grade if that's all that was assigned. */
+/** The headline number kept on a submission: the Ear + Doctor grade, or the Patch Master grade if that's all that was assigned. */
 export function headlineScore(g: Grades): number {
   return g.main?.score ?? g.patchMaster?.score ?? 0;
 }
