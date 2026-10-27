@@ -72,17 +72,33 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
         ctx.beginPath();
         let started = false;
 
-        const step = 2; // pixel step
-        for (let x = 0; x <= width; x += step) {
-          const minLog = Math.log10(minFreq);
-          const maxLog = Math.log10(maxFreq);
-          const fLog = minLog + (x / width) * (maxLog - minLog);
-          const freq = Math.pow(10, fLog);
+        const step = 1; // one point per pixel
+        const lastBin = fftData.length - 1;
+        const binHz = nyquist / fftData.length;
+        const minLog = Math.log10(minFreq);
+        const maxLog = Math.log10(maxFreq);
+        const freqAt = (px: number) => Math.pow(10, minLog + (px / width) * (maxLog - minLog));
 
-          // Map frequency to FFT bin
-          const binIndex = Math.floor((freq / nyquist) * fftData.length);
-          const clampedBin = Math.max(0, Math.min(fftData.length - 1, binIndex));
-          const db = fftData[clampedBin]; // typically -100 to 0 dB
+        for (let x = 0; x <= width; x += step) {
+          // The span of FFT bins this pixel covers on the log axis
+          const b0 = freqAt(x - step / 2) / binHz;
+          const b1 = freqAt(x + step / 2) / binHz;
+
+          let db: number;
+          if (b1 - b0 < 1) {
+            // Low end: fewer than one bin per pixel, so interpolate between neighbouring bins
+            const b = Math.max(0, Math.min(lastBin, (b0 + b1) / 2));
+            const lo = Math.floor(b);
+            const hi = Math.min(lastBin, lo + 1);
+            const t = b - lo;
+            db = fftData[lo] * (1 - t) + fftData[hi] * t;
+          } else {
+            // High end: many bins per pixel, so keep the loudest one so narrow peaks never vanish
+            const from = Math.max(0, Math.floor(b0));
+            const to = Math.min(lastBin, Math.ceil(b1));
+            db = -Infinity;
+            for (let i = from; i <= to; i++) if (fftData[i] > db) db = fftData[i];
+          }
 
           // Normalize dB (-90dB to 0dB)
           const normalized = Math.max(0, Math.min(1, (db + 90) / 90));
@@ -217,7 +233,6 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
           width={isFullScreen ? 1200 : 640}
           height={isFullScreen ? 500 : height}
           className="w-full block flex-1"
-          style={{ imageRendering: 'pixelated' }}
         />
       </div>
     </>

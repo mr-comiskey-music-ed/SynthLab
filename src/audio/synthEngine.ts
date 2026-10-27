@@ -310,7 +310,8 @@ export class SubtractiveEngine {
     this.masterGain = new Tone.Gain(this.currentParams.masterVolume);
     this.voiceBus = new Tone.Gain(VOICE_LEVEL);
     this.waveformAnalyzer = new Tone.Waveform(1024);
-    this.fftAnalyzer = new Tone.FFT(512);
+    // 4096 bins (~5 Hz each) so low notes land on a sharp peak instead of a blocky 86 Hz-wide step.
+    this.fftAnalyzer = new Tone.FFT({ size: 4096, smoothing: 0.6 });
     this.recorder = new Tone.Recorder();
 
     this.voiceBus.connect(this.masterGain);
