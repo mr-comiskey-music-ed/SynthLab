@@ -57,7 +57,7 @@ export const LEARN_BASE: SynthParams = {
 
 /** The two synth layouts name a few knobs differently. */
 export const KNOB_NAMES: Record<string, Record<ThemeMode, string>> = {
-  envAmt: { 'studio-retro': 'EG Depth', 'hardware-bench': 'EG Int' },
+  envAmt: { 'studio-retro': 'EG Amount', 'hardware-bench': 'EG Amount' },
   lfoDepth: { 'studio-retro': 'LFO Depth', 'hardware-bench': 'LFO Int' },
   vco2Fine: { 'studio-retro': 'VCO 2 Fine Detune', 'hardware-bench': 'VCO 2 Pitch / Detune' },
   noise: { 'studio-retro': 'White Noise', 'hardware-bench': 'Noise' },
@@ -177,7 +177,7 @@ export const LEARN_STEPS: LearnStep[] = [
     section: 'envelope',
     flow: ['amp', 'ampEnv'],
     what:
-      'The Amp Envelope (Amp EG) shapes the volume every time you press a key. Attack: how fast it fades in. Decay: how fast it drops to the Sustain level. Sustain: the level while you hold the key. Release: how long it fades after you let go.',
+      'The Amp Envelope (the Amp EG tab in the Envelope section) shapes the volume every time you press a key. Attack: how fast it fades in. Decay: how fast it drops to the Sustain level. Sustain: the level while you hold the key. Release: how long it fades after you let go.',
     listen: 'A pluck is a quick “tick” that dies away. A pad swells in slowly and lingers after you let go.',
     start: { filterCutoff: 5000, ampSustain: 0, ampDecay: 0.9 },
     phrase: [one('C3', 1.4), one('E3', 1.4), one('G3', 1.4), one('C4', 0.5, 2.6)],
@@ -195,14 +195,14 @@ export const LEARN_STEPS: LearnStep[] = [
     section: 'envelope',
     flow: ['filter', 'filterEnv'],
     what:
-      'The Filter Envelope (Filter EG) moves the Cutoff for you every time you press a key. The {envAmt} knob sets how far it moves. This is the classic “bwow” of synth bass and brass.',
+      'The Filter Envelope (Filter EG) moves the Cutoff for you every time you press a key. The {envAmt} knob in the Filter section sets how far it moves. Its timing (Attack, Decay, Sustain, Release) is in the Envelope section: click the Filter EG tab. This is the classic “bwow” of synth bass and brass.',
     listen: 'Each note opening up bright, then closing back down.',
     start: { filterCutoff: 300, filterResonance: 3, modDecay: 0.6, modSustain: 0.3 },
     phrase: run(['D2', 'F2', 'A2', 'D3'], 0.5, 0.42),
     missions: [
-      { text: 'Turn {envAmt} up to 50% or more.', check: (p) => p.filterEnvAmount >= 50 },
+      { text: 'In the Filter section, turn {envAmt} up to 50% or more.', check: (p) => p.filterEnvAmount >= 50 },
       {
-        text: 'Make it snappy: Filter EG Decay 0.25 s or shorter, and Filter EG Sustain at 0.',
+        text: 'Make it snappy. In the Envelope section, click the Filter EG tab, then set Decay to 0.25 s or shorter and Sustain to 0.',
         check: (p) => p.filterEnvAmount >= 50 && p.modDecay <= 0.25 && p.modSustain <= 0.05,
       },
     ],

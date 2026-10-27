@@ -1073,7 +1073,7 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
   },
   {
     id: 'ab-10',
-    question: "Which tone has dynamic Filter Envelope Snap (EG Depth)?",
+    question: "Which tone has dynamic Filter Envelope Snap (a high EG Amount in the Filter section)?",
     optionA: {
       label: "Tone A",
       note: "D3",
@@ -1098,7 +1098,7 @@ export const BLIND_TEST_CHALLENGES: BlindTestChallenge[] = [
       }
     },
     correctOption: 'A',
-    explanation: "Tone A uses a Filter Envelope with high EG Depth: upon key press, the cutoff frequency snaps open and closes quickly, creating a sharp percussive pluck.",
+    explanation: "Tone A uses a Filter Envelope with a high EG Amount: upon key press, the cutoff frequency snaps open and closes quickly, creating a sharp percussive pluck.",
     phrase: seq(['D3', 'D3', 'F3', 'A3'], 0.35, 0.2),
   }
 ];

@@ -294,7 +294,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
               {/* Env Amount & Key Tracking: same row as the big knobs, wrapping on narrow screens */}
               <Knob
                 id="retro-filter-env"
-                label="EG Depth"
+                label="EG Amount"
                 value={params.filterEnvAmount}
                 min={-100}
                 max={100}

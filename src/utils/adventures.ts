@@ -61,7 +61,7 @@ export const ADVENTURES: Adventure[] = [
       },
       {
         title: 'Punch',
-        text: 'Give each note a punch: Filter EG Amount 30% or more, with Filter EG Decay under 0.4 s.',
+        text: 'Give each note a punch: Filter EG Amount 30% or more (Filter section), with Filter EG Decay under 0.4 s (Envelope section, Filter EG tab).',
         taste: 'More Amount and some Resonance gets you into acid territory. Less is a round, warm thump.',
         check: (p) => p.filterEnvAmount >= 30 && p.modDecay <= 0.4,
       },
@@ -169,7 +169,7 @@ export const ADVENTURES: Adventure[] = [
       },
       {
         title: 'The swell',
-        text: 'Filter EG Amount 40% or more, Filter EG Attack between 50 and 400 ms, Filter EG Sustain 30% or more.',
+        text: 'Filter EG Amount 40% or more (Filter section), Filter EG Attack between 50 and 400 ms, Filter EG Sustain 30% or more (Envelope section, Filter EG tab).',
         taste: 'A faster Filter EG Attack is a stab; a slower one is a swelling fanfare.',
         check: (p) => p.filterEnvAmount >= 40 && between(p.modAttack, 0.05, 0.4) && p.modSustain >= 0.3,
       },
@@ -235,7 +235,7 @@ export const ADVENTURES: Adventure[] = [
       },
       {
         title: 'The strike',
-        text: 'Filter EG Amount 20% or more with Filter EG Decay between 0.2 and 1 s, Cutoff between 600 and 3,000 Hz.',
+        text: 'Filter EG Amount 20% or more (Filter section) with Filter EG Decay between 0.2 and 1 s (Envelope section, Filter EG tab), Cutoff between 600 and 3,000 Hz.',
         taste: 'More Amount gives a harder, brighter hit, like playing loud.',
         check: (p) => p.filterEnvAmount >= 20 && between(p.modDecay, 0.2, 1) && between(p.filterCutoff, 600, 3000),
       },
@@ -267,7 +267,7 @@ export const ADVENTURES: Adventure[] = [
       },
       {
         title: 'The pop',
-        text: 'Cutoff under 1,000 Hz, Filter EG Amount 40% or more, Filter EG Decay under 0.3 s and Sustain 0.',
+        text: 'Cutoff under 1,000 Hz, Filter EG Amount 40% or more (Filter section), Filter EG Decay under 0.3 s and Sustain 0 (Envelope section, Filter EG tab).',
         taste: 'The Filter EG Decay is the “pop”: shorter is snappier.',
         check: (p) => p.filterCutoff < 1000 && p.filterEnvAmount >= 40 && p.modDecay < 0.3 && p.modSustain <= 0.05,
       },
@@ -305,7 +305,7 @@ export const ADVENTURES: Adventure[] = [
       },
       {
         title: 'Snap',
-        text: 'Filter EG Amount 30% or more with a very short Filter EG Decay (under 0.15 s).',
+        text: 'Filter EG Amount 30% or more (Filter section) with a very short Filter EG Decay (under 0.15 s) (Envelope section, Filter EG tab).',
         taste: 'This is the stick hitting the drum. Resonance can make it ring like a tuned tom.',
         check: (p) => p.filterEnvAmount >= 30 && p.modDecay < 0.15,
       },

@@ -321,7 +321,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
 
                 <Knob
                   id="mini-filter-env"
-                  label="EG Int"
+                  label="EG Amount"
                   section="filter"
                   value={params.filterEnvAmount}
                   min={-100}

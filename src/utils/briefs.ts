@@ -52,8 +52,8 @@ export const SOUND_BRIEFS: SoundBrief[] = [
     ask: 'Give me a short, bouncy pluck for a fast arpeggio. Each note should pop and get out of the way.',
     listenFor: 'Every note is short and percussive, and the tone snaps from bright to dark.',
     hints: [
-      'Short notes mean Amp Sustain at 0. The “pop” comes from the Filter Envelope.',
-      'Amp Decay about 0.15–0.3 s, Sustain 0. Cutoff low (about 500 Hz), Filter Envelope Amount 50% or more, with a short Filter Envelope Decay and Sustain 0.',
+      'Short notes mean Amp Sustain at 0. The “pop” comes from the Filter Envelope (the EG Amount knob in the Filter section, plus the Filter EG tab in the Envelope section).',
+      'Amp Decay about 0.15–0.3 s, Sustain 0. Cutoff low (about 500 Hz), Filter EG Amount 50% or more (Filter section), with a short Filter EG Decay and Sustain 0 (Envelope section, Filter EG tab).',
     ],
     phrase: 'pluckArp',
   },
@@ -78,7 +78,7 @@ export const SOUND_BRIEFS: SoundBrief[] = [
     listenFor: 'A noisy swoosh that sweeps from dark to bright (or bright to dark) in about a second.',
     hints: [
       'A whoosh is noise shaped by a filter that moves.',
-      'Noise up, VCOs down. Cutoff low, Filter Envelope Amount high, Filter Envelope Attack 0.2–0.5 s for a sweep up. A little Resonance adds a sci-fi whistle.',
+      'Noise up, VCOs down. Cutoff low, Filter EG Amount high (Filter section), Filter EG Attack 0.2–0.5 s for a sweep up (Envelope section, Filter EG tab). A little Resonance adds a sci-fi whistle.',
     ],
     phrase: 'longHit',
   },
@@ -90,7 +90,7 @@ export const SOUND_BRIEFS: SoundBrief[] = [
     listenFor: 'Short, clean, pitched beeps with a computer-like tone.',
     hints: [
       'Simple waves and very short notes. Try Square or Sine.',
-      'Amp Attack near 0, Decay about 0.1 s, Sustain 0 or low, short Release. For a “bloop,” add Filter Envelope, or a fast LFO on Pitch (Rate 10 Hz or more).',
+      'Amp Attack near 0, Decay about 0.1 s, Sustain 0 or low, short Release. For a “bloop,” add some Filter EG Amount (Filter section), or a fast LFO on Pitch (Rate 10 Hz or more).',
     ],
     phrase: 'shortHits',
   },
@@ -178,7 +178,7 @@ export function briefTips(id: string, p: SynthParams): string[] {
     case 'br-door':
       if (noiseHeard(p) < 0.3) t.push('A whoosh is noise. Turn Noise up (and the VCOs down).');
       if (p.filterEnvAmount < 30 && !(p.lfoDestination === 'cutoff' && p.lfoDepth > 0.3))
-        t.push('The sweep comes from the filter moving. Raise Filter Envelope Amount (EG Depth) and set a lower Cutoff to sweep up from.');
+        t.push('The sweep comes from the filter moving. Raise the EG Amount knob in the Filter section and set a lower Cutoff to sweep up from.');
       break;
     case 'br-robot':
       if (noiseHeard(p) > 0.4) t.push('Robot beeps are clean and pitched, but there is a lot of noise. Turn Noise down.');

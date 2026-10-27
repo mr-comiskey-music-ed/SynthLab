@@ -147,9 +147,9 @@ function hintText(aspect: PatchAspect, p: SynthParams, t: SynthParams): string {
     case 'resonance':
       return `Your Resonance is ${tooHigh(p.filterResonance, t.filterResonance)}. The target has ${p.filterResonance > t.filterResonance ? 'a gentler peak' : 'a more ringing, whistly peak'}.`;
     case 'filterEnv':
-      return `Your Filter Envelope Amount is ${tooHigh(p.filterEnvAmount, t.filterEnvAmount)}.`;
+      return `Your Filter EG Amount (Filter section) is ${tooHigh(p.filterEnvAmount, t.filterEnvAmount)}.`;
     case 'filterDecay':
-      return `Your Filter Envelope Decay is ${tooLong(p.modDecay, t.modDecay)}.`;
+      return `Your Filter EG Decay (Envelope section, Filter EG tab) is ${tooLong(p.modDecay, t.modDecay)}.`;
     case 'attack':
       return `Your Amp Attack is too ${p.ampAttack > t.ampAttack ? 'slow' : 'fast'}. The target fades in ${p.ampAttack > t.ampAttack ? 'sooner' : 'more slowly'}.`;
     case 'decay':
