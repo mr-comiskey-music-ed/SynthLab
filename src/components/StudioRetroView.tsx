@@ -8,6 +8,7 @@ import { ToggleSwitch } from './ToggleSwitch';
 import { Visualizer } from './Visualizer';
 import { FilterVisualizer } from './FilterVisualizer';
 import { AdsrVisualizer } from './AdsrVisualizer';
+import { LfoPitchBadge } from './LfoPitchBadge';
 import { SubtractiveEngine, lfoCutoffHz, lfoPwmDuty } from '../audio/synthEngine';
 import { WaveformIcon } from './WaveformIcons';
 
@@ -58,8 +59,9 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
           }`}
         >
           <div className="flex items-center justify-between border-b border-amber-500/30 pb-1.5 mb-3">
-            <span className="text-xs font-mono font-bold text-amber-300 tracking-wider">
+            <span className="text-xs font-mono font-bold text-amber-300 tracking-wider flex items-center gap-2">
               1. DUAL OSCILLATORS (VCO)
+              <LfoPitchBadge params={params} />
             </span>
             <span className="text-[9px] font-mono text-amber-400/80 uppercase">PITCH & TONE</span>
           </div>

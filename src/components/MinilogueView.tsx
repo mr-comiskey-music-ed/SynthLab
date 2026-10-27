@@ -7,6 +7,7 @@ import { ToggleSwitch } from './ToggleSwitch';
 import { Visualizer } from './Visualizer';
 import { FilterVisualizer } from './FilterVisualizer';
 import { AdsrVisualizer } from './AdsrVisualizer';
+import { LfoPitchBadge } from './LfoPitchBadge';
 import { SubtractiveEngine, lfoCutoffHz, lfoPwmDuty } from '../audio/synthEngine';
 import { WaveformIcon } from './WaveformIcons';
 
@@ -83,6 +84,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
             <div className="flex items-center justify-between border-b border-slate-300 pb-1 mb-2">
               <span className="text-xs font-bold font-sans tracking-wide text-amber-800 flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-amber-500" /> VCO 1 & VCO 2
+                <LfoPitchBadge params={params} tone="light" />
               </span>
               <span className="text-[9px] font-mono text-slate-500 uppercase">ANALOG VOICING</span>
             </div>
