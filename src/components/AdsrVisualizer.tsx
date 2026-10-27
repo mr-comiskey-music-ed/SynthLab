@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useId } from 'react';
 import { SubtractiveEngine } from '../audio/synthEngine';
 import { Maximize2, Minimize2 } from 'lucide-react';
 
@@ -28,6 +28,10 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
   engine,
 }) => {
   const [isFullScreen, setIsFullScreen] = useState(false);
+  // Several of these can be on screen at once (Learn + the synth); SVG ids must be unique per instance
+  // or one copy's gradient/markers get used by all of them.
+  const uid = useId().replace(/[^a-zA-Z0-9]/g, '');
+  const ids = { arrowY: `axis-arrow-y-${uid}`, arrowX: `axis-arrow-x-${uid}`, stroke: `adsr-curve-stroke-${uid}`, fill: `adsr-curve-fill-${uid}` };
 
   // Dark themes need light axis/label ink; the light diagram theme keeps dark ink.
   const dark = theme !== 'diagram';
@@ -275,7 +279,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
         >
           <defs>
             <marker
-              id="axis-arrow-y"
+              id={ids.arrowY}
               viewBox="0 0 10 10"
               refX="5"
               refY="5"
@@ -286,7 +290,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
               <path d="M 0 0 L 10 5 L 0 10 z" fill={ink} />
             </marker>
             <marker
-              id="axis-arrow-x"
+              id={ids.arrowX}
               viewBox="0 0 10 10"
               refX="5"
               refY="5"
@@ -298,13 +302,13 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
             </marker>
 
             {/* ADSR Curve Stroke Gradient */}
-            <linearGradient id="adsr-curve-stroke" x1="0%" y1="100%" x2="0%" y2="0%">
+            <linearGradient id={ids.stroke} x1="0%" y1="100%" x2="0%" y2="0%">
               <stop offset="0%" stopColor={theme === 'diagram' ? '#0f172a' : '#fbbf24'} />
               <stop offset="100%" stopColor={theme === 'diagram' ? '#0f172a' : '#fbbf24'} />
             </linearGradient>
 
             {/* Area gradient under curve */}
-            <linearGradient id="adsr-curve-fill" x1="0%" y1="0%" x2="0%" y2="100%">
+            <linearGradient id={ids.fill} x1="0%" y1="0%" x2="0%" y2="100%">
               <stop offset="0%" stopColor={theme === 'studio-retro' ? '#f59e0b' : '#0284c7'} stopOpacity={dark ? 0.12 : 0.02} />
               <stop offset="100%" stopColor={theme === 'studio-retro' ? '#f59e0b' : '#0284c7'} stopOpacity={dark ? 0.75 : 0.15} />
             </linearGradient>
@@ -313,7 +317,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
           {/* 1. FILLED AREA UNDER CURVE */}
           <path
             d={areaPath}
-            fill="url(#adsr-curve-fill)"
+            fill={`url(#${ids.fill})`}
             fillOpacity={theme === 'diagram' ? '0.85' : '0.6'}
           />
 
@@ -365,7 +369,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
           <path
             d={curvePath}
             fill="none"
-            stroke="url(#adsr-curve-stroke)"
+            stroke={`url(#${ids.stroke})`}
             strokeWidth="3.5"
             strokeLinecap="round"
             strokeLinejoin="round"
@@ -387,7 +391,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
             y2={paddingTop - 10}
             stroke={ink}
             strokeWidth="2"
-            markerEnd="url(#axis-arrow-y)"
+            markerEnd={`url(#${ids.arrowY})`}
           />
           {/* Level 100% Text Label along Y Axis */}
           <text
@@ -412,7 +416,7 @@ export const AdsrVisualizer: React.FC<AdsrVisualizerProps> = ({
             y2={yZero}
             stroke={ink}
             strokeWidth="2"
-            markerEnd="url(#axis-arrow-x)"
+            markerEnd={`url(#${ids.arrowX})`}
           />
           {/* Time Text Label along X Axis */}
           <text
