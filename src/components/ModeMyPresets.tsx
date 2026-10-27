@@ -355,7 +355,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
                   <RotateCcw className="w-3.5 h-3.5" /> Start from a blank patch
                 </button>
                 <label className="flex items-center gap-1.5 text-xs font-mono text-slate-300">
-                  Phrase:
+                  Test phrase:
                   <select
                     value={phrase}
                     onChange={(e) => {
@@ -371,7 +371,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
                     ))}
                   </select>
                 </label>
-                <PhraseButtons engine={engine} params={params} phrase={phrase} accent="violet" />
+                <PhraseButtons engine={engine} params={params} phrase={phrase} accent="violet" tag={false} />
               </div>
               <p className="text-[11px] font-mono text-slate-400">
                 Big changes from a blank patch:{' '}

@@ -6,11 +6,13 @@ import { Volume2, Repeat } from 'lucide-react';
 
 /**
  * The words on the two buttons live here, so every challenge says the same thing.
- * "Play: Melody" / "Loop: Melody" (and "Stop loop" while it repeats).
+ * Test phrase  [Play: Melody] [Loop: Melody]  (and "Stop loop" while it repeats).
  */
 export const PLAY_LABEL = 'Play';
 export const LOOP_LABEL = 'Loop';
 export const STOP_LOOP_LABEL = 'Stop loop';
+/** Small tag in front of the buttons: tells students the phrase is a short test snippet. */
+export const TAG_LABEL = 'Test phrase';
 
 const ACCENTS = {
   emerald: { play: 'bg-emerald-600 hover:bg-emerald-500', loopOn: 'bg-emerald-300 text-black border-emerald-200', loopOff: 'bg-slate-800 hover:bg-slate-700 text-emerald-200 border-emerald-500/40' },
@@ -24,8 +26,10 @@ interface PhraseButtonsProps {
   params: SynthParams;
   /** A named phrase, or custom notes (Synth Doctor tickets bring their own). */
   phrase: PhraseId | PhraseNote[];
-  /** Name shown on the buttons when `phrase` is custom notes. */
+  /** Name shown on the buttons when `phrase` is custom notes; without one they just say Play and Loop. */
   label?: string;
+  /** Show the small "Test phrase" tag in front of the buttons (default true). */
+  tag?: boolean;
   accent: keyof typeof ACCENTS;
   /** Override the text on the Play button (e.g. "Play my remix"); the Loop button keeps the phrase name. */
   playText?: string;
@@ -37,11 +41,11 @@ interface PhraseButtonsProps {
  * Play button with a Loop toggle beside it. While the loop runs, the phrase repeats on the live
  * patch, so turning a knob changes what you hear on the next note.
  */
-export const PhraseButtons: React.FC<PhraseButtonsProps> = ({ engine, params, phrase, label: customLabel, accent, playText, className = '', playTitle }) => {
+export const PhraseButtons: React.FC<PhraseButtonsProps> = ({ engine, params, phrase, label: customLabel, tag = true, accent, playText, className = '', playTitle }) => {
   const [looping, setLooping] = useState(false);
   const stopRef = useRef<(() => void) | null>(null);
   const notes = typeof phrase === 'string' ? PHRASES[phrase].notes : phrase;
-  const label = customLabel ?? (typeof phrase === 'string' ? PHRASES[phrase].label : 'Test phrase');
+  const name = customLabel ?? (typeof phrase === 'string' ? PHRASES[phrase].label : undefined);
   // A new phrase (or a new set of notes) ends any loop that is running.
   const phraseKey = typeof phrase === 'string' ? phrase : notes;
   const a = ACCENTS[accent];
@@ -82,6 +86,7 @@ export const PhraseButtons: React.FC<PhraseButtonsProps> = ({ engine, params, ph
 
   return (
     <div className={`flex flex-wrap items-center gap-2 ${className}`}>
+      {tag && <span className="text-[11px] font-mono text-slate-400 mr-0.5">{TAG_LABEL}</span>}
       <button
         type="button"
         onClick={play}
@@ -89,7 +94,7 @@ export const PhraseButtons: React.FC<PhraseButtonsProps> = ({ engine, params, ph
         className={`px-3.5 py-2 rounded-lg ${a.play} text-black font-bold font-mono text-xs flex items-center gap-1.5 active:scale-95`}
       >
         <Volume2 className="w-4 h-4" />
-        {playText ?? `${PLAY_LABEL}: ${label}`}
+        {playText ?? (name ? `${PLAY_LABEL}: ${name}` : PLAY_LABEL)}
       </button>
       <button
         type="button"
@@ -99,7 +104,7 @@ export const PhraseButtons: React.FC<PhraseButtonsProps> = ({ engine, params, ph
         className={`px-3 py-2 rounded-lg border font-bold font-mono text-xs flex items-center gap-1.5 active:scale-95 ${looping ? a.loopOn : a.loopOff}`}
       >
         <Repeat className={`w-4 h-4 ${looping ? 'animate-spin [animation-duration:3s]' : ''}`} />
-        {looping ? STOP_LOOP_LABEL : `${LOOP_LABEL}: ${label}`}
+        {looping ? STOP_LOOP_LABEL : name ? `${LOOP_LABEL}: ${name}` : LOOP_LABEL}
       </button>
     </div>
   );

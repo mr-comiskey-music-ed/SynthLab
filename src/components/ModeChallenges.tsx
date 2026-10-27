@@ -422,7 +422,6 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
               engine={engine}
               params={params}
               phrase={currentTicket.phrase}
-              label="Test phrase"
               accent="emerald"
               className="mr-auto"
               playTitle="Plays your current patch, so you can hear the problem, and later the fix"
