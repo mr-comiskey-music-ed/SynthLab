@@ -19,8 +19,11 @@ interface KnobProps {
   /** Curved travel: this value sits at 12 o'clock (used for envelope times). */
   centerValue?: number;
   size?: 'sm' | 'md' | 'lg';
-  lfoModulated?: boolean;
-  lfoDepth?: number;
+  /**
+   * Shows what the LFO is doing to this knob: a cyan arc for the range it sweeps either side of the
+   * knob's setting (`amount`, in the knob's own units) and a dot that moves at the LFO's rate and shape.
+   */
+  lfoSwing?: { amount: number; rate: number; waveform: 'sine' | 'triangle' | 'sawtooth' | 'square' };
   onChange: (val: number) => void;
 }
 
@@ -39,8 +42,7 @@ export const Knob: React.FC<KnobProps> = ({
   logarithmic = false,
   centerValue,
   size = 'md',
-  lfoModulated = false,
-  lfoDepth = 0,
+  lfoSwing,
   onChange,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -72,6 +74,47 @@ export const Knob: React.FC<KnobProps> = ({
   const normVal = toNormalized(value);
   // Knobs rotate -135 deg to +135 deg (270 degree sweep)
   const angle = -135 + normVal * 270;
+
+  // LFO cue: the arc covers the real sweep (clamped to the knob's travel); the dot rides it live.
+  const swingActive = !!lfoSwing && lfoSwing.amount > 0;
+  const swingLoNorm = swingActive ? toNormalized(Math.max(min, value - lfoSwing!.amount)) : 0;
+  const swingHiNorm = swingActive ? toNormalized(Math.min(max, value + lfoSwing!.amount)) : 0;
+  const swingDotRef = useRef<SVGCircleElement | null>(null);
+  const swingKey = swingActive
+    ? `${lfoSwing!.rate}|${lfoSwing!.waveform}|${swingLoNorm.toFixed(4)}|${swingHiNorm.toFixed(4)}`
+    : '';
+  useEffect(() => {
+    if (!swingActive) return;
+    const { rate, waveform } = lfoSwing!;
+    const lo = swingLoNorm;
+    const hi = swingHiNorm;
+    let raf = 0;
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      const ph = (((now - t0) / 1000) * Math.max(0.1, rate)) % 1;
+      const w =
+        waveform === 'sine' ? Math.sin(ph * 2 * Math.PI)
+        : waveform === 'triangle' ? 4 * Math.abs(ph - 0.5) - 1
+        : waveform === 'sawtooth' ? 2 * ph - 1
+        : ph < 0.5 ? 1 : -1;
+      // The LFO swings both ways around the setting, so the knob's own position is the middle.
+      const n = Math.max(lo, Math.min(hi, normVal + (w >= 0 ? w * (hi - normVal) : w * (normVal - lo))));
+      const a = ((-135 + n * 270) * Math.PI) / 180;
+      const dot = swingDotRef.current;
+      if (dot) {
+        dot.setAttribute('cx', String(50 + 44 * Math.sin(a)));
+        dot.setAttribute('cy', String(50 - 44 * Math.cos(a)));
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [swingKey, normVal, swingActive]);
+  const arcPoint = (n: number) => {
+    const a = ((-135 + n * 270) * Math.PI) / 180;
+    return `${(50 + 44 * Math.sin(a)).toFixed(2)} ${(50 - 44 * Math.cos(a)).toFixed(2)}`;
+  };
 
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
@@ -185,31 +228,21 @@ export const Knob: React.FC<KnobProps> = ({
       onDoubleClick={handleDoubleClick}
     >
       <div className="relative flex items-center justify-center p-1">
-        {/* LFO Modulation Range Indicator - Re-contextualized exclusively for LFO-modulated parameters */}
-        {lfoModulated && lfoDepth > 0 ? (
-          <svg className="absolute w-[134%] h-[134%] pointer-events-none -rotate-90">
-            <circle
-              cx="50%"
-              cy="50%"
-              r="44%"
-              fill="none"
-              stroke="rgba(6, 182, 212, 0.2)"
-              strokeWidth="3.5"
-              strokeDasharray="180"
-              strokeDashoffset="45"
-            />
-            <circle
-              cx="50%"
-              cy="50%"
-              r="44%"
+        {/* LFO cue: the range the LFO sweeps either side of the setting, with a dot moving at the LFO's rate */}
+        {swingActive ? (
+          <svg viewBox="0 0 100 100" className="absolute w-[134%] h-[134%] pointer-events-none overflow-visible" aria-hidden="true">
+            {/* the knob's full travel, faint */}
+            <path d={`M ${arcPoint(0)} A 44 44 0 1 1 ${arcPoint(1)}`} fill="none" stroke="rgba(6, 182, 212, 0.16)" strokeWidth="2" strokeLinecap="round" />
+            {/* the part the LFO actually covers */}
+            <path
+              d={`M ${arcPoint(swingLoNorm)} A 44 44 0 ${swingHiNorm - swingLoNorm > 0.667 ? 1 : 0} 1 ${arcPoint(swingHiNorm)}`}
               fill="none"
               stroke="#06b6d4"
-              strokeWidth="2.5"
-              strokeDasharray="180"
-              strokeDashoffset={180 - Math.min(1, lfoDepth) * 120}
+              strokeWidth="4"
               strokeLinecap="round"
-              className="opacity-90 transition-all duration-100"
+              opacity="0.9"
             />
+            <circle ref={swingDotRef} cx="50" cy="6" r="3.6" fill="#ecfeff" stroke="#0891b2" strokeWidth="1.5" />
           </svg>
         ) : null}
 

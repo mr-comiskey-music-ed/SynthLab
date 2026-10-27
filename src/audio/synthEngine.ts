@@ -16,10 +16,16 @@ export const resonanceComp = (q: number, rolloff: number) => Math.pow(10, (-0.35
 export const lfoPitchCents = (depth: number) => 800 * depth * depth;
 
 /** Cutoff LFO swing in Hz at full depth. */
-const LFO_CUTOFF_HZ = 3500;
+export const LFO_CUTOFF_HZ = 3500;
 
 /** Pulse-width LFO swing at full depth (in Tone's -1..1 width units). */
-const LFO_PWM_SWING = 0.8;
+export const LFO_PWM_SWING = 0.8;
+
+/** How far the pulse width swings either side of the knob, as a 0-1 duty cycle (Tone widths are -1..1, so half). */
+export const lfoPwmDuty = (depth: number) => (depth * LFO_PWM_SWING) / 2;
+
+/** How far the cutoff swings either side of the knob, in Hz. */
+export const lfoCutoffHz = (depth: number) => depth * LFO_CUTOFF_HZ;
 
 /** Filter envelope swing in Hz at 100% amount. */
 const FILTER_ENV_HZ = 8000;

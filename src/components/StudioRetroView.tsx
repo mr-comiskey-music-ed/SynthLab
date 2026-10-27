@@ -8,7 +8,7 @@ import { ToggleSwitch } from './ToggleSwitch';
 import { Visualizer } from './Visualizer';
 import { FilterVisualizer } from './FilterVisualizer';
 import { AdsrVisualizer } from './AdsrVisualizer';
-import { SubtractiveEngine } from '../audio/synthEngine';
+import { SubtractiveEngine, lfoCutoffHz, lfoPwmDuty } from '../audio/synthEngine';
 import { WaveformIcon } from './WaveformIcons';
 
 interface StudioRetroViewProps {
@@ -121,8 +121,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                   unit="%"
                   theme="studio-retro"
                   section="vco"
-                  lfoModulated={params.lfoDestination === 'pwm' && params.vco1Waveform === 'square'}
-                    lfoDepth={params.lfoDepth}
+                  lfoSwing={params.lfoDestination === 'pwm' && params.lfoDepth > 0 && params.vco1Waveform === 'square' ? { amount: lfoPwmDuty(params.lfoDepth) * 100, rate: params.lfoRate, waveform: params.lfoWaveform } : undefined}
                   onChange={(v) => {
                     onParamChange('vco1PulseWidth', v / 100);
                     if (params.vco1Waveform !== 'square') {
@@ -274,8 +273,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 unit="Hz"
                 theme="studio-retro"
                 section="filter"
-                lfoModulated={params.lfoDestination === 'cutoff' && params.lfoDepth > 0}
-                lfoDepth={params.lfoDepth}
+                lfoSwing={params.lfoDestination === 'cutoff' && params.lfoDepth > 0 ? { amount: lfoCutoffHz(params.lfoDepth), rate: params.lfoRate, waveform: params.lfoWaveform } : undefined}
                 onChange={(v) => onParamChange('filterCutoff', v)}
               />
               <Knob
