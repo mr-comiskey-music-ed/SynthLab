@@ -23,6 +23,11 @@ interface KnobProps {
    * Shows what the LFO is doing to this knob: a cyan arc for the range it sweeps either side of the
    * knob's setting (`amount`, in the knob's own units) and a dot that moves at the LFO's rate and shape.
    */
+  /**
+   * Ties a knob to the Envelope section by its green: 'link' is a subtle always-on ring,
+   * 'hot' is the strong pulsing ring used when a Learn step is pointing at this knob.
+   */
+  egRing?: 'link' | 'hot';
   lfoSwing?: { amount: number; rate: number; waveform: 'sine' | 'triangle' | 'sawtooth' | 'square' };
   onChange: (val: number) => void;
 }
@@ -43,6 +48,7 @@ export const Knob: React.FC<KnobProps> = ({
   centerValue,
   size = 'md',
   lfoSwing,
+  egRing,
   onChange,
 }) => {
   const [isDragging, setIsDragging] = useState(false);
@@ -252,7 +258,13 @@ export const Knob: React.FC<KnobProps> = ({
             theme === 'hardware-bench'
               ? 'bg-gradient-to-b from-[#3a3f47] to-[#1e2329] border border-[#525a66] shadow-[0_4px_8px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.2)]'
               : 'bg-gradient-to-b from-[#24282f] to-[#121417] border border-[#3e4552] shadow-[0_3px_6px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]'
-          } ${isDragging ? 'ring-2 ring-amber-400/50 scale-[1.03]' : 'group-hover:border-slate-400'}`}
+          } ${isDragging ? 'ring-2 ring-amber-400/50 scale-[1.03]' : 'group-hover:border-slate-400'} ${
+            egRing === 'hot'
+              ? 'ring-[3px] ring-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.75)] animate-pulse'
+              : egRing === 'link'
+              ? 'ring-1 ring-emerald-500/50'
+              : ''
+          }`}
           style={{ transform: `rotate(${angle}deg)` }}
         >
           {/* Knob pointer line */}

@@ -25,7 +25,9 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
   highlightKey,
 }) => {
   const [activeEgTab, setActiveEgTab] = useState<'amp' | 'filter'>('amp');
-  const isHighlighted = (k: string) => highlightKey === k;
+  // A Learn step can name a panel ('envelope') and also one knob in another panel ('envelope+envAmt').
+  const isHighlighted = (k: string) => highlightKey === k || highlightKey?.split('+')[0] === k;
+  const envAmtRing: 'link' | 'hot' = highlightKey?.includes('+envAmt') ? 'hot' : 'link';
 
   return (
     <div
@@ -330,6 +332,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   defaultValue={40}
                   unit="%"
                   theme="hardware-bench"
+                  egRing={envAmtRing}
                   onChange={(v) => onParamChange('filterEnvAmount', v)}
                 />
                 <Knob

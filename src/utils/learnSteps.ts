@@ -15,6 +15,8 @@ export interface LearnStep {
   title: string;
   /** Panel of the synth to glow. */
   section: 'vco' | 'filter' | 'envelope' | 'lfo';
+  /** Also ring one knob that lives in another panel (the Filter EG Amount knob sits in the Filter section). */
+  knob?: 'envAmt';
   flow: FlowPart[];
   what: string;
   listen: string;
@@ -193,6 +195,7 @@ export const LEARN_STEPS: LearnStep[] = [
   {
     title: 'Filter envelope',
     section: 'envelope',
+    knob: 'envAmt',
     flow: ['filter', 'filterEnv'],
     what:
       'The Filter Envelope (Filter EG) moves the Cutoff for you every time you press a key. The {envAmt} knob in the Filter section sets how far it moves. Its timing (Attack, Decay, Sustain, Release) is in the Envelope section: click the Filter EG tab. This is the classic “bwow” of synth bass and brass.',

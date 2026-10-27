@@ -144,7 +144,7 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
   useEffect(() => {
-    onHighlight(finished ? null : step.section);
+    onHighlight(finished ? null : step.knob ? `${step.section}+${step.knob}` : step.section);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stepIdx, finished]);
 
