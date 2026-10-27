@@ -248,19 +248,20 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
             </p>
           )}
           {step.extra === 'waves' && (
-            <div className="grid grid-cols-4 gap-1.5">
-              {WAVES.map((w) => (
-                <div
-                  key={w.type}
-                  className={`p-1.5 rounded-lg border flex flex-col items-center text-center ${
-                    params.vco1Waveform === w.type ? 'bg-amber-500/15 border-amber-400/60' : 'bg-black/40 border-white/10'
-                  }`}
-                >
-                  <WaveformIcon type={w.type as any} size={22} className="w-5 h-5 text-amber-300" />
-                  <span className="text-[11px] font-bold text-amber-200 font-mono">{w.name}</span>
-                  <span className="text-[9px] text-slate-400 leading-tight">{w.desc}</span>
-                </div>
-              ))}
+            <div>
+              {/* A reference chart, not controls: nothing here is clickable or "selected" */}
+              <span className="block text-[10px] font-mono text-slate-400 uppercase tracking-wide mb-1">
+                The four wave shapes (a chart to read, not buttons). Change the wave with the Waveform control on the synth below.
+              </span>
+              <div className="grid grid-cols-4 gap-1.5 pointer-events-none select-none" aria-label="Reference chart of the four wave shapes">
+                {WAVES.map((w) => (
+                  <div key={w.type} className="p-1.5 rounded-lg border border-dashed border-white/15 bg-transparent flex flex-col items-center text-center">
+                    <WaveformIcon type={w.type as any} size={22} className="w-5 h-5 text-slate-300" />
+                    <span className="text-[11px] font-bold text-slate-200 font-mono">{w.name}</span>
+                    <span className="text-[9px] text-slate-400 leading-tight">{w.desc}</span>
+                  </div>
+                ))}
+              </div>
             </div>
           )}
           {(step.extra === 'ampEnv' || step.extra === 'filterEnv') && (
