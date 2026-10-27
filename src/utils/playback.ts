@@ -55,11 +55,57 @@ export const at = (...items: [string, number, number][]): PhraseNote[] => items.
 let stopCurrent: (() => void) | null = null;
 /** Bumped by every new phrase, so a stale "put the patch back" never lands mid-phrase. */
 let generation = 0;
+/** The phrase loop that is running, if any (only one at a time). */
+let activeLoop: { stop: () => void } | null = null;
 
-/** Stop whatever phrase is playing (and put the student's own patch back). */
+/** Stop whatever phrase or loop is playing (and put the student's own patch back). */
 export function stopPhrase() {
+  activeLoop?.stop();
   stopCurrent?.();
   stopCurrent = null;
+}
+
+/**
+ * Repeat a phrase until stopped, with a short gap between passes. Every pass starts fresh notes on
+ * the engine's current patch, so knob changes are heard on the very next note: this is for
+ * tweaking a sound while it plays. Starting any other phrase (or calling stopPhrase) ends the loop.
+ * Returns a function that stops the loop; `onStop` fires however the loop ends.
+ */
+export function loopPhrase(
+  engine: SubtractiveEngine,
+  notes: PhraseNote[],
+  opts: { gap?: number; onStop?: () => void } = {}
+): () => void {
+  stopPhrase();
+  const gap = opts.gap ?? 0.5;
+  let stopped = false;
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  let stopInner: () => void = () => {};
+
+  const loop = {
+    stop: () => {
+      if (stopped) return;
+      stopped = true;
+      clearTimeout(timer);
+      if (activeLoop === loop) activeLoop = null;
+      stopInner();
+      opts.onStop?.();
+    },
+  };
+  activeLoop = loop;
+
+  const pass = async () => {
+    if (stopped) return;
+    const stopThisPass = await playOnce(engine, notes, {
+      onDone: () => {
+        if (!stopped) timer = setTimeout(pass, gap * 1000);
+      },
+    });
+    stopInner = stopThisPass;
+    if (stopped) stopThisPass();
+  };
+  pass();
+  return loop.stop;
 }
 
 /**
@@ -73,6 +119,17 @@ export async function playPhrase(
   opts: { params?: SynthParams; restore?: () => SynthParams; onDone?: () => void } = {}
 ): Promise<() => void> {
   stopPhrase();
+  return playOnce(engine, notes, opts);
+}
+
+/** One pass of a phrase. Replaces any single phrase already sounding, but leaves a running loop alone. */
+async function playOnce(
+  engine: SubtractiveEngine,
+  notes: PhraseNote[],
+  opts: { params?: SynthParams; restore?: () => SynthParams; onDone?: () => void } = {}
+): Promise<() => void> {
+  stopCurrent?.();
+  stopCurrent = null;
   const myGen = ++generation;
   await engine.startAudioContext();
   if (myGen !== generation) return () => {};

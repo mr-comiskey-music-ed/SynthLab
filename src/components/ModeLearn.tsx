@@ -5,6 +5,7 @@ import { AdsrVisualizer } from './AdsrVisualizer';
 import { WaveformIcon } from './WaveformIcons';
 import { LEARN_STEPS, LEARN_BASE, FlowPart, fillKnobNames } from '../utils/learnSteps';
 import { playPhrase } from '../utils/playback';
+import { learnProgress } from '../utils/learnProgress';
 import { CheckCircle2, ChevronRight, ChevronLeft, Volume2, RotateCcw, Circle, Ear, Trophy, ArrowRight, Activity } from 'lucide-react';
 
 interface ModeLearnProps {
@@ -18,13 +19,8 @@ interface ModeLearnProps {
 }
 
 // Progress lives for this visit only (nothing is stored), and survives switching tabs.
-const progress = {
-  step: 0,
-  started: false,
-  /** Missions finished, per step. */
-  done: LEARN_STEPS.map(() => 0),
-  finished: false,
-};
+// It is shared so the Grade Report can tell whether the student went through Learn.
+const progress = learnProgress;
 
 const FLOW: { part: FlowPart; label: string }[] = [
   { part: 'osc', label: 'VCO 1 + 2' },

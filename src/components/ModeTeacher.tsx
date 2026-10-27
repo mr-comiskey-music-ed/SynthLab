@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SynthParams, StudentSubmission, BriefWork, PhraseId } from '../types';
 import { encodeSubmission, decodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
-import { gradesFor, headlineScore, Grades, taskInfo, gradedTaskIds, gradedDoneCount, isByEar } from '../utils/taskCatalog';
-import { BriefReviewList } from './BriefReviewList';
+import { gradesFor, headlineScore, Grades, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
+import { QuestBoxes, scoreLabel } from './QuestBoxes';
+import { learnSummary } from '../utils/learnProgress';
 import { AssignmentLinkBuilder } from './AssignmentLinkBuilder';
 import { formatDate, doneLabel } from '../utils/batchGrading';
 import { copyText } from '../utils/copyText';
@@ -42,13 +43,7 @@ interface ModeTeacherProps {
   onPlayBrief: (taskId: string, params: SynthParams, phrase?: PhraseId) => void;
 }
 
-/** "85%", "best 85% · 3 tries" for Patch Master, or "turned in" for a Sound Design Brief. */
-export const scoreLabel = (t: { taskId?: string; score: number; tries?: number }) =>
-  t.taskId && isByEar(t.taskId)
-    ? 'turned in'
-    : t.tries
-    ? `best ${Math.round(t.score)}% · ${t.tries} ${t.tries === 1 ? 'try' : 'tries'}`
-    : `${Math.round(t.score)}%`;
+export { scoreLabel };
 
 /** The two grades side by side: main (Ear Training + Synth Doctor) and Patch Master. */
 const GradeBoxes: React.FC<{ grades: Grades; compact?: boolean }> = ({ grades, compact }) => {
@@ -64,14 +59,13 @@ const GradeBoxes: React.FC<{ grades: Grades; compact?: boolean }> = ({ grades, c
           <span className="block text-[10px] text-slate-500">Ear + Doctor · {grades.main.done}/{grades.main.total} done</span>
         </div>
       )}
-      {grades.patchMaster && (
-        <div className={`${box} border-sky-500/30`} title="You get 50% for trying each patch. The other 50% is based on your scores (85%+ match = full points).">
-          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Patch Master Grade</span>
-          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-sky-300`}>{grades.patchMaster.score}%</span>
-          <span className="block text-[10px] text-slate-500">
-            tried {grades.patchMaster.tried}/{grades.patchMaster.total}
-            {grades.patchMaster.avgBestMatch !== null ? ` · avg best ${grades.patchMaster.avgBestMatch}%` : ''}
+      {grades.myPresets && (
+        <div className={`${box} border-violet-500/30`} title="My Presets are graded by your teacher's ear">
+          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">My Presets</span>
+          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-violet-300`}>
+            {grades.myPresets.submitted}/{grades.myPresets.total}
           </span>
+          <span className="block text-[10px] text-slate-500">turned in · graded by ear</span>
         </div>
       )}
       {grades.design && (
@@ -83,13 +77,14 @@ const GradeBoxes: React.FC<{ grades: Grades; compact?: boolean }> = ({ grades, c
           <span className="block text-[10px] text-slate-500">turned in · graded by ear</span>
         </div>
       )}
-      {grades.myPresets && (
-        <div className={`${box} border-violet-500/30`} title="My Presets are graded by your teacher's ear">
-          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">My Presets</span>
-          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-violet-300`}>
-            {grades.myPresets.submitted}/{grades.myPresets.total}
+      {grades.patchMaster && (
+        <div className={`${box} border-sky-500/30`} title="You get 50% for trying each patch. The other 50% is based on your scores (85%+ match = full points).">
+          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Patch Master Grade</span>
+          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-sky-300`}>{grades.patchMaster.score}%</span>
+          <span className="block text-[10px] text-slate-500">
+            tried {grades.patchMaster.tried}/{grades.patchMaster.total}
+            {grades.patchMaster.avgBestMatch !== null ? ` · avg best ${grades.patchMaster.avgBestMatch}%` : ''}
           </span>
-          <span className="block text-[10px] text-slate-500">turned in · graded by ear</span>
         </div>
       )}
     </div>
@@ -169,6 +164,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
       encodedVerification: '',
       patchUrl: '',
       briefs: Object.keys(briefWork).length ? briefWork : undefined,
+      learn: learnSummary(),
     };
     setIsLocking(true);
     const code = await encodeSubmission(newSub, currentParams);
@@ -295,38 +291,14 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
               <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} compact />
             </div>
 
-            {/* Quest breakdown */}
-            <div className="space-y-2">
-              <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
-                Quests & Challenges Completed ({submission.completedTasks.length}):
-              </span>
-              {submission.completedTasks.length === 0 ? (
-                <div className="text-xs font-mono text-slate-500 italic p-2 bg-slate-900/40 rounded">
-                  No quests completed yet. Complete challenges in the Challenges tab to record scores.
-                </div>
-              ) : (
-                <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1">
-                  {submission.completedTasks.filter((t) => !isByEar(t.taskId)).map((task, idx) => (
-                    <div
-                      key={task.taskId || idx}
-                      className="flex items-center justify-between p-2 rounded bg-slate-900/80 border border-white/5 text-xs font-mono"
-                    >
-                      <span className="text-slate-200">{task.taskTitle}</span>
-                      <span className="text-emerald-400 font-bold">{scoreLabel(task)}</span>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
-            {submission.briefs && (
-              <div className="space-y-2">
-                <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
-                  Your sounds ({Object.keys(submission.briefs).length}):
-                </span>
-                <BriefReviewList briefs={submission.briefs} onPlay={onPlayBrief} />
-              </div>
-            )}
+            {/* One box per part of the app, in the order of the app: Learn, then the five challenges */}
+            <QuestBoxes
+              completedTasks={submission.completedTasks}
+              assignedTasks={submission.assignedTasks}
+              briefs={submission.briefs}
+              learn={submission.learn}
+              onPlay={onPlayBrief}
+            />
 
             <div className="space-y-3 pt-3 border-t border-white/10">
               <label className="block text-xs font-mono text-emerald-300 font-bold uppercase tracking-wider">
@@ -466,39 +438,17 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
               </div>
             </div>
 
-            <div className="space-y-2">
-              <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
-                Quests Breakdown ({checkedSub.completedTasks.filter((t) => !isByEar(t.taskId)).length}):
-              </span>
-              <div className="max-h-56 overflow-y-auto space-y-1.5 pr-1">
-                {checkedSub.completedTasks.filter((t) => !isByEar(t.taskId)).map((t, idx) => (
-                  <div
-                    key={idx}
-                    className="flex items-center justify-between p-2.5 rounded-lg bg-slate-900 border border-white/5 font-mono text-xs"
-                  >
-                    <span className="text-slate-200">{taskInfo(t.taskId)?.title ?? t.taskTitle}</span>
-                    <span className="text-emerald-400 font-bold">{scoreLabel(t)}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {(checkedSub.briefs || checkedSub.assignedTasks?.some(isByEar)) && (
-              <div className="space-y-2">
-                <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold">
-                  Sound Design & My Presets · press Play to hear each one, open it to see the settings
-                </span>
-                <BriefReviewList
-                  briefs={checkedSub.briefs}
-                  assigned={checkedSub.assignedTasks?.filter(isByEar)}
-                  onPlay={onPlayBrief}
-                  onLoad={(p) => {
-                    onLoadParams(p);
-                    setPatchLoaded(false);
-                  }}
-                />
-              </div>
-            )}
+            <QuestBoxes
+              completedTasks={checkedSub.completedTasks}
+              assignedTasks={checkedSub.assignedTasks}
+              briefs={checkedSub.briefs}
+              learn={checkedSub.learn}
+              onPlay={onPlayBrief}
+              onLoad={(p) => {
+                onLoadParams(p);
+                setPatchLoaded(false);
+              }}
+            />
 
             {checked?.patchParams && (
               <button

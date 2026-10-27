@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SynthParams, BriefWork, SoundBrief } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
 import { SOUND_BRIEFS, changedSettingsCount, MIN_CHANGES_TO_SAVE, BRIEF_NOTE_MAX, BRIEFS_TO_FINISH, briefTips } from '../utils/briefs';
 import { QuestComplete } from './QuestComplete';
 import { DEFAULT_SYNTH_PARAMS } from '../utils/presets';
-import { PHRASES, playPhrase } from '../utils/playback';
+import { stopPhrase } from '../utils/playback';
+import { PhraseButtons } from './PhraseButtons';
 import { PatchParamList } from './PatchParamList';
-import { Volume2, Lightbulb, Save, CheckCircle, RotateCcw, Music, Sparkles, Upload, ChevronDown } from 'lucide-react';
+import { Lightbulb, Save, CheckCircle, RotateCcw, Music, Sparkles, Upload, ChevronDown } from 'lucide-react';
 
 interface ModeBriefsProps {
   engine: SubtractiveEngine;
@@ -21,6 +22,15 @@ interface ModeBriefsProps {
 // Kept for this visit only (nothing is stored): hints opened and notes typed, per brief.
 const openedHints: Record<string, number> = {};
 const draftNotes: Record<string, string> = {};
+// Each brief starts from a blank patch. The patch a student was building is kept per brief (this visit
+// only), so going back to a brief picks up where they left off instead of losing their work.
+const briefDrafts: Record<string, SynthParams> = {};
+let currentBriefId: string = SOUND_BRIEFS[0].id;
+const startPatchFor = (id: string): SynthParams => ({ ...(briefDrafts[id] ?? DEFAULT_SYNTH_PARAMS) });
+/** Call when leaving the Sound Design tab, so the patch being built is kept for next time. */
+export const rememberBriefDraft = (p: SynthParams) => {
+  briefDrafts[currentBriefId] = { ...p };
+};
 
 /**
  * Quest 4: Sound Design Briefs. Open-ended requests with no single right answer.
@@ -28,7 +38,7 @@ const draftNotes: Record<string, string> = {};
  * submission code. The teacher listens and grades by ear.
  */
 export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWork, onSaveBrief, onLoadParams, onGoToPlayground, onGoToReport }) => {
-  const [activeId, setActiveId] = useState(SOUND_BRIEFS[0].id);
+  const [activeId, setActiveId] = useState(currentBriefId);
   const [, rerender] = useState(0);
   const [justSaved, setJustSaved] = useState<string | null>(null);
   // Tips from the last save of each brief (this visit only).
@@ -39,9 +49,23 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
   const saved = briefWork[brief.id];
   const changes = changedSettingsCount(params);
   const canSave = changes >= MIN_CHANGES_TO_SAVE;
-  const phrase = PHRASES[brief.phrase];
   const savedCount = SOUND_BRIEFS.filter((b) => briefWork[b.id]).length;
   const brieTips = tips[brief.id] ?? [];
+
+  // Opening the quest, or moving to another brief, starts that brief from a blank patch.
+  useEffect(() => {
+    onLoadParams(startPatchFor(activeId));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectBrief = (id: string) => {
+    if (id === activeId) return;
+    stopPhrase();
+    briefDrafts[activeId] = { ...params };
+    currentBriefId = id;
+    setActiveId(id);
+    onLoadParams(startPatchFor(id));
+  };
 
   const openHint = () => {
     openedHints[brief.id] = Math.min(2, hints + 1);
@@ -84,7 +108,7 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
                   <button
                     key={b.id}
                     type="button"
-                    onClick={() => setActiveId(b.id)}
+                    onClick={() => selectBrief(b.id)}
                     className={`text-left px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center justify-between gap-2 border ${
                       b.id === activeId
                         ? 'bg-fuchsia-500 text-black font-bold border-fuchsia-400'
@@ -117,17 +141,7 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
           </div>
 
           <div className="flex flex-wrap items-center gap-2">
-            <button
-              type="button"
-              onClick={() => {
-                engine.applyParams(params);
-                playPhrase(engine, phrase.notes);
-              }}
-              className="px-3.5 py-2 rounded-lg bg-fuchsia-500 hover:bg-fuchsia-400 text-black font-bold font-mono text-xs flex items-center gap-2 active:scale-95"
-            >
-              <Volume2 className="w-4 h-4" />
-              Test it: {phrase.label}
-            </button>
+            <PhraseButtons engine={engine} params={params} phrase={brief.phrase} accent="fuchsia" />
             <button
               type="button"
               onClick={() => onLoadParams({ ...DEFAULT_SYNTH_PARAMS })}

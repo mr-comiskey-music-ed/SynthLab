@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { SynthParams, BriefWork, PhraseId, Preset } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
 import { INITIAL_PRESETS, DEFAULT_SYNTH_PARAMS } from '../utils/presets';
@@ -7,7 +7,8 @@ import { ADVENTURES, adventureInfo } from '../utils/adventures';
 import { QuestComplete } from './QuestComplete';
 import { MY_PRESET_SLOTS, MyPresetSlot, REMIX_MIN_CHANGES, ORIGINAL_MIN_CHANGES, PRESET_NAME_MAX } from '../utils/myPresets';
 import { significantChanges } from '../utils/significance';
-import { PHRASES, playPhrase } from '../utils/playback';
+import { PHRASES, playPhrase, stopPhrase } from '../utils/playback';
+import { PhraseButtons } from './PhraseButtons';
 import { BRIEF_NOTE_MAX } from '../utils/briefs';
 import { PatchParamList } from './PatchParamList';
 import { Volume2, Save, CheckCircle, CheckCircle2, Circle, RotateCcw, Upload, ChevronDown, Shuffle, Compass, Sparkles, ArrowRight } from 'lucide-react';
@@ -37,13 +38,20 @@ const CATEGORY_PHRASE: Record<Preset['category'], PhraseId> = {
 };
 
 // Kept for this visit only (nothing is stored): what each slot is based on, adventure progress, drafts.
-const slotState: Record<string, { base?: string; step: number; name: string; note: string; phrase?: PhraseId }> = {};
+const slotState: Record<string, { base?: string; step: number; name: string; note: string; phrase?: PhraseId; draft?: SynthParams }> = {};
 const stateFor = (id: string) => (slotState[id] ??= { step: 0, name: '', note: '' });
+
+let currentSlotId: string = MY_PRESET_SLOTS[0].id;
+/** Call when leaving the My Presets tab, so an unfinished Original patch is still there when they come back. */
+export const rememberMyPresetsDraft = (p: SynthParams) => {
+  const s = MY_PRESET_SLOTS.find((x) => x.id === currentSlotId);
+  if (s?.kind === 'original') stateFor(s.id).draft = { ...p };
+};
 
 const REMIXABLE = INITIAL_PRESETS.filter((p) => p.id !== 'init-patch');
 
 export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, saved, onSave, onLoadParams, onGoToPlayground, onGoToReport }) => {
-  const [activeId, setActiveId] = useState(MY_PRESET_SLOTS[0].id);
+  const [activeId, setActiveId] = useState(currentSlotId);
   const [, rerender] = useState(0);
   const [justSaved, setJustSaved] = useState<string | null>(null);
   const refresh = () => rerender((n) => n + 1);
@@ -57,9 +65,23 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
 
   const restoreRef = React.useRef(params);
   restoreRef.current = params;
-  const playMine = (phrase: PhraseId) => {
-    engine.applyParams(params);
-    playPhrase(engine, PHRASES[phrase].notes);
+
+  // "Original" always starts from a blank patch (or from the patch they were building there).
+  const startPatchFor = (s: MyPresetSlot): SynthParams => ({ ...(stateFor(s.id).draft ?? LEARN_BASE) });
+  useEffect(() => {
+    if (slot.kind === 'original') onLoadParams(startPatchFor(slot));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const selectSlot = (id: string) => {
+    if (id === activeId) return;
+    stopPhrase();
+    // Keep an unfinished Original so a quick look at another slot doesn't lose it.
+    if (slot.kind === 'original') stateFor(slot.id).draft = { ...params };
+    const next = MY_PRESET_SLOTS.find((x) => x.id === id)!;
+    currentSlotId = id;
+    setActiveId(id);
+    if (next.kind === 'original') onLoadParams(startPatchFor(next));
   };
 
   // ---------- What this slot needs before it can be saved ----------
@@ -140,7 +162,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
             <button
               key={s.id}
               type="button"
-              onClick={() => setActiveId(s.id)}
+              onClick={() => selectSlot(s.id)}
               className={`w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-mono flex items-center gap-2 border ${
                 s.id === activeId ? 'bg-violet-500 text-black font-bold border-violet-400' : 'bg-slate-800/80 text-slate-200 border-white/5 hover:bg-slate-700'
               }`}
@@ -201,9 +223,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
                 >
                   <Volume2 className="w-3.5 h-3.5 text-violet-300" /> Play the original
                 </button>
-                <button type="button" onClick={() => playMine(phrase)} className="px-3.5 py-2 rounded-lg bg-violet-500 hover:bg-violet-400 text-black font-bold font-mono text-xs flex items-center gap-1.5">
-                  <Volume2 className="w-4 h-4" /> Play my remix
-                </button>
+                <PhraseButtons engine={engine} params={params} phrase={phrase} accent="violet" playText="Play my remix" />
                 <button type="button" onClick={() => onLoadParams({ ...remixBase.params })} className={btn}>
                   <RotateCcw className="w-3.5 h-3.5" /> Back to the original
                 </button>
@@ -254,9 +274,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
             <div className="space-y-2">
               <div className="flex flex-wrap items-center gap-2">
                 <span className="text-xs font-mono text-violet-200 font-bold">Building: {adventure.name}</span>
-                <button type="button" onClick={() => playMine(adventure.phrase)} className="px-3.5 py-2 rounded-lg bg-violet-500 hover:bg-violet-400 text-black font-bold font-mono text-xs flex items-center gap-1.5">
-                  <Volume2 className="w-4 h-4" /> Listen: {PHRASES[adventure.phrase].label}
-                </button>
+                <PhraseButtons engine={engine} params={params} phrase={adventure.phrase} accent="violet" />
                 <button
                   type="button"
                   onClick={() => {
@@ -337,7 +355,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
                   <RotateCcw className="w-3.5 h-3.5" /> Start from a blank patch
                 </button>
                 <label className="flex items-center gap-1.5 text-xs font-mono text-slate-300">
-                  Test it with:
+                  Phrase:
                   <select
                     value={phrase}
                     onChange={(e) => {
@@ -353,9 +371,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
                     ))}
                   </select>
                 </label>
-                <button type="button" onClick={() => playMine(phrase)} className="px-3.5 py-2 rounded-lg bg-violet-500 hover:bg-violet-400 text-black font-bold font-mono text-xs flex items-center gap-1.5">
-                  <Volume2 className="w-4 h-4" /> Listen
-                </button>
+                <PhraseButtons engine={engine} params={params} phrase={phrase} accent="violet" />
               </div>
               <p className="text-[11px] font-mono text-slate-400">
                 Big changes from a blank patch:{' '}

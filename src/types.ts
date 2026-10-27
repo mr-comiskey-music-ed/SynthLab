@@ -228,4 +228,6 @@ export interface StudentSubmission {
   assignedTasks?: string[];
   /** Sound Design Brief patches, by brief id. */
   briefs?: Record<string, BriefWork>;
+  /** Learn walkthrough steps finished when the code was made. Missing on codes made before this was tracked. */
+  learn?: { done: number; total: number };
 }

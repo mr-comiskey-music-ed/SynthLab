@@ -3,7 +3,6 @@ import {
   X,
   ListChecks,
   AlertTriangle,
-  CheckCircle2,
   Download,
   Headphones,
   ChevronDown,
@@ -23,15 +22,9 @@ import {
   formatDate,
   STRUGGLE_THRESHOLD,
 } from '../utils/batchGrading';
-import { ALL_TASKS, TASK_CATEGORIES, taskInfo, gradedTaskIds, gradedDoneCount, isByEar } from '../utils/taskCatalog';
+import { ALL_TASKS, TASK_CATEGORIES, gradedDoneCount } from '../utils/taskCatalog';
 import { SynthParams, PhraseId } from '../types';
-import { BriefReviewList } from './BriefReviewList';
-import { scoreLabel } from './ModeTeacher';
-
-const taskOrder = (id: string) => {
-  const i = ALL_TASKS.findIndex((t) => t.id === id);
-  return i < 0 ? ALL_TASKS.length : i;
-};
+import { QuestBoxes } from './QuestBoxes';
 
 type SortKey = 'name' | 'score' | 'effort' | 'tasks';
 
@@ -403,63 +396,13 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                               {s.assignedTasks?.length ? ` · ${s.assignedTasks.length} assigned tasks` : ` · all ${ALL_TASKS.length} tasks`}
                               {s.timestamp ? ` · submitted ${formatDate(s.timestamp)}` : ''}
                             </div>
-                            {(() => {
-                              const missing = gradedTaskIds(s.assignedTasks).filter(
-                                (id) => !s.completedTasks.some((t) => t.taskId === id)
-                              );
-                              return missing.length > 0 && missing.length < ALL_TASKS.length ? (
-                                <div className="text-[11px] text-rose-200">
-                                  <span className="text-rose-300 font-bold">Not done ({missing.length}): </span>
-                                  {missing.map((id) => taskInfo(id)?.shortTitle ?? id).join(' · ')}
-                                </div>
-                              ) : null;
-                            })()}
-                            {(s.briefs || s.assignedTasks?.some(isByEar)) && (
-                              <div className="space-y-1">
-                                <div className="text-[10px] uppercase tracking-wider text-fuchsia-300/80">
-                                  Sound Design & My Presets (grade by ear)
-                                </div>
-                                <BriefReviewList
-                                  briefs={s.briefs}
-                                  assigned={gradedTaskIds(s.assignedTasks).filter(isByEar)}
-                                  onPlay={onPlayBrief}
-                                />
-                              </div>
-                            )}
-                            {s.completedTasks.filter((t) => !isByEar(t.taskId)).length === 0 ? (
-                              <div className="text-[11px] text-slate-500 italic">No tasks completed.</div>
-                            ) : (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-                                {s.completedTasks
-                                  .filter((t) => !isByEar(t.taskId))
-                                  .sort((a, b) => taskOrder(a.taskId) - taskOrder(b.taskId))
-                                  .map((t) => {
-                                    const good = t.score >= STRUGGLE_THRESHOLD;
-                                    const counted = gradedTaskIds(s.assignedTasks).includes(t.taskId);
-                                    return (
-                                      <div
-                                        key={t.taskId}
-                                        className={`flex items-center justify-between gap-2 text-[11px] px-2.5 py-1.5 rounded-lg bg-white/5 border border-white/10 ${counted ? '' : 'opacity-50'}`}
-                                        title={counted ? undefined : 'Extra: not part of the assignment, so not counted'}
-                                      >
-                                        <span className="flex items-center gap-1.5 text-slate-200 min-w-0">
-                                          {good ? (
-                                            <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                                          ) : (
-                                            <AlertTriangle className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-                                          )}
-                                          <span className="truncate" title={t.taskTitle}>
-                                            {taskInfo(t.taskId)?.title ?? t.taskTitle}
-                                          </span>
-                                        </span>
-                                        <span className={`font-bold shrink-0 ${good ? 'text-emerald-400' : 'text-amber-400'}`}>
-                                          {scoreLabel(t)}
-                                        </span>
-                                      </div>
-                                    );
-                                  })}
-                              </div>
-                            )}
+                            <QuestBoxes
+                              completedTasks={s.completedTasks}
+                              assignedTasks={s.assignedTasks}
+                              briefs={s.briefs}
+                              learn={s.learn}
+                              onPlay={onPlayBrief}
+                            />
                           </div>
                         )}
                       </div>

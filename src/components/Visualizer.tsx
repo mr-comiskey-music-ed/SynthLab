@@ -3,6 +3,7 @@ import { SubtractiveEngine } from '../audio/synthEngine';
 import { ThemeMode } from '../types';
 import * as Tone from 'tone';
 import { Maximize2, Minimize2 } from 'lucide-react';
+import { VIZ_FONT, fitCanvas, vizPalette } from './vizUtils';
 
 interface VisualizerProps {
   engine: SubtractiveEngine;
@@ -15,74 +16,81 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
   const [viewMode, setViewMode] = useState<'spectrum' | 'scope'>('scope');
   const [isFullScreen, setIsFullScreen] = useState(false);
   const animFrameId = useRef<number | null>(null);
+  const cssHeight = isFullScreen ? 480 : height;
+  const pal = vizPalette(theme);
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    const ctx = canvas.getContext('2d');
-    if (!ctx) return;
 
     const render = () => {
-      const width = canvas.width;
-      const h = canvas.height;
+      const fit = fitCanvas(canvas, cssHeight);
+      if (!fit) return;
+      const { ctx, width, height: h } = fit;
 
-      // Clear background with phosphor aesthetic
-      ctx.fillStyle = theme === 'hardware-bench' ? '#060a08' : '#050807';
+      ctx.fillStyle = pal.bg;
       ctx.fillRect(0, 0, width, h);
+      ctx.lineJoin = 'round';
 
-      // Draw logarithmic frequency grid lines (20 Hz, 100 Hz, 1 kHz, 10 kHz, 20 kHz)
-      const minFreq = 20;
-      const maxFreq = 20000;
-      const freqToX = (f: number) => {
+      // ---------------- Spectrogram (log frequency axis, 20 Hz - 20 kHz) ----------------
+      if (viewMode === 'spectrum') {
+        const minFreq = 20;
+        const maxFreq = 20000;
         const minLog = Math.log10(minFreq);
         const maxLog = Math.log10(maxFreq);
-        const fLog = Math.log10(Math.max(minFreq, Math.min(maxFreq, f)));
-        return ((fLog - minLog) / (maxLog - minLog)) * width;
-      };
+        const freqToX = (f: number) => ((Math.log10(f) - minLog) / (maxLog - minLog)) * width;
+        const freqAt = (px: number) => Math.pow(10, minLog + (px / width) * (maxLog - minLog));
 
-      const gridFreqs = [100, 1000, 10000];
-      ctx.strokeStyle = theme === 'hardware-bench' ? 'rgba(34, 197, 94, 0.1)' : 'rgba(52, 211, 153, 0.12)';
-      ctx.lineWidth = 1;
-      ctx.fillStyle = theme === 'hardware-bench' ? 'rgba(34, 197, 94, 0.5)' : 'rgba(52, 211, 153, 0.5)';
-      ctx.font = '9px monospace';
+        const plotTop = 10;
+        const plotBottom = h - 20;
+        const DB_MIN = -90;
+        const dbToY = (db: number) =>
+          plotBottom - Math.max(0, Math.min(1, (db - DB_MIN) / -DB_MIN)) * (plotBottom - plotTop);
 
-      gridFreqs.forEach((freq) => {
-        const x = freqToX(freq);
-        ctx.beginPath();
-        ctx.moveTo(x, 0);
-        ctx.lineTo(x, h - 18);
-        ctx.stroke();
-        ctx.fillText(freq >= 1000 ? `${freq / 1000}k Hz` : `${freq} Hz`, x + 3, h - 22);
-      });
+        // Grid + labels
+        ctx.lineWidth = 1;
+        ctx.font = `11px ${VIZ_FONT}`;
+        ctx.textBaseline = 'alphabetic';
 
-      // Draw horizontal dB grid lines
-      for (let y = 0; y < h - 18; y += (h - 18) / 4) {
-        ctx.beginPath();
-        ctx.moveTo(0, y);
-        ctx.lineTo(width, y);
-        ctx.stroke();
-      }
+        for (const db of [-20, -40, -60, -80]) {
+          const y = Math.round(dbToY(db)) + 0.5;
+          ctx.strokeStyle = pal.grid;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+          ctx.fillStyle = pal.label;
+          ctx.textAlign = 'left';
+          ctx.fillText(`${db} dB`, 6, y - 3);
+        }
 
-      // 1. Draw Spectrometer (FFT) with Logarithmic Scaling (20Hz - 20kHz)
-      if (viewMode === 'spectrum') {
+        for (const f of [50, 100, 200, 500, 1000, 2000, 5000, 10000]) {
+          const x = Math.round(freqToX(f)) + 0.5;
+          ctx.strokeStyle = pal.grid;
+          ctx.beginPath();
+          ctx.moveTo(x, plotTop);
+          ctx.lineTo(x, plotBottom);
+          ctx.stroke();
+          ctx.fillStyle = pal.label;
+          ctx.textAlign = 'center';
+          ctx.fillText(f >= 1000 ? `${f / 1000}k` : `${f}`, Math.max(14, Math.min(width - 14, x)), h - 6);
+        }
+        ctx.textAlign = 'right';
+        ctx.fillText('Hz', width - 6, h - 6);
+
+        // Spectrum trace
         const fftData = engine.getFFTData();
         const sampleRate = Tone.getContext().sampleRate || 44100;
         const nyquist = sampleRate / 2;
-
-        ctx.beginPath();
-        let started = false;
-
-        const step = 1; // one point per pixel
-        const lastBin = fftData.length - 1;
         const binHz = nyquist / fftData.length;
-        const minLog = Math.log10(minFreq);
-        const maxLog = Math.log10(maxFreq);
-        const freqAt = (px: number) => Math.pow(10, minLog + (px / width) * (maxLog - minLog));
+        const lastBin = fftData.length - 1;
 
-        for (let x = 0; x <= width; x += step) {
+        // One y value per pixel column
+        const ys: number[] = [];
+        for (let x = 0; x <= width; x += 1) {
           // The span of FFT bins this pixel covers on the log axis
-          const b0 = freqAt(x - step / 2) / binHz;
-          const b1 = freqAt(x + step / 2) / binHz;
+          const b0 = freqAt(x - 0.5) / binHz;
+          const b1 = freqAt(x + 0.5) / binHz;
 
           let db: number;
           if (b1 - b0 < 1) {
@@ -99,37 +107,53 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
             db = -Infinity;
             for (let i = from; i <= to; i++) if (fftData[i] > db) db = fftData[i];
           }
-
-          // Normalize dB (-90dB to 0dB)
-          const normalized = Math.max(0, Math.min(1, (db + 90) / 90));
-          const barH = normalized * (h - 28);
-          const y = (h - 18) - barH;
-
-          if (!started) {
-            ctx.moveTo(x, y);
-            started = true;
-          } else {
-            ctx.lineTo(x, y);
-          }
+          ys.push(dbToY(db));
         }
-        ctx.lineTo(width, h - 18);
-        ctx.lineTo(0, h - 18);
+
+        // Soft fill under the trace
+        ctx.beginPath();
+        ctx.moveTo(0, plotBottom);
+        ys.forEach((y, x) => ctx.lineTo(x, y));
+        ctx.lineTo(width, plotBottom);
         ctx.closePath();
-        ctx.fillStyle = theme === 'hardware-bench' ? 'rgba(34, 197, 94, 0.18)' : 'rgba(52, 211, 153, 0.18)';
+        ctx.fillStyle = pal.traceFill;
         ctx.fill();
-        ctx.strokeStyle = theme === 'hardware-bench' ? '#22c55e' : '#34d399';
-        ctx.lineWidth = 1.5;
+
+        // The trace line on top
+        ctx.beginPath();
+        ys.forEach((y, x) => (x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y)));
+        ctx.strokeStyle = pal.trace;
+        ctx.lineWidth = 1.75;
+        ctx.shadowColor = pal.trace;
+        ctx.shadowBlur = pal.glow;
         ctx.stroke();
+        ctx.shadowBlur = 0;
       }
 
-      // 2. Draw Oscilloscope Waveform (if scope mode)
+      // ---------------- Oscilloscope (no text, just a clean graticule) ----------------
       if (viewMode === 'scope') {
+        ctx.lineWidth = 1;
+        // Graticule: 8 columns, 4 rows, brighter centre line
+        for (let i = 1; i < 8; i++) {
+          const x = Math.round((i / 8) * width) + 0.5;
+          ctx.strokeStyle = pal.grid;
+          ctx.beginPath();
+          ctx.moveTo(x, 0);
+          ctx.lineTo(x, h);
+          ctx.stroke();
+        }
+        for (let i = 1; i < 4; i++) {
+          const y = Math.round((i / 4) * h) + 0.5;
+          ctx.strokeStyle = i === 2 ? pal.gridStrong : pal.grid;
+          ctx.beginPath();
+          ctx.moveTo(0, y);
+          ctx.lineTo(width, y);
+          ctx.stroke();
+        }
+
         const waveData = engine.getWaveformData();
-        ctx.beginPath();
-        ctx.lineWidth = 2;
-        ctx.strokeStyle = theme === 'hardware-bench' ? '#22c55e' : '#34d399';
-        const waveCenter = (h - 18) / 2;
-        const waveH = (h - 18) * 0.45;
+        const waveCenter = h / 2;
+        const waveH = h * 0.42;
 
         // Find rising zero-crossing trigger point to lock waveform phase
         let triggerIndex = 0;
@@ -140,30 +164,24 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
           }
         }
 
-        // Display a clean window of samples (e.g. 384 samples) to isolate 1-2 stable cycles
+        // Display a clean window of samples to isolate 1-2 stable cycles
         const numSamples = Math.min(384, waveData.length - triggerIndex);
         const sliceWidth = width / numSamples;
 
-        let x = 0;
+        ctx.beginPath();
         for (let i = 0; i < numSamples; i++) {
-          const idx = triggerIndex + i;
-          if (idx >= waveData.length) break;
-          const v = waveData[idx];
-          const y = waveCenter + (v * waveH);
-          if (i === 0) {
-            ctx.moveTo(x, y);
-          } else {
-            ctx.lineTo(x, y);
-          }
-          x += sliceWidth;
+          const v = waveData[triggerIndex + i];
+          const x = i * sliceWidth;
+          const y = waveCenter - v * waveH;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
         }
+        ctx.strokeStyle = pal.trace;
+        ctx.lineWidth = 2;
+        ctx.shadowColor = pal.trace;
+        ctx.shadowBlur = pal.glow;
         ctx.stroke();
-      }
-
-      // CRT Scanline Overlay
-      ctx.fillStyle = 'rgba(0, 0, 0, 0.12)';
-      for (let y = 0; y < h; y += 3) {
-        ctx.fillRect(0, y, width, 1);
+        ctx.shadowBlur = 0;
       }
 
       animFrameId.current = requestAnimationFrame(render);
@@ -176,22 +194,27 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
         cancelAnimationFrame(animFrameId.current);
       }
     };
-  }, [engine, theme, viewMode, isFullScreen]);
+  }, [engine, theme, viewMode, cssHeight]);
 
   const containerClasses = isFullScreen
-    ? "fixed inset-4 md:inset-12 z-50 flex flex-col p-4 bg-slate-950 border-2 border-emerald-500 shadow-2xl rounded-2xl"
-    : `relative rounded-lg overflow-hidden border shadow-inner transition-all ${
-        theme === 'hardware-bench'
-          ? 'bg-[#060a08] border-[#1f2923] shadow-black/80'
-          : 'bg-[#050807] border-[#18231d] shadow-black/80'
-      }`;
+    ? 'fixed inset-4 md:inset-12 z-50 flex flex-col p-4 bg-slate-950 border-2 border-amber-500 shadow-2xl rounded-2xl'
+    : `relative rounded-lg overflow-hidden border shadow-inner transition-all ${pal.card}`;
+
+  const activeBtn =
+    theme === 'hardware-bench'
+      ? 'bg-green-400 text-black border-green-300 font-bold shadow'
+      : 'bg-amber-500 text-black border-amber-400 font-bold shadow';
+  const idleBtn =
+    theme === 'hardware-bench'
+      ? 'bg-black/70 hover:bg-black text-green-300 border-green-800/40'
+      : 'bg-black/70 hover:bg-black text-amber-300 border-amber-800/40';
 
   return (
     <>
       {isFullScreen && (
-        <div 
-          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40" 
-          onClick={() => setIsFullScreen(false)} 
+        <div
+          className="fixed inset-0 bg-black/80 backdrop-blur-sm z-40"
+          onClick={() => setIsFullScreen(false)}
         />
       )}
       <div
@@ -210,9 +233,7 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
               type="button"
               onClick={(e) => { e.stopPropagation(); setViewMode(m.id); }}
               className={`px-2 py-0.5 text-[10px] font-mono uppercase rounded border transition-colors ${
-                viewMode === m.id
-                  ? 'bg-emerald-500 text-black border-emerald-400 font-bold shadow'
-                  : 'bg-black/70 hover:bg-black text-emerald-300 border-emerald-800/40'
+                viewMode === m.id ? activeBtn : idleBtn
               }`}
             >
               {m.label}
@@ -221,8 +242,8 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setIsFullScreen(!isFullScreen); }}
-            className="p-1 rounded bg-black/70 hover:bg-emerald-500 hover:text-black text-emerald-400 border border-emerald-800/60 shadow transition-colors ml-1"
-            title={isFullScreen ? "Exit Full Screen" : "Expand to Full Screen"}
+            className="p-1 rounded bg-black/70 hover:bg-amber-500 hover:text-black text-amber-400 border border-amber-800/60 shadow transition-colors ml-1"
+            title={isFullScreen ? 'Exit Full Screen' : 'Expand to Full Screen'}
           >
             {isFullScreen ? <Minimize2 className="w-3 h-3" /> : <Maximize2 className="w-3 h-3" />}
           </button>
@@ -230,9 +251,8 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
 
         <canvas
           ref={canvasRef}
-          width={isFullScreen ? 1200 : 640}
-          height={isFullScreen ? 500 : height}
-          className="w-full block flex-1"
+          className="w-full block"
+          style={{ height: cssHeight }}
         />
       </div>
     </>

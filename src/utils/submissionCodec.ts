@@ -119,6 +119,14 @@ function unpackBriefs(raw: unknown): Record<string, BriefWork> | undefined {
   return Object.keys(out).length ? out : undefined;
 }
 
+/** Learn progress packs as [steps done, total steps]; codes from before it was tracked have none. */
+function unpackLearn(raw: unknown): StudentSubmission['learn'] {
+  if (!Array.isArray(raw)) return undefined;
+  const total = Math.max(0, Math.round(Number(raw[1]) || 0));
+  const done = Math.max(0, Math.min(total, Math.round(Number(raw[0]) || 0)));
+  return total ? { done, total } : undefined;
+}
+
 // ---------- Compression (deflate + URL-safe base64) ----------
 function toBase64Url(bytes: Uint8Array): string {
   let bin = '';
@@ -185,6 +193,7 @@ export async function encodeSubmission(submission: StudentSubmission, params?: S
     packed.p = Object.keys(p).length ? p : 0; // 0 = default patch
   }
   if (submission.briefs && Object.keys(submission.briefs).length) packed.b = packBriefs(submission.briefs);
+  if (submission.learn) packed.l = [submission.learn.done, submission.learn.total];
   const json = JSON.stringify(packed);
   return `${await compress(json)}.${checksum(json)}`;
 }
@@ -215,6 +224,7 @@ export async function decodeSubmission(code: string): Promise<DecodedSubmission 
         encodedVerification: raw.slice(dot + 1),
         patchUrl: '',
         briefs: unpackBriefs(d.b),
+        learn: unpackLearn(d.l),
       },
       patchParams: d.p === undefined ? undefined : unpackParams(d.p || {}, d.v !== FORMAT_VERSION),
     };

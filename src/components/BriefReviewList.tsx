@@ -14,6 +14,8 @@ interface BriefReviewListProps {
   assigned?: string[];
   onPlay?: (taskId: string, params: SynthParams, phrase?: PhraseId) => void;
   onLoad?: (params: SynthParams) => void;
+  /** Show only Sound Design briefs or only My Presets (default: both). */
+  only?: 'design' | 'presets';
 }
 
 /**
@@ -60,8 +62,10 @@ function items(briefs: Record<string, BriefWork>): Item[] {
   return [...fromBriefs, ...fromPresets];
 }
 
-export const BriefReviewList: React.FC<BriefReviewListProps> = ({ briefs = {}, assigned, onPlay, onLoad }) => {
-  const shown = items(briefs).filter((b) => briefs[b.id] || assigned?.includes(b.id));
+export const BriefReviewList: React.FC<BriefReviewListProps> = ({ briefs = {}, assigned, onPlay, onLoad, only }) => {
+  const shown = items(briefs)
+    .filter((b) => !only || (only === 'presets') === (b.kind === 'My Preset'))
+    .filter((b) => briefs[b.id] || assigned?.includes(b.id));
   if (!shown.length) return null;
   return (
     <div className="space-y-1.5">

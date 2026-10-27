@@ -6,8 +6,9 @@ import { PATCH_MATCHER_CHALLENGES, SYNTH_DOCTOR_TICKETS, BLIND_TEST_CHALLENGES }
 import { scorePatch, nextPatchHint, AspectResult } from '../utils/patchScore';
 import { playPhrase, stopPhrase } from '../utils/playback';
 import { PatchParamList } from './PatchParamList';
-import { ModeBriefs } from './ModeBriefs';
-import { ModeMyPresets } from './ModeMyPresets';
+import { ModeBriefs, rememberBriefDraft } from './ModeBriefs';
+import { ModeMyPresets, rememberMyPresetsDraft } from './ModeMyPresets';
+import { PhraseButtons, PLAY_LABEL } from './PhraseButtons';
 import { QuestComplete } from './QuestComplete';
 import {
   Volume2,
@@ -228,6 +229,8 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const selectTab = (id: Category) => {
     stopPhrase();
     if (activeCategory === 'matcher') workByPatch.current[currentPatch.id] = { ...params };
+    if (activeCategory === 'design') rememberBriefDraft(params);
+    if (activeCategory === 'mine') rememberMyPresetsDraft(params);
     setActiveCategory(id);
     if (id === 'doctor') handleLoadTicket(activeTicketIdx);
     if (id === 'matcher') loadPatch(activePatchIdx);
@@ -388,7 +391,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
             <span className="text-[10px] font-mono text-red-400 uppercase font-bold block mb-1">The client says:</span>
             <p className="text-sm text-slate-200 italic">“{currentTicket.clientComplaint}”</p>
             <p className="text-[11px] text-slate-400 mt-2">
-              Press <b className="text-slate-300">Play test phrase</b> (or play the keys) to hear the problem, find it on the synth, fix it, then
+              Press <b className="text-slate-300">{PLAY_LABEL}</b> (or play the keys) to hear the problem, <b className="text-slate-300">Loop</b> it to keep it playing while you turn knobs, then
               Submit Fix. Each clue costs {DOCTOR_CLUE_COST} points on this ticket.
             </p>
           </div>
@@ -415,18 +418,15 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-2 mb-3">
-            <button
-              type="button"
-              onClick={() => {
-                engine.applyParams(params);
-                playPhrase(engine, currentTicket.phrase);
-              }}
-              className="mr-auto px-3.5 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-black font-bold font-mono text-xs flex items-center gap-1.5 active:scale-95"
-              title="Plays your current patch, so you can hear the problem, and later the fix"
-            >
-              <Volume2 className="w-4 h-4" />
-              Play test phrase
-            </button>
+            <PhraseButtons
+              engine={engine}
+              params={params}
+              phrase={currentTicket.phrase}
+              label="Test phrase"
+              accent="emerald"
+              className="mr-auto"
+              playTitle="Plays your current patch, so you can hear the problem, and later the fix"
+            />
             <button
               type="button"
               onClick={() => handleLoadTicket(activeTicketIdx)}
