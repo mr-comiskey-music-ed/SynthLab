@@ -22,45 +22,89 @@ interface ModeLearnProps {
 // It is shared so the Grade Report can tell whether the student went through Learn.
 const progress = learnProgress;
 
-const FLOW: { part: FlowPart; label: string }[] = [
-  { part: 'osc', label: 'VCO 1 + 2' },
-  { part: 'noise', label: 'Noise' },
-  { part: 'filter', label: 'Filter' },
-  { part: 'amp', label: 'Amp' },
-];
-const MODS: { part: FlowPart; label: string; to: string }[] = [
-  { part: 'filterEnv', label: 'Filter EG', to: 'filter' },
-  { part: 'ampEnv', label: 'Amp EG', to: 'amp' },
-  { part: 'lfo', label: 'LFO', to: 'pitch · filter · PW' },
-];
+const CAPTIONS: Record<FlowPart, string> = {
+  osc: 'Oscillators make the raw tone',
+  noise: 'Noise adds hiss and air',
+  filter: 'Filter removes harmonics: bright to dark',
+  amp: 'Amp sets the loudness',
+  filterEnv: 'Filter EG moves the cutoff over each note',
+  ampEnv: 'Amp EG shapes the loudness of each note',
+  lfo: 'LFO wobbles pitch, cutoff or pulse width',
+};
 
-/** The whole signal path in one line, with this step's parts lit. */
+/**
+ * The whole signal path as a diagram, with this step's parts lit.
+ * Sound flows left to right along the top; the things that MOVE settings sit underneath,
+ * each with a dashed arrow into exactly what it moves.
+ */
 const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
-  const box = (on: boolean) =>
-    `px-2 py-1 rounded-md border text-[10px] font-mono font-bold uppercase tracking-wide transition-colors ${
-      on ? 'bg-amber-400 text-black border-amber-300 shadow-[0_0_10px_rgba(251,191,36,0.5)]' : 'bg-black/40 text-slate-400 border-white/10'
-    }`;
+  const on = (p: FlowPart) => lit.includes(p);
+  const box = (p: FlowPart) =>
+    on(p)
+      ? { fill: '#fbbf24', stroke: '#fde68a', text: '#111827' }
+      : { fill: 'rgba(0,0,0,0.4)', stroke: 'rgba(255,255,255,0.14)', text: '#94a3b8' };
+  const FONT = "'Barlow Semi Condensed', 'Barlow', system-ui, sans-serif";
+  const Block: React.FC<{ part: FlowPart; x: number; y: number; w: number; h: number; label: string }> = ({ part, x, y, w, h, label }) => {
+    const c = box(part);
+    return (
+      <g style={on(part) ? { filter: 'drop-shadow(0 0 5px rgba(251,191,36,0.6))' } : undefined}>
+        <rect x={x} y={y} width={w} height={h} rx={7} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} />
+        <text x={x + w / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={c.text} fontFamily={FONT} letterSpacing="0.06em">
+          {label}
+        </text>
+      </g>
+    );
+  };
+  // A modulator's arrow glows cyan when that modulator is the lit one.
+  const mod = (p: FlowPart) => (on(p) ? '#22d3ee' : 'rgba(148,163,184,0.45)');
+  const sound = 'rgba(203,213,225,0.7)';
+  const caption = lit.map((p) => CAPTIONS[p]).join('  ·  ');
+
   return (
-    <div className="flex flex-col gap-1 items-start md:items-end" aria-label="Signal path">
-      <div className="flex items-center gap-1 flex-wrap">
-        <div className="flex flex-col gap-0.5">
-          <span className={box(lit.includes('osc'))}>{FLOW[0].label}</span>
-          <span className={box(lit.includes('noise'))}>{FLOW[1].label}</span>
-        </div>
-        <span className="text-slate-500 text-xs">→</span>
-        <span className={box(lit.includes('filter'))}>{FLOW[2].label}</span>
-        <span className="text-slate-500 text-xs">→</span>
-        <span className={box(lit.includes('amp'))}>{FLOW[3].label}</span>
-        <span className="text-slate-500 text-xs">→ 🔊</span>
-      </div>
-      <div className="flex items-center gap-1 flex-wrap">
-        <span className="text-[9px] font-mono text-slate-500 uppercase">moved by:</span>
-        {MODS.map((m) => (
-          <span key={m.part} className={box(lit.includes(m.part))} title={`moves the ${m.to}`}>
-            {m.label} <span className="font-normal normal-case opacity-70">→ {m.to}</span>
-          </span>
-        ))}
-      </div>
+    <div className="flex flex-col items-start md:items-end gap-1 w-full md:w-[27rem] shrink-0" aria-label="Signal path">
+      <svg viewBox="0 0 420 152" className="w-full h-auto" role="img" aria-label="Oscillators and noise go through the filter and amp to the speaker; the filter envelope, amp envelope and LFO move settings along the way">
+        <defs>
+          <marker id="flow-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill={sound} />
+          </marker>
+          <marker id="mod-arrow-on" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="#22d3ee" />
+          </marker>
+          <marker id="mod-arrow-off" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+            <path d="M0 0 L8 4 L0 8 z" fill="rgba(148,163,184,0.6)" />
+          </marker>
+        </defs>
+
+        <text x={4} y={10} fontSize={8} fill="#64748b" fontFamily={FONT} letterSpacing="0.14em">SOUND</text>
+
+        {/* Sound path */}
+        <Block part="noise" x={4} y={16} w={86} h={24} label="NOISE" />
+        <Block part="osc" x={4} y={46} w={86} h={34} label="VCO 1 + 2" />
+        <path d="M90 28 H120 V63" fill="none" stroke={sound} strokeWidth={1.5} />
+        <path d="M90 63 H146" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <Block part="filter" x={150} y={46} w={84} h={34} label="FILTER" />
+        <path d="M234 63 H286" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <Block part="amp" x={290} y={46} w={70} h={34} label="AMP" />
+        <path d="M360 63 H382" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <text x={400} y={69} textAnchor="middle" fontSize={20}>🔊</text>
+
+        {/* What moves them */}
+        <Block part="lfo" x={4} y={110} w={86} h={36} label="LFO" />
+        <Block part="filterEnv" x={150} y={110} w={84} h={36} label="FILTER EG" />
+        <Block part="ampEnv" x={278} y={110} w={84} h={36} label="AMP EG" />
+
+        {/* LFO: pitch / pulse width of the oscillators, and the filter's cutoff */}
+        <path d="M34 110 V82" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('lfo') ? 'on' : 'off'})`} />
+        <text x={40} y={98} fontSize={8} fill={mod('lfo')} fontFamily={FONT}>pitch · PW</text>
+        <path d="M82 110 V96 H176 V82" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('lfo') ? 'on' : 'off'})`} />
+        <text x={100} y={92} fontSize={8} fill={mod('lfo')} fontFamily={FONT}>cutoff</text>
+        {/* Envelopes */}
+        <path d="M208 110 V82" fill="none" stroke={mod('filterEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('filterEnv') ? 'on' : 'off'})`} />
+        <text x={214} y={98} fontSize={8} fill={mod('filterEnv')} fontFamily={FONT}>cutoff</text>
+        <path d="M325 110 V82" fill="none" stroke={mod('ampEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('ampEnv') ? 'on' : 'off'})`} />
+        <text x={331} y={98} fontSize={8} fill={mod('ampEnv')} fontFamily={FONT}>volume</text>
+      </svg>
+      <p className="text-[10px] font-mono text-amber-200/80 leading-snug min-h-[1.5em]">{caption}</p>
     </div>
   );
 };
