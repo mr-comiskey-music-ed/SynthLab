@@ -260,8 +260,8 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
               />
             </div>
 
-            {/* Cutoff & Resonance Big Knobs */}
-            <div className="flex items-center justify-around mb-2">
+            {/* All four filter knobs in one row (wraps to two rows when the panel is narrow) */}
+            <div className="flex flex-wrap items-center justify-around gap-x-1 gap-y-1 mb-2">
               <Knob
                 id="retro-filter-cutoff"
                 label="Cutoff (Hz)"
@@ -290,10 +290,8 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
                 section="filter"
                 onChange={(v) => onParamChange('filterResonance', v)}
               />
-            </div>
 
-            {/* Env Amount & Key Tracking */}
-            <div className="flex items-center justify-around pt-1 pb-2 border-t border-red-500/10">
+              {/* Env Amount & Key Tracking: same row as the big knobs, wrapping on narrow screens */}
               <Knob
                 id="retro-filter-env"
                 label="EG Depth"
@@ -323,12 +321,12 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
             </div>
 
             {/* Integrated Filter Response */}
-            <FilterVisualizer engine={engine} theme="studio-retro" height={220} />
+            <FilterVisualizer engine={engine} theme="studio-retro" height={125} />
           </div>
 
           {/* Real-time Spectrometer */}
           <div className="mt-1.5">
-            <Visualizer engine={engine} theme="studio-retro" height={280} />
+            <Visualizer engine={engine} theme="studio-retro" height={150} />
           </div>
         </div>
 

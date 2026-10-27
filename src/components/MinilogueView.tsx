@@ -289,8 +289,8 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                 />
               </div>
 
-              {/* Big Cutoff & Resonance with red pointers */}
-              <div className="flex items-center justify-around mb-2">
+              {/* All four filter knobs in one row (wraps to two rows when the panel is narrow) */}
+              <div className="flex flex-wrap items-center justify-around gap-x-1 gap-y-1 mb-2">
                 <Knob
                   id="mini-filter-cutoff"
                   label="Cutoff"
@@ -319,9 +319,8 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   theme="hardware-bench"
                   onChange={(v) => onParamChange('filterResonance', v)}
                 />
-              </div>
 
-              <div className="flex items-center justify-around pt-1 pb-2 border-t border-slate-300">
+
                 <Knob
                   id="mini-filter-env"
                   label="EG Int"
@@ -351,12 +350,12 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
               </div>
 
               {/* Minilogue OLED Display & Filter Visualizer */}
-              <FilterVisualizer engine={engine} theme="hardware-bench" height={220} />
+              <FilterVisualizer engine={engine} theme="hardware-bench" height={125} />
             </div>
 
             {/* Real-time Spectrometer */}
             <div className="mt-1.5">
-              <Visualizer engine={engine} theme="hardware-bench" height={280} />
+              <Visualizer engine={engine} theme="hardware-bench" height={150} />
             </div>
           </div>
 

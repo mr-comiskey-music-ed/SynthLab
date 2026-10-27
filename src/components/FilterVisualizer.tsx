@@ -43,9 +43,11 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
         ((Math.log10(Math.max(minFreq, Math.min(maxFreq, f))) - minLog) / (maxLog - minLog)) * width;
 
       // Layout: header gap for the FILTER tag, plot, frequency labels, readout bar
-      const readoutH = 26;
-      const axisH = 18;
-      const plotTop = 30;
+      // Small card: just the curve and its axes. The Cutoff / slope / Res readout is for full screen.
+      const compact = !isFullScreen;
+      const readoutH = compact ? 0 : 26;
+      const axisH = 16;
+      const plotTop = compact ? 22 : 30;
       const plotBottom = h - readoutH - axisH;
 
       // The real response of the engine's filter: Tone cascades one 2-pole biquad per
@@ -158,7 +160,8 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
         ctx.stroke();
       }
 
-      // ---- Readout bar: Cutoff | slope | Resonance ----
+      // ---- Readout bar: Cutoff | slope | Resonance (full screen only) ----
+      if (!compact) {
       ctx.fillStyle = pal.readoutBg;
       ctx.fillRect(0, h - readoutH, width, readoutH);
       ctx.strokeStyle = pal.gridStrong;
@@ -184,6 +187,7 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
       ctx.textAlign = 'right';
       ctx.fillText(`Res ${params.filterResonance.toFixed(1)}${peakText}`, width - 12, ry);
       ctx.textBaseline = 'alphabetic';
+      }
 
       animFrameId.current = requestAnimationFrame(render);
     };
@@ -195,7 +199,7 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
         cancelAnimationFrame(animFrameId.current);
       }
     };
-  }, [engine, theme, cssHeight]);
+  }, [engine, theme, cssHeight, isFullScreen]);
 
   const containerClasses = isFullScreen
     ? 'fixed inset-4 md:inset-12 z-50 flex flex-col p-4 bg-slate-950 border-2 border-amber-500 shadow-2xl rounded-2xl'

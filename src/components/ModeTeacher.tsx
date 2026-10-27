@@ -19,7 +19,6 @@ import {
   Headphones,
   Loader2,
   Link2,
-  Circle,
 } from 'lucide-react';
 
 export interface SharedReport {
@@ -207,6 +206,17 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
           <GradeBoxes grades={grades} />
         </div>
 
+        {/* Where the student stands now: Learn, then the five challenges, in the order of the app */}
+        <div className="mb-6">
+          <QuestBoxes
+            completedTasks={completedTasks}
+            assignedTasks={assignedTasks}
+            briefs={briefWork}
+            learn={learnSummary()}
+            onPlay={onPlayBrief}
+          />
+        </div>
+
         {/* Name input & Generate Code button */}
         <div className="grid grid-cols-1 md:grid-cols-12 gap-4 items-end mb-6">
           <div className="md:col-span-5">
@@ -244,40 +254,6 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
           </div>
         </div>
 
-        {/* Assigned task checklist */}
-        {assignedTasks.length > 0 && (
-          <div className="mb-6 p-4 rounded-xl bg-black/40 border border-white/10">
-            <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold mb-2">
-              Your assignment ({doneCount}/{gradedIds.length} done) · do these in the Challenges tab:
-            </span>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
-              {gradedIds.map((id) => {
-                const done = completedTasks.find((t) => t.taskId === id);
-                return (
-                  <div
-                    key={id}
-                    className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded text-xs font-mono border ${
-                      done ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-900/60 border-white/5'
-                    }`}
-                  >
-                    <span className={`flex items-center gap-1.5 min-w-0 ${done ? 'text-slate-200' : 'text-slate-400'}`}>
-                      {done ? (
-                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
-                      ) : (
-                        <Circle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
-                      )}
-                      <span className="truncate" title={taskInfo(id)?.title}>{taskInfo(id)?.title ?? id}</span>
-                    </span>
-                    <span className={`shrink-0 font-bold ${done ? 'text-emerald-400' : 'text-slate-600'}`}>
-                      {done ? scoreLabel({ ...done, taskId: id }) : 'not done'}
-                    </span>
-                  </div>
-                );
-              })}
-            </div>
-          </div>
-        )}
-
         {/* Submission code */}
         {submission && (
           <div className="p-5 rounded-xl bg-black/70 border border-emerald-500/50 space-y-4">
@@ -290,15 +266,6 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
               </div>
               <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} compact />
             </div>
-
-            {/* One box per part of the app, in the order of the app: Learn, then the five challenges */}
-            <QuestBoxes
-              completedTasks={submission.completedTasks}
-              assignedTasks={submission.assignedTasks}
-              briefs={submission.briefs}
-              learn={submission.learn}
-              onPlay={onPlayBrief}
-            />
 
             <div className="space-y-3 pt-3 border-t border-white/10">
               <label className="block text-xs font-mono text-emerald-300 font-bold uppercase tracking-wider">
