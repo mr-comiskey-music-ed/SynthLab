@@ -49,7 +49,7 @@ const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
     return (
       <g style={on(part) ? { filter: 'drop-shadow(0 0 5px rgba(251,191,36,0.6))' } : undefined}>
         <rect x={x} y={y} width={w} height={h} rx={7} fill={c.fill} stroke={c.stroke} strokeWidth={1.5} />
-        <text x={x + w / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize={11} fontWeight={700} fill={c.text} fontFamily={FONT} letterSpacing="0.06em">
+        <text x={x + w / 2} y={y + h / 2 + 4} textAnchor="middle" fontSize={13} fontWeight={700} fill={c.text} fontFamily={FONT} letterSpacing="0.06em">
           {label}
         </text>
       </g>
@@ -58,11 +58,10 @@ const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
   // A modulator's arrow glows cyan when that modulator is the lit one.
   const mod = (p: FlowPart) => (on(p) ? '#22d3ee' : 'rgba(148,163,184,0.45)');
   const sound = 'rgba(203,213,225,0.7)';
-  const caption = lit.map((p) => CAPTIONS[p]).join('  ·  ');
 
   return (
-    <div className="flex flex-col items-start md:items-end gap-1 w-full md:w-[27rem] shrink-0" aria-label="Signal path">
-      <svg viewBox="0 0 420 152" className="w-full h-auto" role="img" aria-label="Oscillators and noise go through the filter and amp to the speaker; the filter envelope, amp envelope and LFO move settings along the way">
+    <div className="w-full md:flex-1 md:max-w-[46rem] min-w-0" aria-label="Signal path">
+      <svg viewBox="0 0 700 100" className="w-full h-auto block" role="img" aria-label="Oscillators and noise go through the filter and amp to the speaker; the filter envelope, amp envelope and LFO move settings along the way">
         <defs>
           <marker id="flow-arrow" viewBox="0 0 8 8" refX="7" refY="4" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
             <path d="M0 0 L8 4 L0 8 z" fill={sound} />
@@ -75,36 +74,31 @@ const FlowStrip: React.FC<{ lit: FlowPart[] }> = ({ lit }) => {
           </marker>
         </defs>
 
-        <text x={4} y={10} fontSize={8} fill="#64748b" fontFamily={FONT} letterSpacing="0.14em">SOUND</text>
+        {/* Sound path, left to right */}
+        <Block part="noise" x={0} y={0} w={120} h={20} label="NOISE" />
+        <Block part="osc" x={0} y={24} w={120} h={30} label="VCO 1 + 2" />
+        <path d="M120 10 H190 V39" fill="none" stroke={sound} strokeWidth={1.5} />
+        <path d="M120 39 H268" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <Block part="filter" x={272} y={24} w={120} h={30} label="FILTER" />
+        <path d="M392 39 H508" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <Block part="amp" x={512} y={24} w={100} h={30} label="AMP" />
+        <path d="M612 39 H648" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
+        <text x={672} y={47} textAnchor="middle" fontSize={24}>🔊</text>
 
-        {/* Sound path */}
-        <Block part="noise" x={4} y={16} w={86} h={24} label="NOISE" />
-        <Block part="osc" x={4} y={46} w={86} h={34} label="VCO 1 + 2" />
-        <path d="M90 28 H120 V63" fill="none" stroke={sound} strokeWidth={1.5} />
-        <path d="M90 63 H146" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
-        <Block part="filter" x={150} y={46} w={84} h={34} label="FILTER" />
-        <path d="M234 63 H286" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
-        <Block part="amp" x={290} y={46} w={70} h={34} label="AMP" />
-        <path d="M360 63 H382" fill="none" stroke={sound} strokeWidth={1.5} markerEnd="url(#flow-arrow)" />
-        <text x={400} y={69} textAnchor="middle" fontSize={20}>🔊</text>
+        {/* What moves them: dashed arrows into exactly what they move */}
+        <Block part="lfo" x={0} y={76} w={120} h={24} label="LFO" />
+        <Block part="filterEnv" x={272} y={76} w={120} h={24} label="FILTER EG" />
+        <Block part="ampEnv" x={512} y={76} w={100} h={24} label="AMP EG" />
 
-        {/* What moves them */}
-        <Block part="lfo" x={4} y={110} w={86} h={36} label="LFO" />
-        <Block part="filterEnv" x={150} y={110} w={84} h={36} label="FILTER EG" />
-        <Block part="ampEnv" x={278} y={110} w={84} h={36} label="AMP EG" />
-
-        {/* LFO: pitch / pulse width of the oscillators, and the filter's cutoff */}
-        <path d="M34 110 V82" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('lfo') ? 'on' : 'off'})`} />
-        <text x={40} y={98} fontSize={8} fill={mod('lfo')} fontFamily={FONT}>pitch · PW</text>
-        <path d="M82 110 V96 H176 V82" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('lfo') ? 'on' : 'off'})`} />
-        <text x={100} y={92} fontSize={8} fill={mod('lfo')} fontFamily={FONT}>cutoff</text>
-        {/* Envelopes */}
-        <path d="M208 110 V82" fill="none" stroke={mod('filterEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('filterEnv') ? 'on' : 'off'})`} />
-        <text x={214} y={98} fontSize={8} fill={mod('filterEnv')} fontFamily={FONT}>cutoff</text>
-        <path d="M325 110 V82" fill="none" stroke={mod('ampEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('ampEnv') ? 'on' : 'off'})`} />
-        <text x={331} y={98} fontSize={8} fill={mod('ampEnv')} fontFamily={FONT}>volume</text>
+        <path d="M40 76 V56" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('lfo') ? 'on' : 'off'})`} />
+        <text x={46} y={69} fontSize={10} fill={mod('lfo')} fontFamily={FONT}>pitch · PW</text>
+        <path d="M112 76 V64 H300 V56" fill="none" stroke={mod('lfo')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('lfo') ? 'on' : 'off'})`} />
+        <text x={150} y={60} fontSize={10} fill={mod('lfo')} fontFamily={FONT}>cutoff</text>
+        <path d="M352 76 V56" fill="none" stroke={mod('filterEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('filterEnv') ? 'on' : 'off'})`} />
+        <text x={358} y={69} fontSize={10} fill={mod('filterEnv')} fontFamily={FONT}>cutoff</text>
+        <path d="M562 76 V56" fill="none" stroke={mod('ampEnv')} strokeWidth={1.75} strokeDasharray="4 3" markerEnd={`url(#mod-arrow-${on('ampEnv') ? 'on' : 'off'})`} />
+        <text x={568} y={69} fontSize={10} fill={mod('ampEnv')} fontFamily={FONT}>volume</text>
       </svg>
-      <p className="text-[10px] font-mono text-amber-200/80 leading-snug min-h-[1.5em]">{caption}</p>
     </div>
   );
 };
@@ -221,7 +215,7 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
   return (
     <div id="mode-learn-overlay" className="rounded-xl bg-gradient-to-r from-amber-950/70 via-slate-900 to-indigo-950/70 p-4 border border-amber-500/40 shadow-2xl text-slate-100">
       {/* Header: step + flow strip */}
-      <div className="flex flex-col md:flex-row md:items-start justify-between gap-3 border-b border-amber-500/20 pb-3 mb-3">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 border-b border-amber-500/20 pb-3 mb-3">
         <div className="flex items-center gap-3">
           <span className="flex items-center justify-center w-8 h-8 rounded-full bg-amber-500 text-black font-bold text-sm shrink-0">{stepIdx + 1}</span>
           <div>
@@ -229,6 +223,9 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
               Step {stepIdx + 1} of {LEARN_STEPS.length}
             </span>
             <h3 className="text-lg font-bold text-white leading-tight">{step.title}</h3>
+            <p className="text-[11px] font-mono text-amber-200/80 leading-snug mt-0.5">
+              {step.flow.map((p) => CAPTIONS[p]).join('  ·  ')}
+            </p>
           </div>
         </div>
         <FlowStrip lit={step.flow} />
