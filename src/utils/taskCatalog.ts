@@ -123,8 +123,11 @@ export interface DesignProgress {
 }
 
 export interface Grades {
-  /** A/B Ear Training + Synth Doctor. Null when none were assigned. */
+  /** A/B Ear Training + Synth Doctor combined (the headline score in codes and the batch view). Null when none were assigned. */
   main: MainGrade | null;
+  /** The same two quests shown separately on the grade report. Null when none were assigned. */
+  ear: MainGrade | null;
+  doctor: MainGrade | null;
   /** Patch Master: half for trying, half from match scores. Null when none were assigned. */
   patchMaster: PatchMasterGrade | null;
   /** Sound Design Briefs turned in. Null when none were assigned. */
@@ -163,6 +166,15 @@ export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
     main = { score: Math.round(sum / mainIds.length), done: doneMain.length, total: mainIds.length };
   }
 
+  const part = (ids: string[]): MainGrade | null => {
+    if (!ids.length) return null;
+    const done = ids.filter((id) => byId.has(id));
+    const sum = done.reduce((s, id) => s + (byId.get(id)!.score || 0), 0);
+    return { score: Math.round(sum / ids.length), done: done.length, total: ids.length };
+  };
+  const ear = part(mainIds.filter((id) => taskInfo(id)?.category === 'Blind Ear Test'));
+  const doctor = part(mainIds.filter((id) => taskInfo(id)?.category === 'Synth Doctor'));
+
   let patchMaster: PatchMasterGrade | null = null;
   if (pmIds.length) {
     const tried = pmIds.filter((id) => byId.has(id)).map((id) => byId.get(id)!);
@@ -179,7 +191,7 @@ export function gradesFor(tasks: DoneTask[], assigned?: string[]): Grades {
     ? { submitted: Math.min(designNeeded, briefIds.filter((id) => byId.has(id)).length), total: designNeeded }
     : null;
   const myPresets = myIds.length ? { submitted: myIds.filter((id) => byId.has(id)).length, total: myIds.length } : null;
-  return { main, patchMaster, design, myPresets };
+  return { main, ear, doctor, patchMaster, design, myPresets };
 }
 
 /** The headline number kept on a submission: the main grade, or the Patch Master grade if that's all that was assigned. */

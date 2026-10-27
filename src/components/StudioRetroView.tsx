@@ -241,7 +241,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
               : 'bg-[#181c24]/90 border-red-500/30'
           }`}
         >
-          <div>
+          <div className="flex flex-col flex-1 min-h-0">
             <div className="flex items-center justify-between border-b border-red-500/30 pb-1.5 mb-2">
               <span className="text-xs font-mono font-bold text-red-400 tracking-wider">
                 2. LOW-PASS FILTER (VCF)
@@ -321,12 +321,14 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
             </div>
 
             {/* Integrated Filter Response */}
-            <FilterVisualizer engine={engine} theme="studio-retro" height={125} />
+            <div className="flex-1 min-h-[125px]">
+              <FilterVisualizer engine={engine} theme="studio-retro" height={125} fill />
+            </div>
           </div>
 
           {/* Real-time Spectrometer */}
-          <div className="mt-1.5">
-            <Visualizer engine={engine} theme="studio-retro" height={150} />
+          <div className="mt-1.5 flex-1 min-h-[150px]">
+            <Visualizer engine={engine} theme="studio-retro" height={150} fill />
           </div>
         </div>
 

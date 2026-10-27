@@ -270,7 +270,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                 : 'border-slate-400/40 bg-white/40'
             }`}
           >
-            <div>
+            <div className="flex flex-col flex-1 min-h-0">
               <div className="flex items-center justify-between border-b border-slate-300 pb-1 mb-2">
                 <span className="text-xs font-bold font-sans tracking-wide text-red-800 flex items-center gap-1">
                   <span className="w-2 h-2 rounded-full bg-red-500" /> VCF FILTER
@@ -350,12 +350,14 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
               </div>
 
               {/* Minilogue OLED Display & Filter Visualizer */}
-              <FilterVisualizer engine={engine} theme="hardware-bench" height={125} />
+              <div className="flex-1 min-h-[125px]">
+                <FilterVisualizer engine={engine} theme="hardware-bench" height={125} fill />
+              </div>
             </div>
 
             {/* Real-time Spectrometer */}
-            <div className="mt-1.5">
-              <Visualizer engine={engine} theme="hardware-bench" height={150} />
+            <div className="mt-1.5 flex-1 min-h-[150px]">
+              <Visualizer engine={engine} theme="hardware-bench" height={150} fill />
             </div>
           </div>
 

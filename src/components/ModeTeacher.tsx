@@ -19,6 +19,7 @@ import {
   Headphones,
   Loader2,
   Link2,
+  Circle,
 } from 'lucide-react';
 
 export interface SharedReport {
@@ -44,43 +45,70 @@ interface ModeTeacherProps {
 
 export { scoreLabel };
 
-/** The two grades side by side: main (Ear Training + Synth Doctor) and Patch Master. */
-const GradeBoxes: React.FC<{ grades: Grades; compact?: boolean }> = ({ grades, compact }) => {
+type LearnInfo = { done: number; total: number } | undefined;
+
+/** One small box per part of the app, in the order students meet them: Learn, then the five quests. */
+const GradeBoxes: React.FC<{ grades: Grades; learn?: LearnInfo; compact?: boolean }> = ({ grades, learn, compact }) => {
   const box = compact
     ? 'px-2.5 py-1 rounded bg-black/40 border'
     : 'px-3 py-1.5 rounded bg-black/40 border';
+  const big = compact ? 'text-sm' : 'text-lg';
+  const label = 'block text-[10px] text-slate-400 uppercase tracking-wider';
+  const sub = 'block text-[10px] text-slate-500';
+  const learnDone = learn && learn.total > 0 && learn.done >= learn.total;
   return (
     <div className="flex flex-wrap items-stretch gap-2 font-mono">
-      {grades.main && (
-        <div className={`${box} border-amber-500/30`} title="A/B Ear Training + Synth Doctor">
-          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Main Grade</span>
-          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-amber-400`}>{grades.main.score} / 100</span>
-          <span className="block text-[10px] text-slate-500">Ear + Doctor · {grades.main.done}/{grades.main.total} done</span>
+      <div className={`${box} border-indigo-500/30`} title="Learn: work through every step before the challenges">
+        <span className={label}>Learn</span>
+        {learn ? (
+          <>
+            <span className={`${big} font-bold ${learnDone ? 'text-indigo-300' : 'text-indigo-300/70'}`}>{learn.done}/{learn.total}</span>
+            <span className={sub}>{learnDone ? 'steps · finished' : 'steps · keep going'}</span>
+          </>
+        ) : (
+          <>
+            <span className={`${big} font-bold text-slate-500`}>?</span>
+            <span className={sub}>not recorded</span>
+          </>
+        )}
+      </div>
+      {grades.ear && (
+        <div className={`${box} border-cyan-500/30`} title="Quest 1: A/B Ear Training">
+          <span className={label}>Ear Training</span>
+          <span className={`${big} font-bold text-cyan-300`}>{grades.ear.score}%</span>
+          <span className={sub}>{grades.ear.done}/{grades.ear.total} done</span>
+        </div>
+      )}
+      {grades.doctor && (
+        <div className={`${box} border-emerald-500/30`} title="Quest 2: Synth Doctor">
+          <span className={label}>Synth Doctor</span>
+          <span className={`${big} font-bold text-emerald-300`}>{grades.doctor.score}%</span>
+          <span className={sub}>{grades.doctor.done}/{grades.doctor.total} done</span>
         </div>
       )}
       {grades.myPresets && (
         <div className={`${box} border-violet-500/30`} title="My Presets are graded by your teacher's ear">
-          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">My Presets</span>
-          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-violet-300`}>
+          <span className={label}>My Presets</span>
+          <span className={`${big} font-bold text-violet-300`}>
             {grades.myPresets.submitted}/{grades.myPresets.total}
           </span>
-          <span className="block text-[10px] text-slate-500">turned in · graded by ear</span>
+          <span className={sub}>turned in · graded by ear</span>
         </div>
       )}
       {grades.design && (
         <div className={`${box} border-fuchsia-500/30`} title="Sound Design Briefs are graded by your teacher's ear">
-          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Sound Design</span>
-          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-fuchsia-300`}>
+          <span className={label}>Sound Design</span>
+          <span className={`${big} font-bold text-fuchsia-300`}>
             {grades.design.submitted}/{grades.design.total}
           </span>
-          <span className="block text-[10px] text-slate-500">turned in · graded by ear</span>
+          <span className={sub}>turned in · graded by ear</span>
         </div>
       )}
       {grades.patchMaster && (
-        <div className={`${box} border-sky-500/30`} title="You get 50% for trying each patch. The other 50% is based on your scores (85%+ match = full points).">
-          <span className="block text-[10px] text-slate-400 uppercase tracking-wider">Patch Master Grade</span>
-          <span className={`${compact ? 'text-sm' : 'text-lg'} font-bold text-sky-300`}>{grades.patchMaster.score}%</span>
-          <span className="block text-[10px] text-slate-500">
+        <div className={`${box} border-amber-500/30`} title="You get 50% for trying each patch. The other 50% is based on your scores (85%+ match = full points).">
+          <span className={label}>Patch Master</span>
+          <span className={`${big} font-bold text-amber-300`}>{grades.patchMaster.score}%</span>
+          <span className={sub}>
             tried {grades.patchMaster.tried}/{grades.patchMaster.total}
             {grades.patchMaster.avgBestMatch !== null ? ` · avg best ${grades.patchMaster.avgBestMatch}%` : ''}
           </span>
@@ -203,18 +231,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             </div>
           </div>
 
-          <GradeBoxes grades={grades} />
-        </div>
-
-        {/* Where the student stands now: Learn, then the five challenges, in the order of the app */}
-        <div className="mb-6">
-          <QuestBoxes
-            completedTasks={completedTasks}
-            assignedTasks={assignedTasks}
-            briefs={briefWork}
-            learn={learnSummary()}
-            onPlay={onPlayBrief}
-          />
+          <GradeBoxes grades={grades} learn={learnSummary()} />
         </div>
 
         {/* Name input & Generate Code button */}
@@ -254,6 +271,40 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
           </div>
         </div>
 
+        {/* Assigned task checklist */}
+        {assignedTasks.length > 0 && (
+          <div className="mb-6 p-4 rounded-xl bg-black/40 border border-white/10">
+            <span className="block text-xs font-mono text-slate-400 uppercase tracking-wider font-semibold mb-2">
+              Your assignment ({doneCount}/{gradedIds.length} done) · do these in the Challenges tab:
+            </span>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5">
+              {gradedIds.map((id) => {
+                const done = completedTasks.find((t) => t.taskId === id);
+                return (
+                  <div
+                    key={id}
+                    className={`flex items-center justify-between gap-2 px-2.5 py-1.5 rounded text-xs font-mono border ${
+                      done ? 'bg-emerald-500/10 border-emerald-500/30' : 'bg-slate-900/60 border-white/5'
+                    }`}
+                  >
+                    <span className={`flex items-center gap-1.5 min-w-0 ${done ? 'text-slate-200' : 'text-slate-400'}`}>
+                      {done ? (
+                        <Check className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                      ) : (
+                        <Circle className="w-3.5 h-3.5 text-slate-600 shrink-0" />
+                      )}
+                      <span className="truncate" title={taskInfo(id)?.title}>{taskInfo(id)?.title ?? id}</span>
+                    </span>
+                    <span className={`shrink-0 font-bold ${done ? 'text-emerald-400' : 'text-slate-600'}`}>
+                      {done ? scoreLabel({ ...done, taskId: id }) : 'not done'}
+                    </span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         {/* Submission code */}
         {submission && (
           <div className="p-5 rounded-xl bg-black/70 border border-emerald-500/50 space-y-4">
@@ -264,7 +315,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                   Grade Report Ready
                 </span>
               </div>
-              <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} compact />
+              <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} learn={submission.learn} compact />
             </div>
 
             <div className="space-y-3 pt-3 border-t border-white/10">
@@ -398,7 +449,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                 )}
               </div>
               <div>
-                <GradeBoxes grades={gradesFor(checkedSub.completedTasks, checkedSub.assignedTasks)} compact />
+                <GradeBoxes grades={gradesFor(checkedSub.completedTasks, checkedSub.assignedTasks)} learn={checkedSub.learn} compact />
                 <span className="block text-[10px] text-slate-500 mt-1">
                   {doneLabel(checkedSub)} {checkedSub.assignedTasks?.length ? 'assigned ' : ''}tasks · {checkedSub.assignmentCode}
                 </span>

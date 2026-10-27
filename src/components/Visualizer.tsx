@@ -9,14 +9,27 @@ interface VisualizerProps {
   engine: SubtractiveEngine;
   theme: ThemeMode;
   height?: number;
+  /** Stretch to fill the height its parent gives it (height is then the minimum). */
+  fill?: boolean;
 }
 
-export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 160 }) => {
+export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 160, fill = false }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [viewMode, setViewMode] = useState<'spectrum' | 'scope'>('scope');
   const [isFullScreen, setIsFullScreen] = useState(false);
   const animFrameId = useRef<number | null>(null);
-  const cssHeight = isFullScreen ? 480 : height;
+  const cardRef = useRef<HTMLDivElement | null>(null);
+  const [fillH, setFillH] = useState(0);
+  useEffect(() => {
+    if (!fill || isFullScreen) return;
+    const el = cardRef.current;
+    if (!el || typeof ResizeObserver === 'undefined') return;
+    const ro = new ResizeObserver(() => setFillH(Math.round(el.clientHeight)));
+    ro.observe(el);
+    setFillH(Math.round(el.clientHeight));
+    return () => ro.disconnect();
+  }, [fill, isFullScreen]);
+  const cssHeight = isFullScreen ? 480 : fill ? Math.max(height, fillH) : height;
   const pal = vizPalette(theme);
 
   useEffect(() => {
@@ -198,7 +211,7 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
 
   const containerClasses = isFullScreen
     ? 'fixed inset-4 md:inset-12 z-50 flex flex-col p-4 bg-slate-950 border-2 border-amber-500 shadow-2xl rounded-2xl'
-    : `relative rounded-lg overflow-hidden border shadow-inner transition-all ${pal.card}`;
+    : `relative rounded-lg overflow-hidden border shadow-inner transition-all ${fill ? 'h-full' : ''} ${pal.card}`;
 
   const activeBtn =
     theme === 'hardware-bench'
@@ -219,6 +232,7 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
       )}
       <div
         id="synth-visualizer-card"
+        ref={cardRef}
         className={containerClasses}
         onDoubleClick={() => setIsFullScreen(!isFullScreen)}
         title="Double-click to toggle full screen"
@@ -251,8 +265,8 @@ export const Visualizer: React.FC<VisualizerProps> = ({ engine, theme, height = 
 
         <canvas
           ref={canvasRef}
-          className="w-full block"
-          style={{ height: cssHeight }}
+          className={fill && !isFullScreen ? 'absolute inset-0 w-full h-full block' : 'w-full block'}
+          style={fill && !isFullScreen ? undefined : { height: cssHeight }}
         />
       </div>
     </>
