@@ -57,7 +57,10 @@ const GradeBoxes: React.FC<{ grades: Grades; learn?: LearnInfo; compact?: boolea
   const sub = 'block text-[10px] text-slate-500';
   const learnDone = learn && learn.total > 0 && learn.done >= learn.total;
   return (
-    <div className="flex flex-wrap items-stretch gap-2 font-mono">
+    <div
+      className={compact ? 'flex flex-wrap items-stretch gap-2 font-mono' : 'grid items-stretch gap-2 font-mono'}
+      style={compact ? undefined : { gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))' }}
+    >
       <div className={`${box} border-indigo-500/30`} title="Learn: work through every step before the challenges">
         <span className={label}>Learn</span>
         {learn ? (
@@ -218,9 +221,9 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
   const checkedSub = checked?.submission;
 
   return (
-    <div id="mode-teacher-panel" className="space-y-4 mb-4 max-w-4xl mx-auto">
+    <div id="mode-teacher-panel" className="space-y-4 mb-4 max-w-6xl mx-auto">
       <div className="rounded-xl bg-gradient-to-r from-slate-900 via-[#13161c] to-slate-900 border border-amber-500/40 p-6 shadow-xl">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-white/10 pb-4 mb-5">
+        <div className="space-y-4 border-b border-white/10 pb-4 mb-5">
           <div className="flex items-center gap-3">
             <GraduationCap className="w-7 h-7 text-amber-400" />
             <div>
