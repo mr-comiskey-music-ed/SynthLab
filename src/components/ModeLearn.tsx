@@ -177,7 +177,10 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
 
   const settingsRight = current ? current.check(params) : false;
   const firstUnfinished = done.findIndex((n, i) => n < LEARN_STEPS[i].missions.length);
-  const reachable = (i: number) => i <= (firstUnfinished === -1 ? LEARN_STEPS.length - 1 : firstUnfinished);
+  // Once every step has been completed, the student can jump to any step and move on freely:
+  // nothing has to be redone just to review.
+  const allDone = firstUnfinished === -1;
+  const reachable = (i: number) => allDone || i <= firstUnfinished;
 
   if (finished) {
     return (
@@ -367,10 +370,10 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
 
         <button
           type="button"
-          disabled={!stepComplete}
+          disabled={!stepComplete && !allDone}
           onClick={() => (stepIdx === LEARN_STEPS.length - 1 ? setFinished(true) : goTo(stepIdx + 1))}
           className={`px-4 py-1.5 rounded font-bold flex items-center gap-1 transition-all ${
-            stepComplete ? 'bg-amber-400 hover:bg-amber-300 text-black' : 'bg-slate-800 text-slate-500 cursor-not-allowed'
+            stepComplete || allDone ? 'bg-amber-400 hover:bg-amber-300 text-black' : 'bg-slate-800 text-slate-500 cursor-not-allowed'
           }`}
         >
           <span>{stepIdx === LEARN_STEPS.length - 1 ? 'Finish' : 'Next Step'}</span>
