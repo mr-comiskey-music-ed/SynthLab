@@ -151,7 +151,8 @@ export const Knob: React.FC<KnobProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Touch Support
+  // Touch: only the dial itself grabs a touch (it has touch-action: none), so a swipe
+  // that starts on the label, readout or panel still scrolls the page.
   const handleTouchStart = (e: React.TouchEvent) => {
     if (e.touches.length !== 1) return;
     setIsDragging(true);
@@ -160,6 +161,8 @@ export const Knob: React.FC<KnobProps> = ({
 
     const handleTouchMove = (moveEvent: TouchEvent) => {
       if (moveEvent.touches.length !== 1) return;
+      // Backup for browsers that ignore touch-action: keep the page still while turning.
+      if (moveEvent.cancelable) moveEvent.preventDefault();
       const deltaY = startYRef.current - moveEvent.touches[0].clientY;
       const sensitivity = 0.006;
       const newNorm = Math.max(0, Math.min(1, startValRef.current + deltaY * sensitivity));
@@ -176,10 +179,12 @@ export const Knob: React.FC<KnobProps> = ({
       setIsDragging(false);
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
     };
 
-    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchcancel', handleTouchEnd);
   };
 
   const handleDoubleClick = () => {
@@ -230,10 +235,9 @@ export const Knob: React.FC<KnobProps> = ({
       id={id}
       className="flex flex-col items-center select-none group cursor-ns-resize"
       onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
       onDoubleClick={handleDoubleClick}
     >
-      <div className="relative flex items-center justify-center p-1">
+      <div className="relative flex items-center justify-center p-1 touch-none" onTouchStart={handleTouchStart}>
         {/* LFO cue: the range the LFO sweeps either side of the setting, with a dot moving at the LFO's rate */}
         {swingActive ? (
           <svg viewBox="0 0 100 100" className="absolute w-[134%] h-[134%] pointer-events-none overflow-visible" aria-hidden="true">

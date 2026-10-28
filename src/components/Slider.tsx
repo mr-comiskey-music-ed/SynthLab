@@ -85,6 +85,8 @@ export const VerticalSlider: React.FC<SliderProps> = ({
 
     const handleTouchMove = (moveEvent: TouchEvent) => {
       if (moveEvent.touches.length !== 1) return;
+      // Backup for browsers that ignore touch-action: keep the page still while sliding.
+      if (moveEvent.cancelable) moveEvent.preventDefault();
       updateFromY(moveEvent.touches[0].clientY);
     };
 
@@ -92,10 +94,12 @@ export const VerticalSlider: React.FC<SliderProps> = ({
       setIsDragging(false);
       window.removeEventListener('touchmove', handleTouchMove);
       window.removeEventListener('touchend', handleTouchEnd);
+      window.removeEventListener('touchcancel', handleTouchEnd);
     };
 
-    window.addEventListener('touchmove', handleTouchMove);
+    window.addEventListener('touchmove', handleTouchMove, { passive: false });
     window.addEventListener('touchend', handleTouchEnd);
+    window.addEventListener('touchcancel', handleTouchEnd);
   };
 
   const handleDoubleClick = () => {
@@ -134,7 +138,7 @@ export const VerticalSlider: React.FC<SliderProps> = ({
       {/* Slider Track Container */}
       <div
         ref={trackRef}
-        className="relative flex items-center justify-center cursor-ns-resize px-2 py-1"
+        className="relative flex items-center justify-center cursor-ns-resize px-2 py-1 touch-none"
         style={{ height: `${height}px` }}
         onMouseDown={handleMouseDown}
         onTouchStart={handleTouchStart}

@@ -73,12 +73,14 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   a strong pulsing ring on the Learn Filter envelope step.
 - LFO rate stays in Hz.
 - Touch screens must clearly separate swipe-to-scroll from
-  touch-and-drag on knobs.
+  touch-and-drag on knobs. A touch that starts on a knob dial or slider
+  track turns it and never scrolls (`touch-none` on just those parts);
+  a swipe that starts anywhere else, including a knob's label or
+  readout, scrolls the page.
 
 ## Open items (check the repo first)
-- Touch: knobs and sliders don't yet separate scroll from drag. A touch
-  on a knob turns it and can scroll the page at the same time (no
-  `touch-action` or `preventDefault` in `Knob.tsx` / `Slider.tsx`).
+- `npm run lint` has 5 type errors in `App.tsx` (restored-progress
+  parsing, around line 273). The app still builds.
 - Leftover Google AI Studio scaffolding that the app doesn't use:
   `@google/genai`, `express`, `dotenv`, `tsx` in package.json; the
   package name "react-example"; `.env.example` (Gemini key);
