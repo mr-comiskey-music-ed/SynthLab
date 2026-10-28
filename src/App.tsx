@@ -14,7 +14,7 @@ import { decodeSubmission, decodePatch, DecodedSubmission } from './utils/submis
 import { restoreLearnSteps } from './utils/learnProgress';
 import { hasProgress, progressSignature } from './utils/progressGuard';
 import { parseBatch, BatchParseResult } from './utils/batchGrading';
-import { cleanTaskList, isPatchMaster, taskTitle } from './utils/taskCatalog';
+import { cleanTaskList, isPatchMaster, taskTitle, taskInfo, TASK_CATEGORIES } from './utils/taskCatalog';
 import { briefInfo } from './utils/briefs';
 import { PHRASES, playPhrase } from './utils/playback';
 import { BatchGradeModal } from './components/BatchGradeModal';
@@ -24,7 +24,7 @@ import { MinilogueView } from './components/MinilogueView';
 import { Keyboard } from './components/Keyboard';
 import { ModeLearn } from './components/ModeLearn';
 import { ModePlayground } from './components/ModePlayground';
-import { ModeChallenges } from './components/ModeChallenges';
+import { ModeChallenges, Category as ChallengeCategory } from './components/ModeChallenges';
 import { ModeTeacher, SharedReport } from './components/ModeTeacher';
 import { SynthLabLogo } from './components/SynthLabLogo';
 import {
@@ -71,6 +71,20 @@ export default function App() {
   // URL query params tracking
   const [assignmentCode, setAssignmentCode] = useState<string>('SYNTH_LAB_01');
   const [assignedTasks, setAssignedTasks] = useState<string[]>([]);
+
+  // The quest tab Challenges opens on: the first assigned one (nothing assigned: A/B Ear Training).
+  const CATEGORY_TAB: Record<string, ChallengeCategory> = {
+    'Blind Ear Test': 'blind',
+    'Synth Doctor': 'doctor',
+    'My Presets': 'mine',
+    'Sound Design': 'design',
+    'Patch Matcher': 'matcher',
+  };
+  const firstChallengeTab: ChallengeCategory = (() => {
+    const cats = new Set(assignedTasks.map((id) => taskInfo(id)?.category));
+    const first = TASK_CATEGORIES.find((c) => cats.has(c));
+    return (first && CATEGORY_TAB[first]) || 'blind';
+  })();
 
   // Engine ref singleton
   const engineRef = useRef<SubtractiveEngine | null>(null);
@@ -444,6 +458,7 @@ export default function App() {
             onSaveBrief={handleSaveBrief}
             onGoToPlayground={() => setActiveMode('playground')}
             onGoToReport={() => setActiveMode('teacher')}
+            initialCategory={firstChallengeTab}
           />
         )}
 

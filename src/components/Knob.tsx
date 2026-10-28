@@ -1,6 +1,7 @@
 import React, { useRef, useState, useEffect } from 'react';
 import { ThemeMode } from '../types';
 import { taperPosition, taperValue } from '../utils/taper';
+import { useTouchGrab } from '../utils/useTouchGrab';
 
 interface KnobProps {
   id: string;
@@ -122,24 +123,27 @@ export const Knob: React.FC<KnobProps> = ({
     return `${(50 + 44 * Math.sin(a)).toFixed(2)} ${(50 - 44 * Math.cos(a)).toFixed(2)}`;
   };
 
+  // Turn the knob from a vertical finger/mouse position, relative to where the drag began.
+  const applyY = (clientY: number) => {
+    const deltaY = startYRef.current - clientY;
+    const sensitivity = 0.006;
+    const newNorm = Math.max(0, Math.min(1, startValRef.current + deltaY * sensitivity));
+    let newVal = fromNormalized(newNorm);
+    if (centerValue !== undefined) {
+      newVal = Math.round(newVal * 1000) / 1000;
+    } else if (step && !logarithmic) {
+      newVal = Math.round(newVal / step) * step;
+    }
+    onChange(newVal);
+  };
+
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     setIsDragging(true);
     startYRef.current = e.clientY;
     startValRef.current = normVal;
 
-    const handleMouseMove = (moveEvent: MouseEvent) => {
-      const deltaY = startYRef.current - moveEvent.clientY;
-      const sensitivity = 0.006;
-      const newNorm = Math.max(0, Math.min(1, startValRef.current + deltaY * sensitivity));
-      let newVal = fromNormalized(newNorm);
-      if (centerValue !== undefined) {
-        newVal = Math.round(newVal * 1000) / 1000;
-      } else if (step && !logarithmic) {
-        newVal = Math.round(newVal / step) * step;
-      }
-      onChange(newVal);
-    };
+    const handleMouseMove = (moveEvent: MouseEvent) => applyY(moveEvent.clientY);
 
     const handleMouseUp = () => {
       setIsDragging(false);
@@ -151,42 +155,25 @@ export const Knob: React.FC<KnobProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  // Touch Support
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length !== 1) return;
-    setIsDragging(true);
-    startYRef.current = e.touches[0].clientY;
-    startValRef.current = normVal;
-
-    const handleTouchMove = (moveEvent: TouchEvent) => {
-      if (moveEvent.touches.length !== 1) return;
-      const deltaY = startYRef.current - moveEvent.touches[0].clientY;
-      const sensitivity = 0.006;
-      const newNorm = Math.max(0, Math.min(1, startValRef.current + deltaY * sensitivity));
-      let newVal = fromNormalized(newNorm);
-      if (centerValue !== undefined) {
-        newVal = Math.round(newVal * 1000) / 1000;
-      } else if (step && !logarithmic) {
-        newVal = Math.round(newVal / step) * step;
-      }
-      onChange(newVal);
-    };
-
-    const handleTouchEnd = () => {
-      setIsDragging(false);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-
-    window.addEventListener('touchmove', handleTouchMove);
-    window.addEventListener('touchend', handleTouchEnd);
-  };
+  // Touch: a quick swipe scrolls the page; press and hold briefly to grab the knob, then drag.
+  const knobRef = useRef<HTMLDivElement | null>(null);
 
   const handleDoubleClick = () => {
     if (defaultValue !== undefined) {
       onChange(defaultValue);
     }
   };
+
+  useTouchGrab(knobRef, {
+    onGrab: (y) => {
+      setIsDragging(true);
+      startYRef.current = y;
+      startValRef.current = normVal;
+    },
+    onMove: applyY,
+    onRelease: () => setIsDragging(false),
+    onDoubleTap: handleDoubleClick,
+  });
 
   // Format value display
   const formatDisplay = (v: number): string => {
@@ -228,9 +215,9 @@ export const Knob: React.FC<KnobProps> = ({
   return (
     <div
       id={id}
-      className="flex flex-col items-center select-none group cursor-ns-resize"
+      ref={knobRef}
+      className="flex flex-col items-center select-none group cursor-ns-resize touch-manipulation"
       onMouseDown={handleMouseDown}
-      onTouchStart={handleTouchStart}
       onDoubleClick={handleDoubleClick}
     >
       <div className="relative flex items-center justify-center p-1">
@@ -252,6 +239,14 @@ export const Knob: React.FC<KnobProps> = ({
           </svg>
         ) : null}
 
+        {/* Learn step pointing at this knob: a ring that keeps expanding outward so it can't be missed */}
+        {egRing === 'hot' ? (
+          <span
+            className={`${knobDiameter} absolute rounded-full ring-[3px] ring-emerald-300 animate-ping pointer-events-none`}
+            aria-hidden="true"
+          />
+        ) : null}
+
         {/* Knob Body */}
         <div
           className={`${knobDiameter} rounded-full flex items-center justify-center transition-transform ${
@@ -260,7 +255,7 @@ export const Knob: React.FC<KnobProps> = ({
               : 'bg-gradient-to-b from-[#24282f] to-[#121417] border border-[#3e4552] shadow-[0_3px_6px_rgba(0,0,0,0.7),inset_0_1px_0_rgba(255,255,255,0.15)]'
           } ${isDragging ? 'ring-2 ring-amber-400/50 scale-[1.03]' : 'group-hover:border-slate-400'} ${
             egRing === 'hot'
-              ? 'ring-[3px] ring-emerald-400 shadow-[0_0_14px_rgba(52,211,153,0.75)] animate-pulse'
+              ? 'ring-[3px] ring-emerald-300 eg-hot-glow'
               : egRing === 'link'
               ? 'ring-1 ring-emerald-500/50'
               : ''

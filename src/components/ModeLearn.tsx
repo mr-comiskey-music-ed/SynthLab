@@ -211,7 +211,7 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
               onClick={onGoToChallenges}
               className="px-4 py-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-black text-xs font-mono font-bold uppercase flex items-center gap-1.5"
             >
-              <Trophy className="w-4 h-4" /> Go to Challenges <ArrowRight className="w-3.5 h-3.5" />
+              <Trophy className="w-4 h-4" /> Start Challenges <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
         </div>
@@ -398,6 +398,19 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
         </div>
 
 
+        <div className="flex items-center gap-2">
+        {/* End of Learn: a direct way into the challenges (first assigned one, usually A/B Ear Training) */}
+        {stepIdx === LEARN_STEPS.length - 1 && (stepComplete || allDone) && (
+          <button
+            type="button"
+            onClick={onGoToChallenges}
+            className="px-4 py-1.5 rounded bg-emerald-500 hover:bg-emerald-400 text-black font-bold flex items-center gap-1.5 animate-pulse"
+          >
+            <Trophy className="w-4 h-4" />
+            Start Challenges
+            <ArrowRight className="w-3.5 h-3.5" />
+          </button>
+        )}
         <button
           type="button"
           disabled={!stepComplete && !allDone}
@@ -409,6 +422,7 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
           <span>{stepIdx === LEARN_STEPS.length - 1 ? 'Finish' : 'Next Step'}</span>
           <ChevronRight className="w-4 h-4" />
         </button>
+        </div>
       </div>
     </div>
   );

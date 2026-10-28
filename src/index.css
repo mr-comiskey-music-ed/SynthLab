@@ -12,3 +12,15 @@
 body {
   font-variant-numeric: tabular-nums;
 }
+
+/* The Learn step's "look at this knob" glow: a strong, steady breathing halo (the knob itself stays fully visible) */
+@keyframes eg-hot-glow {
+  0%, 100% { box-shadow: 0 0 10px 2px rgba(52, 211, 153, 0.55), 0 3px 6px rgba(0, 0, 0, 0.7); }
+  50% { box-shadow: 0 0 30px 10px rgba(110, 231, 183, 0.95), 0 3px 6px rgba(0, 0, 0, 0.7); }
+}
+.eg-hot-glow {
+  animation: eg-hot-glow 1.1s ease-in-out infinite;
+}
+@media (prefers-reduced-motion: reduce) {
+  .eg-hot-glow { animation: none; box-shadow: 0 0 24px 8px rgba(110, 231, 183, 0.9); }
+}

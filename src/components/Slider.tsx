@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { ThemeMode } from '../types';
 import { taperPosition, taperValue } from '../utils/taper';
+import { useTouchGrab } from '../utils/useTouchGrab';
 
 interface SliderProps {
   id: string;
@@ -78,31 +79,22 @@ export const VerticalSlider: React.FC<SliderProps> = ({
     window.addEventListener('mouseup', handleMouseUp);
   };
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    if (e.touches.length !== 1) return;
-    setIsDragging(true);
-    updateFromY(e.touches[0].clientY);
-
-    const handleTouchMove = (moveEvent: TouchEvent) => {
-      if (moveEvent.touches.length !== 1) return;
-      updateFromY(moveEvent.touches[0].clientY);
-    };
-
-    const handleTouchEnd = () => {
-      setIsDragging(false);
-      window.removeEventListener('touchmove', handleTouchMove);
-      window.removeEventListener('touchend', handleTouchEnd);
-    };
-
-    window.addEventListener('touchmove', handleTouchMove);
-    window.addEventListener('touchend', handleTouchEnd);
-  };
-
   const handleDoubleClick = () => {
     if (defaultValue !== undefined) {
       onChange(defaultValue);
     }
   };
+
+  // Touch: a quick swipe scrolls the page; press and hold briefly to grab the fader, then drag.
+  useTouchGrab(trackRef, {
+    onGrab: (y) => {
+      setIsDragging(true);
+      updateFromY(y);
+    },
+    onMove: updateFromY,
+    onRelease: () => setIsDragging(false),
+    onDoubleTap: handleDoubleClick,
+  });
 
   const formatDisplay = (v: number): string => {
     if (unit === 's') {
@@ -134,10 +126,9 @@ export const VerticalSlider: React.FC<SliderProps> = ({
       {/* Slider Track Container */}
       <div
         ref={trackRef}
-        className="relative flex items-center justify-center cursor-ns-resize px-2 py-1"
+        className="relative flex items-center justify-center cursor-ns-resize px-2 py-1 touch-manipulation"
         style={{ height: `${height}px` }}
         onMouseDown={handleMouseDown}
-        onTouchStart={handleTouchStart}
       >
         {/* Track Slot */}
         <div

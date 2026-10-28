@@ -1,4 +1,4 @@
-import React, { useMemo, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import confetti from 'canvas-confetti';
 import { SynthParams, ThemeMode, BriefWork } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
@@ -33,7 +33,7 @@ export const TRIES_BEFORE_REVEAL = 3;
 /** Points a Synth Doctor fix loses for each clue opened. */
 export const DOCTOR_CLUE_COST = 5;
 
-type Category = 'blind' | 'doctor' | 'matcher' | 'design' | 'mine';
+export type Category = 'blind' | 'doctor' | 'matcher' | 'design' | 'mine';
 
 interface ModeChallengesProps {
   engine: SubtractiveEngine;
@@ -46,6 +46,8 @@ interface ModeChallengesProps {
   onSaveBrief: (briefId: string, work: BriefWork) => void;
   onGoToPlayground?: () => void;
   onGoToReport?: () => void;
+  /** Which quest tab opens first (the first assigned one). Defaults to A/B Ear Training. */
+  initialCategory?: Category;
 }
 
 /** Swap "Tone A" and "Tone B" in an explanation when the two sides were shuffled. */
@@ -64,8 +66,9 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   onSaveBrief,
   onGoToPlayground,
   onGoToReport,
+  initialCategory = 'blind',
 }) => {
-  const [activeCategory, setActiveCategory] = useState<Category>('blind');
+  const [activeCategory, setActiveCategory] = useState<Category>(initialCategory);
   // The student's latest patch, for putting back after a reference sound plays.
   const paramsRef = useRef(params);
   paramsRef.current = params;
@@ -225,6 +228,13 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
     { id: 'design', label: '4. Sound Design', icon: <Palette className="w-4 h-4" />, on: 'bg-fuchsia-500 text-black shadow-[0_0_12px_#d946ef]' },
     { id: 'matcher', label: '5. Patch Master', icon: <Target className="w-4 h-4" />, on: 'bg-amber-500 text-black shadow-[0_0_12px_#f59e0b]' },
   ];
+
+  // Opening straight onto a tab that needs its first item loaded (the other tabs load theirs when clicked).
+  useEffect(() => {
+    if (initialCategory === 'doctor') handleLoadTicket(activeTicketIdx);
+    if (initialCategory === 'matcher') loadPatch(activePatchIdx);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   const selectTab = (id: Category) => {
     stopPhrase();
