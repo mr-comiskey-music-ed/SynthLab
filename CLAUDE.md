@@ -64,7 +64,8 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
 - Typefaces: Barlow and Barlow Semi Condensed only. Keep the count low.
 - Logo: silver panel, thin walnut side cheeks, ADSR envelope with an
   amber peak dot (Modern Synth palette), used as tab icon and header icon.
-- Two synth looks: Studio Retro and Hardware Bench. The Filter EG knob
+- Two synth looks: Retro Synth and Modern Synth (`studio-retro` and
+  `hardware-bench` in code). The Filter EG knob
   is labeled "EG Amount" on both; it has a subtle green ring always and
   a strong pulsing ring on the Learn Filter envelope step.
 - LFO rate stays in Hz.
