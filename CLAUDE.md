@@ -31,7 +31,10 @@ themselves with sound.
 Learn, then five challenges in this order: 1. A/B Ear Training,
 2. Synth Doctor, 3. My Presets, 4. Sound Design, 5. Patch Master.
 (In code, Patch Master is still called "Patch Matcher".)
-- No teacher-assigned tasks; tasks are split up for grading only.
+- By default every task counts. The Teacher tab's optional
+  "Assignment Link" builder (`AssignmentLinkBuilder.tsx`) makes a link
+  with `?assignment=<name>&tasks=<ids>` so students are graded only on
+  the picked tasks. The link carries the task list; nothing is stored.
 - Patch Master gets its own separate grade, graded on effort.
 - Synth Doctor clues cost 5 points each (`DOCTOR_CLUE_COST`).
 - Test-phrase buttons everywhere: a "Test phrase" tag, then
@@ -76,10 +79,6 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
 - Touch: knobs and sliders don't yet separate scroll from drag. A touch
   on a knob turns it and can scroll the page at the same time (no
   `touch-action` or `preventDefault` in `Knob.tsx` / `Slider.tsx`).
-- The Teacher tab still has an "Assignment Link" builder
-  (`AssignmentLinkBuilder.tsx`, `?assignment=&tasks=` URL params),
-  which conflicts with "no teacher-assigned tasks". Decide whether to
-  remove it.
 - Leftover Google AI Studio scaffolding that the app doesn't use:
   `@google/genai`, `express`, `dotenv`, `tsx` in package.json; the
   package name "react-example"; `.env.example` (Gemini key);
