@@ -230,4 +230,6 @@ export interface StudentSubmission {
   briefs?: Record<string, BriefWork>;
   /** Learn walkthrough steps finished when the code was made. Missing on codes made before this was tracked. */
   learn?: { done: number; total: number };
+  /** Name on the code this one was restored from, when it differs from the student's name now. */
+  restoredFrom?: string;
 }

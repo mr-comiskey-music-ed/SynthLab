@@ -25,3 +25,17 @@ export function learnSummary(): LearnSummary {
     total: LEARN_STEPS.length,
   };
 }
+
+/**
+ * Put the walkthrough back to "the first `steps` steps are finished" (steps are done in order, and a code only
+ * records how many were done). Never takes progress away.
+ */
+export function restoreLearnSteps(steps: number): void {
+  const n = Math.max(0, Math.min(LEARN_STEPS.length, Math.round(steps)));
+  if (!n) return;
+  LEARN_STEPS.forEach((s, i) => {
+    if (i < n) learnProgress.done[i] = Math.max(learnProgress.done[i] ?? 0, s.missions.length);
+  });
+  learnProgress.started = true; // don't reset the synth to step 1's sound when Learn opens
+  learnProgress.step = Math.max(learnProgress.step, Math.min(n, LEARN_STEPS.length - 1));
+}

@@ -10,7 +10,9 @@ import {
 } from './types';
 import { SubtractiveEngine } from './audio/synthEngine';
 import { DEFAULT_SYNTH_PARAMS, INITIAL_PRESETS } from './utils/presets';
-import { decodeSubmission, decodePatch } from './utils/submissionCodec';
+import { decodeSubmission, decodePatch, DecodedSubmission } from './utils/submissionCodec';
+import { restoreLearnSteps } from './utils/learnProgress';
+import { hasProgress, progressSignature } from './utils/progressGuard';
 import { parseBatch, BatchParseResult } from './utils/batchGrading';
 import { cleanTaskList, isPatchMaster, taskTitle } from './utils/taskCatalog';
 import { briefInfo } from './utils/briefs';
@@ -45,6 +47,9 @@ import {
 } from 'lucide-react';
 
 export default function App() {
+  // Progress guard: warns before the page closes if work isn't in a code yet.
+  const savedSigRef = useRef<string>('');
+  const [restoredName, setRestoredName] = useState<string>('');
   const [theme, setTheme] = useState<ThemeMode>('studio-retro');
   const [activeMode, setActiveMode] = useState<AppMode>('learn');
   const [params, setParams] = useState<SynthParams>(DEFAULT_SYNTH_PARAMS);
@@ -235,6 +240,60 @@ export default function App() {
     });
   };
 
+  // Latest progress for the leave warning (read at the moment the tab is closing).
+  const progressRef = useRef({ completedTasks, briefWork });
+  progressRef.current = { completedTasks, briefWork };
+  useEffect(() => {
+    const warn = (e: BeforeUnloadEvent) => {
+      const { completedTasks: t, briefWork: b } = progressRef.current;
+      if (hasProgress(t, b) && progressSignature(t, b) !== savedSigRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, []);
+
+  /** Called when the student makes a code: what's on screen is now safely in it. */
+  const handleCodeSaved = () => {
+    const { completedTasks: t, briefWork: b } = progressRef.current;
+    savedSigRef.current = progressSignature(t, b);
+  };
+
+  /** Bring a student's earlier work back from their code, keeping anything newer they've already done here. */
+  const handleRestore = (d: DecodedSubmission): string => {
+    const s = d.submission;
+    const byId = new Map(completedTasks.map((t) => [t.taskId, t]));
+    for (const t of s.completedTasks) {
+      const old = byId.get(t.taskId);
+      byId.set(t.taskId, {
+        ...t,
+        score: Math.max(t.score, old?.score ?? 0),
+        ...(t.tries || old?.tries ? { tries: Math.max(t.tries ?? 0, old?.tries ?? 0) } : {}),
+      });
+    }
+    const tasks = [...byId.values()];
+    const briefs = { ...(s.briefs ?? {}), ...briefWork };
+    setCompletedTasks(tasks);
+    setBriefWork(briefs);
+    if (s.learn) restoreLearnSteps(s.learn.done);
+    if (d.patchParams) loadParams(d.patchParams);
+    setRestoredName(s.studentName);
+    // If nothing was added on top of the code, there is nothing unsaved.
+    const sameAsCode =
+      progressSignature(tasks, briefs) === progressSignature(s.completedTasks, s.briefs ?? {});
+    if (sameAsCode) savedSigRef.current = progressSignature(tasks, briefs);
+    const sounds = Object.keys(s.briefs ?? {}).length;
+    const when = s.timestamp ? ` made ${new Date(s.timestamp).toLocaleString(undefined, { month: 'short', day: 'numeric', hour: 'numeric', minute: '2-digit' })}` : '';
+    return (
+      `Restored ${s.completedTasks.length} finished task${s.completedTasks.length === 1 ? '' : 's'}` +
+      (sounds ? `, ${sounds} saved sound${sounds === 1 ? '' : 's'}` : '') +
+      (s.learn ? `, and Learn ${s.learn.done}/${s.learn.total}` : '') +
+      ` from the code${when}. Anything you did after that code is not included.`
+    );
+  };
+
   return (
     <div
       onClick={handleUserGesture}
@@ -397,6 +456,9 @@ export default function App() {
             assignedTasks={assignedTasks}
             sharedReport={sharedReport}
             onLoadParams={loadParams}
+            restoredName={restoredName}
+            onRestore={handleRestore}
+            onCodeSaved={handleCodeSaved}
             batchText={batchText}
             onBatchTextChange={setBatchText}
             onGradeBatch={() => {

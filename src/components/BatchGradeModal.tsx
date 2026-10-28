@@ -382,6 +382,14 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                           <span className="font-bold text-white flex items-center gap-1 min-w-0" title={s.studentName || 'Unnamed student'}>
                             {open ? <ChevronDown className="w-3.5 h-3.5 shrink-0" /> : <ChevronRight className="w-3.5 h-3.5 shrink-0" />}
                             <span className="truncate">{s.studentName || 'Unnamed student'}</span>
+                            {s.restoredFrom && (
+                              <span
+                                className="text-[9px] font-bold text-rose-300 bg-rose-500/15 border border-rose-500/30 px-1 rounded shrink-0"
+                                title={`This code was restored from a code made by "${s.restoredFrom}"`}
+                              >
+                                from {s.restoredFrom}
+                              </span>
+                            )}
                             {e.hasMultipleSubmissions && (
                               <span className="text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1 rounded shrink-0" title="This student turned in more than one code">
                                 x2

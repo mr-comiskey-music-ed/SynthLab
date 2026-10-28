@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { SynthParams, StudentSubmission, BriefWork, PhraseId } from '../types';
-import { encodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
+import { encodeSubmission, decodeSubmission, DecodedSubmission } from '../utils/submissionCodec';
 import { gradesFor, headlineScore, Grades, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
 import { QuestBoxes, scoreLabel } from './QuestBoxes';
 import { learnSummary } from '../utils/learnProgress';
@@ -20,6 +20,7 @@ import {
   Loader2,
   Link2,
   Circle,
+  RotateCcw,
 } from 'lucide-react';
 
 export interface SharedReport {
@@ -41,6 +42,12 @@ interface ModeTeacherProps {
   onBatchTextChange: (text: string) => void;
   /** Open the batch results and grade what is in the box. */
   onGradeBatch: () => void;
+  /** Name from a code the student restored from; used to prefill the name box. */
+  restoredName?: string;
+  /** Bring work back from a decoded code. Returns a sentence describing what came back. */
+  onRestore: (decoded: DecodedSubmission) => string;
+  /** The student just made a code, so what is on screen is saved in it. */
+  onCodeSaved: () => void;
   /** The student's saved Sound Design Brief patches. */
   briefWork: Record<string, BriefWork>;
   /** Play a saved sound (brief or My Preset) in its musical context. */
@@ -134,6 +141,9 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
   assignedTasks = [],
   sharedReport = null,
   onLoadParams,
+  restoredName,
+  onRestore,
+  onCodeSaved,
   batchText,
   onBatchTextChange,
   onGradeBatch,
@@ -147,6 +157,26 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
   const [copyState, setCopyState] = useState<'idle' | 'copied' | 'manual'>('idle');
   const [isLocking, setIsLocking] = useState(false);
   const codeBoxRef = useRef<HTMLTextAreaElement>(null);
+
+  // Restoring progress from an earlier code
+  const [restoreText, setRestoreText] = useState('');
+  const [restoreMsg, setRestoreMsg] = useState<{ ok: boolean; text: string } | null>(null);
+  const [isRestoring, setIsRestoring] = useState(false);
+  useEffect(() => {
+    if (restoredName) setStudentName((cur) => cur.trim() ? cur : restoredName);
+  }, [restoredName]);
+  const handleRestore = async () => {
+    if (!restoreText.trim()) return;
+    setIsRestoring(true);
+    const decoded = await decodeSubmission(restoreText);
+    setIsRestoring(false);
+    if (!decoded) {
+      setRestoreMsg({ ok: false, text: BAD_CODE });
+      return;
+    }
+    setRestoreMsg({ ok: true, text: onRestore(decoded) });
+    setRestoreText('');
+  };
 
   // A code the teacher checked (or that came in the link)
   const [checked, setChecked] = useState<DecodedSubmission | null>(null);
@@ -185,11 +215,15 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
       patchUrl: '',
       briefs: Object.keys(briefWork).length ? briefWork : undefined,
       learn: learnSummary(),
+      // A code restored from a different name is flagged for the teacher.
+      restoredFrom:
+        restoredName && restoredName.trim().toLowerCase() !== studentName.trim().toLowerCase() ? restoredName : undefined,
     };
     setIsLocking(true);
     const code = await encodeSubmission(newSub, currentParams);
     setIsLocking(false);
     setSubmission(newSub);
+    onCodeSaved();
     setRawReportCode(code);
     setCopyState('idle');
   };
@@ -297,6 +331,42 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             </div>
           </div>
         )}
+
+        {/* Progress only lives in the code */}
+        <p className="mb-4 text-xs font-mono text-amber-200/90 bg-amber-500/10 border border-amber-500/30 rounded-lg px-3 py-2">
+          <b>Your progress is only saved in your code.</b> Click Generate My Code and paste it into Google Classroom
+          before you close or refresh this page. Anything not in a code is gone when the page closes.
+        </p>
+
+        <details className="mb-6 rounded-lg border border-white/10 bg-black/30 px-3 py-2" open={!!restoreMsg}>
+          <summary className="cursor-pointer text-xs font-mono text-slate-300 font-semibold">
+            Lost your progress? Restore it from your last code
+          </summary>
+          <div className="mt-2 flex flex-col sm:flex-row gap-2">
+            <textarea
+              rows={2}
+              value={restoreText}
+              onChange={(e) => {
+                setRestoreText(e.target.value);
+                setRestoreMsg(null);
+              }}
+              placeholder="Paste the code you made last time..."
+              className="flex-1 min-w-0 px-3 py-1.5 rounded bg-black/70 text-slate-100 font-mono text-xs border border-slate-700 focus:outline-none focus:ring-1 focus:ring-amber-400 resize-y"
+            />
+            <button
+              type="button"
+              onClick={handleRestore}
+              disabled={!restoreText.trim() || isRestoring}
+              className="px-3 py-1.5 rounded bg-slate-800 hover:bg-slate-700 disabled:opacity-40 border border-amber-500/40 text-amber-300 font-mono font-bold text-xs uppercase flex items-center justify-center gap-1 sm:self-end"
+            >
+              {isRestoring ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RotateCcw className="w-3.5 h-3.5" />}
+              Restore
+            </button>
+          </div>
+          {restoreMsg && (
+            <p className={`mt-2 text-xs font-mono ${restoreMsg.ok ? 'text-emerald-300' : 'text-red-300'}`}>{restoreMsg.text}</p>
+          )}
+        </details>
 
         {/* Submission code */}
         {submission && (

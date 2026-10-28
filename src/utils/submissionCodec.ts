@@ -194,6 +194,7 @@ export async function encodeSubmission(submission: StudentSubmission, params?: S
   }
   if (submission.briefs && Object.keys(submission.briefs).length) packed.b = packBriefs(submission.briefs);
   if (submission.learn) packed.l = [submission.learn.done, submission.learn.total];
+  if (submission.restoredFrom) packed.o = submission.restoredFrom.trim();
   const json = JSON.stringify(packed);
   return `${await compress(json)}.${checksum(json)}`;
 }
@@ -225,6 +226,7 @@ export async function decodeSubmission(code: string): Promise<DecodedSubmission 
         patchUrl: '',
         briefs: unpackBriefs(d.b),
         learn: unpackLearn(d.l),
+        restoredFrom: typeof d.o === 'string' && d.o ? d.o : undefined,
       },
       patchParams: d.p === undefined ? undefined : unpackParams(d.p || {}, d.v !== FORMAT_VERSION),
     };
