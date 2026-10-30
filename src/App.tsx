@@ -11,7 +11,9 @@ import {
 import { SubtractiveEngine } from './audio/synthEngine';
 import { DEFAULT_SYNTH_PARAMS, INITIAL_PRESETS } from './utils/presets';
 import { decodeSubmission, decodePatch, DecodedSubmission } from './utils/submissionCodec';
-import { restoreLearnSteps } from './utils/learnProgress';
+import { restoreLearnSteps, restoreLearnDone, learnDoneSnapshot } from './utils/learnProgress';
+import { type WorkSnapshot, hasWork, loadSaved, writeSaved, clearSaved } from './utils/autosave';
+import { SaveIndicator, RestorePrompt, type SaveStatus } from './components/AutosaveUI';
 import { hasProgress, progressSignature } from './utils/progressGuard';
 import { parseBatch, BatchParseResult } from './utils/batchGrading';
 import { cleanTaskList, isPatchMaster, taskTitle } from './utils/taskCatalog';
@@ -261,6 +263,75 @@ export default function App() {
     savedSigRef.current = progressSignature(t, b);
   };
 
+  // ---------- Autosave (kept in this browser only; see utils/autosave.ts) ----------
+  // If an earlier session was saved, ask before doing anything. Autosave stays off until the
+  // student answers, so a fresh empty session can never overwrite their saved work.
+  const [restoreOffer, setRestoreOffer] = useState(() => loadSaved());
+  const [saveStatus, setSaveStatus] = useState<SaveStatus>('idle');
+  const [savedAt, setSavedAt] = useState<number | null>(null);
+  const lastSavedJsonRef = useRef<string>('');
+  const autosaveOn = restoreOffer === null;
+
+  const saveNow = () => {
+    const { completedTasks: t, briefWork: b } = progressRef.current;
+    const snap: WorkSnapshot = { tasks: t, briefs: b, learnDone: learnDoneSnapshot() };
+    if (!hasWork(snap)) return; // never overwrite a good save with an empty session
+    const json = JSON.stringify(snap);
+    if (json === lastSavedJsonRef.current) return; // nothing new since the last save
+    if (writeSaved(snap)) {
+      lastSavedJsonRef.current = json;
+      setSaveStatus('saved');
+      setSavedAt(Date.now());
+    } else {
+      setSaveStatus('failed');
+    }
+  };
+  const saveNowRef = useRef(saveNow);
+  saveNowRef.current = saveNow;
+
+  // Learn progress isn't React state, so check for changes every couple of seconds (cheap),
+  // and save right away when the tab is hidden or closed.
+  useEffect(() => {
+    if (!autosaveOn) return;
+    const flush = () => saveNowRef.current();
+    const timer = window.setInterval(flush, 2000);
+    const onVisibility = () => { if (document.visibilityState === 'hidden') flush(); };
+    window.addEventListener('pagehide', flush);
+    document.addEventListener('visibilitychange', onVisibility);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener('pagehide', flush);
+      document.removeEventListener('visibilitychange', onVisibility);
+    };
+  }, [autosaveOn]);
+
+  /** Bring back the work saved in this browser, keeping anything newer already done in this visit. */
+  const handleRestoreSaved = () => {
+    if (!restoreOffer) return;
+    const saved = restoreOffer.snapshot;
+    const byId = new Map(completedTasks.map((t) => [t.taskId, t]));
+    for (const t of saved.tasks) {
+      const old = byId.get(t.taskId);
+      byId.set(t.taskId, {
+        ...t,
+        score: Math.max(t.score, old?.score ?? 0),
+        ...(t.tries || old?.tries ? { tries: Math.max(t.tries ?? 0, old?.tries ?? 0) } : {}),
+      });
+    }
+    setCompletedTasks([...byId.values()]);
+    setBriefWork({ ...saved.briefs, ...briefWork });
+    restoreLearnDone(saved.learnDone);
+    setSavedAt(restoreOffer.savedAt);
+    setSaveStatus('saved');
+    setRestoreOffer(null);
+  };
+
+  const handleStartFresh = () => {
+    clearSaved();
+    lastSavedJsonRef.current = '';
+    setRestoreOffer(null);
+  };
+
   /** Bring a student's earlier work back from their code, keeping anything newer they've already done here. */
   const handleRestore = (d: DecodedSubmission): string => {
     const s = d.submission;
@@ -301,6 +372,10 @@ export default function App() {
         theme === 'hardware-bench' ? 'bg-[#0f1318]' : 'bg-[#0a0c10]'
       } text-slate-100 flex flex-col justify-between`}
     >
+      {restoreOffer && (
+        <RestorePrompt savedAt={restoreOffer.savedAt} onRestore={handleRestoreSaved} onStartFresh={handleStartFresh} />
+      )}
+
       {/* Top Header & App Bar */}
       <header className="sticky top-0 z-50 backdrop-blur-md bg-black/70 border-b border-white/10 px-4 py-2.5">
         <div className="max-w-7xl mx-auto flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -384,6 +459,8 @@ export default function App() {
               <Palette className="w-3.5 h-3.5" />
               <span>{theme === 'studio-retro' ? 'Retro Synth' : 'Modern Synth'}</span>
             </button>
+
+            <SaveIndicator status={saveStatus} savedAt={savedAt} />
 
             {/* Audio Engine Status */}
             <div

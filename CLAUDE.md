@@ -11,8 +11,13 @@ themselves with sound.
   The student's name lives only inside their submission code.
 - Students show work with a base64 code pasted into Google Classroom
   (`src/utils/submissionCodec.ts`).
-- The app keeps nothing in the browser (no localStorage, cookies, etc.).
-  Progress lives only in the code.
+- The only thing kept in the browser is an autosave of the student's
+  own work (localStorage key `synthlab:v1:autosave`,
+  `src/utils/autosave.ts`): finished tasks, saved sounds and Learn
+  progress, never the student's name. It is never sent anywhere. No
+  cookies, no other storage. The submission code is still what students
+  hand in. On load, a "Restore your last session?" prompt offers
+  Restore or Start Fresh; autosave stays off until they answer.
 - Must run well on Chromebooks and stay lightweight.
 - Live at synthlab.mrcomiskey.com via Vercel (deploys from `main`).
   Work on a branch and don't push to main unless I say so.
@@ -58,9 +63,10 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   Doctor are shown separately, not as a "Main Grade". No
   individual-code check. Sound Design choices show in an expandable
   list per brief.
-- Progress recovery: a "restore progress" box (paste last submission
-  code), a leave-page warning when work isn't in a code yet, and a
-  reminder that progress only lives in the code. Batch grading flags
+- Progress recovery: browser autosave with a restore prompt (see Hard
+  rules), a "restore progress" box (paste last submission code, for a
+  different computer or cleared browser), a leave-page warning when work
+  isn't in a code yet, and a reminder to make a code to turn in. Batch grading flags
   codes restored from another student's name.
 
 ## Design

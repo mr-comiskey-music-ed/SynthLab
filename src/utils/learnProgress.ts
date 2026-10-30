@@ -39,3 +39,27 @@ export function restoreLearnSteps(steps: number): void {
   learnProgress.started = true; // don't reset the synth to step 1's sound when Learn opens
   learnProgress.step = Math.max(learnProgress.step, Math.min(n, LEARN_STEPS.length - 1));
 }
+
+/** A copy of the missions finished per step, for autosave. */
+export function learnDoneSnapshot(): number[] {
+  return [...learnProgress.done];
+}
+
+/**
+ * Put back exact mission counts per step (from autosave). Like restoreLearnSteps, it never takes progress
+ * away, and it reopens Learn at the first unfinished step.
+ */
+export function restoreLearnDone(done: number[]): void {
+  let any = false;
+  LEARN_STEPS.forEach((s, i) => {
+    const n = Math.max(0, Math.min(s.missions.length, Math.round(done[i] ?? 0)));
+    if (n > 0) {
+      learnProgress.done[i] = Math.max(learnProgress.done[i] ?? 0, n);
+      any = true;
+    }
+  });
+  if (!any) return;
+  learnProgress.started = true; // don't reset the synth to step 1's sound when Learn opens
+  const firstOpen = LEARN_STEPS.findIndex((s, i) => (learnProgress.done[i] ?? 0) < s.missions.length);
+  learnProgress.step = Math.max(learnProgress.step, firstOpen === -1 ? LEARN_STEPS.length - 1 : firstOpen);
+}
