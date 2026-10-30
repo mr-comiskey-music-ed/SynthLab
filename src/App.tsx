@@ -391,7 +391,8 @@ export default function App() {
             </h1>
           </div>
 
-          {/* Core Four Modes Navigation Bar */}
+          {/* Core Four Modes Navigation Bar (with the autosave pop-up just right of the last tab) */}
+          <div className="relative">
           <nav className="flex items-center gap-1 bg-slate-900/90 p-1 rounded-xl border border-white/10">
             <button
               type="button"
@@ -445,6 +446,10 @@ export default function App() {
               <span>Grade Report</span>
             </button>
           </nav>
+          <div className="absolute left-full top-1/2 -translate-y-1/2 ml-2 z-10">
+            <SaveIndicator status={saveStatus} savedAt={savedAt} />
+          </div>
+          </div>
 
           {/* Theme Quick Toggle & Audio Status */}
           <div className="flex items-center gap-2">
@@ -463,8 +468,6 @@ export default function App() {
               <Palette className="w-3.5 h-3.5" />
               <span>{theme === 'studio-retro' ? 'Retro Synth' : 'Modern Synth'}</span>
             </button>
-
-            <SaveIndicator status={saveStatus} savedAt={savedAt} />
 
             {/* Audio Engine Status */}
             <div

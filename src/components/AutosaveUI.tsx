@@ -1,15 +1,25 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { Check, AlertTriangle } from 'lucide-react';
 
 export type SaveStatus = 'idle' | 'saved' | 'failed';
 
-/** Small status label for the header: lets students see their work is being kept. */
+/**
+ * Small pop-up beside the Grade Report tab: appears for a few seconds after each save so students
+ * can see their work is being kept. The "Not saving" warning stays up until it's resolved.
+ */
 export const SaveIndicator: React.FC<{ status: SaveStatus; savedAt: number | null }> = ({ status, savedAt }) => {
-  if (status === 'idle') return null;
+  const [show, setShow] = useState(false);
+  useEffect(() => {
+    if (status !== 'saved' || !savedAt) return;
+    setShow(true);
+    const timer = window.setTimeout(() => setShow(false), 4000);
+    return () => window.clearTimeout(timer);
+  }, [status, savedAt]);
+
   if (status === 'failed') {
     return (
       <div
-        className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono border bg-amber-500/20 text-amber-300 border-amber-500/40"
+        className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono border whitespace-nowrap bg-slate-900 text-amber-300 border-amber-500/40"
         title="This browser is blocking saving. Your work will be lost if you close this tab. Make a code in the Grade Report to keep it."
       >
         <AlertTriangle className="w-3 h-3" />
@@ -17,10 +27,11 @@ export const SaveIndicator: React.FC<{ status: SaveStatus; savedAt: number | nul
       </div>
     );
   }
+  if (status !== 'saved' || !show) return null;
   const time = savedAt ? new Date(savedAt).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' }) : '';
   return (
     <div
-      className="flex items-center gap-1 px-2 py-1 rounded text-[10px] font-mono text-slate-400"
+      className="flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-mono whitespace-nowrap bg-slate-900 text-slate-300 border border-white/10"
       title="Your work is saved in this browser on this computer. You still turn in your code."
     >
       <Check className="w-3 h-3" />
