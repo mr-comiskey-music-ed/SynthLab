@@ -33,7 +33,6 @@ export const QuestComplete: React.FC<QuestCompleteProps> = ({ quest, summary, to
     ) : (
       <p className="text-sm font-bold">That was the last quest. Open the Grade Report to get the code to turn in.</p>
     )}
-    <p className="text-xs opacity-90">You can also keep experimenting in the Playground first. Your teacher may have picked only some quests, so check the Grade Report.</p>
     <div className="flex flex-wrap gap-2">
       {nextQuest && (
         <button
