@@ -444,6 +444,7 @@ export default function App() {
             onSaveBrief={handleSaveBrief}
             onGoToPlayground={() => setActiveMode('playground')}
             onGoToReport={() => setActiveMode('teacher')}
+            assignedTasks={assignedTasks}
           />
         )}
 

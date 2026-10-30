@@ -21,6 +21,7 @@ interface ModeMyPresetsProps {
   onLoadParams: (p: SynthParams) => void;
   onGoToPlayground?: () => void;
   onGoToReport?: () => void;
+  nextQuest?: { label: string; onGo: () => void };
 }
 
 /** Which test phrase suits each kind of preset. */
@@ -50,7 +51,7 @@ export const rememberMyPresetsDraft = (p: SynthParams) => {
 
 const REMIXABLE = INITIAL_PRESETS.filter((p) => p.id !== 'init-patch');
 
-export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, saved, onSave, onLoadParams, onGoToPlayground, onGoToReport }) => {
+export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, saved, onSave, onLoadParams, onGoToPlayground, onGoToReport, nextQuest }) => {
   const [activeId, setActiveId] = useState(currentSlotId);
   const [, rerender] = useState(0);
   const [justSaved, setJustSaved] = useState<string | null>(null);
@@ -459,6 +460,7 @@ export const ModeMyPresets: React.FC<ModeMyPresetsProps> = ({ engine, params, sa
           summary="All five of your own sounds are saved. That is a real patch library!"
           onGoToPlayground={onGoToPlayground}
           onGoToReport={onGoToReport}
+          nextQuest={nextQuest}
         />
       )}
     </div>
