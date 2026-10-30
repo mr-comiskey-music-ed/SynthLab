@@ -242,20 +242,9 @@ export default function App() {
     });
   };
 
-  // Latest progress for the leave warning (read at the moment the tab is closing).
+  // Latest progress (read by autosave and, if saving ever fails, the leave warning).
   const progressRef = useRef({ completedTasks, briefWork });
   progressRef.current = { completedTasks, briefWork };
-  useEffect(() => {
-    const warn = (e: BeforeUnloadEvent) => {
-      const { completedTasks: t, briefWork: b } = progressRef.current;
-      if (hasProgress(t, b) && progressSignature(t, b) !== savedSigRef.current) {
-        e.preventDefault();
-        e.returnValue = '';
-      }
-    };
-    window.addEventListener('beforeunload', warn);
-    return () => window.removeEventListener('beforeunload', warn);
-  }, []);
 
   /** Called when the student makes a code: what's on screen is now safely in it. */
   const handleCodeSaved = () => {
@@ -304,6 +293,21 @@ export default function App() {
       document.removeEventListener('visibilitychange', onVisibility);
     };
   }, [autosaveOn]);
+
+  // Leave warning: with autosave working, closing the tab is safe, so only warn when the browser
+  // can't save and the work isn't in a code yet. (Browsers show their own generic wording.)
+  useEffect(() => {
+    if (saveStatus !== 'failed') return;
+    const warn = (e: BeforeUnloadEvent) => {
+      const { completedTasks: t, briefWork: b } = progressRef.current;
+      if (hasProgress(t, b) && progressSignature(t, b) !== savedSigRef.current) {
+        e.preventDefault();
+        e.returnValue = '';
+      }
+    };
+    window.addEventListener('beforeunload', warn);
+    return () => window.removeEventListener('beforeunload', warn);
+  }, [saveStatus]);
 
   /** Bring back the work saved in this browser, keeping anything newer already done in this visit. */
   const handleRestoreSaved = () => {

@@ -65,8 +65,9 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   list per brief.
 - Progress recovery: browser autosave with a restore prompt (see Hard
   rules), a "restore progress" box (paste last submission code, for a
-  different computer or cleared browser), a leave-page warning when work
-  isn't in a code yet, and a reminder to make a code to turn in. Batch grading flags
+  different computer or cleared browser), a leave-page warning that now
+  fires only if the browser can't autosave and the work isn't in a code
+  yet, and a reminder to make a code to turn in. Batch grading flags
   codes restored from another student's name.
 
 ## Design
