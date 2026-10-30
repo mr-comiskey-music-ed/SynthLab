@@ -10,6 +10,7 @@ import { ModeBriefs, rememberBriefDraft } from './ModeBriefs';
 import { ModeMyPresets, rememberMyPresetsDraft } from './ModeMyPresets';
 import { PhraseButtons, PLAY_LABEL } from './PhraseButtons';
 import { QuestComplete } from './QuestComplete';
+import { gradedTaskIds, taskInfo, type TaskCategory } from '../utils/taskCatalog';
 import {
   Volume2,
   Stethoscope,
@@ -46,6 +47,8 @@ interface ModeChallengesProps {
   onSaveBrief: (briefId: string, work: BriefWork) => void;
   onGoToPlayground?: () => void;
   onGoToReport?: () => void;
+  /** Task IDs the teacher picked (empty or missing = every quest counts). */
+  assignedTasks?: string[];
 }
 
 /** Swap "Tone A" and "Tone B" in an explanation when the two sides were shuffled. */
@@ -64,6 +67,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   onSaveBrief,
   onGoToPlayground,
   onGoToReport,
+  assignedTasks,
 }) => {
   const [activeCategory, setActiveCategory] = useState<Category>('blind');
   // The student's latest patch, for putting back after a reference sound plays.
@@ -236,6 +240,30 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
     if (id === 'matcher') loadPatch(activePatchIdx);
   };
 
+  // ---------------- Next quest ----------------
+  // When a quest is finished, point the student at the next one (skipping any the teacher didn't pick).
+  const CATEGORY_TASKS: Record<Category, TaskCategory> = {
+    blind: 'Blind Ear Test',
+    doctor: 'Synth Doctor',
+    mine: 'My Presets',
+    design: 'Sound Design',
+    matcher: 'Patch Matcher',
+  };
+  const questIsAssigned = (id: Category) =>
+    gradedTaskIds(assignedTasks).some((taskId) => taskInfo(taskId)?.category === CATEGORY_TASKS[id]);
+  const nextQuestFor = (from: Category): { label: string; onGo: () => void } | undefined => {
+    const start = tabs.findIndex((t) => t.id === from);
+    const next = tabs.slice(start + 1).find((t) => questIsAssigned(t.id));
+    if (!next) return undefined;
+    return {
+      label: next.label,
+      onGo: () => {
+        selectTab(next.id);
+        document.getElementById('mode-challenges-panel')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+      },
+    };
+  };
+
   return (
     <div id="mode-challenges-panel" className="mb-4 space-y-3">
       <div className="flex flex-wrap items-center gap-2 rounded-xl bg-[#121419] border border-[#262c37] p-2 shadow-lg">
@@ -323,6 +351,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           {blindAnsweredCount === BLIND_TEST_CHALLENGES.length && (
             <QuestComplete
               quest="A/B Ear Training"
+              nextQuest={nextQuestFor('blind')}
               tone="cyan"
               summary={`${blindCorrectCount} of ${BLIND_TEST_CHALLENGES.length} correct. Your ears are getting sharp!`}
               onGoToPlayground={onGoToPlayground}
@@ -479,6 +508,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           {Object.keys(fixedTickets).length === SYNTH_DOCTOR_TICKETS.length && (
             <QuestComplete
               quest="Synth Doctor"
+              nextQuest={nextQuestFor('doctor')}
               tone="emerald"
               summary={`All ${SYNTH_DOCTOR_TICKETS.length} tickets fixed. The clinic is officially closed for the day!`}
               onGoToPlayground={onGoToPlayground}
@@ -647,6 +677,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           {allPatchesTried && (
             <QuestComplete
               quest="Patch Master"
+              nextQuest={nextQuestFor('matcher')}
               tone="amber"
               summary={`You matched all ${PATCH_MATCHER_CHALLENGES.length} patches.`}
               onGoToPlayground={onGoToPlayground}
@@ -698,6 +729,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           onLoadParams={onLoadParams}
           onGoToPlayground={onGoToPlayground}
           onGoToReport={onGoToReport}
+          nextQuest={nextQuestFor('design')}
         />
       )}
 
@@ -711,6 +743,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           onLoadParams={onLoadParams}
           onGoToPlayground={onGoToPlayground}
           onGoToReport={onGoToReport}
+          nextQuest={nextQuestFor('mine')}
         />
       )}
 

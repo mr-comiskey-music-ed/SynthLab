@@ -17,6 +17,7 @@ interface ModeBriefsProps {
   onLoadParams: (p: SynthParams) => void;
   onGoToPlayground?: () => void;
   onGoToReport?: () => void;
+  nextQuest?: { label: string; onGo: () => void };
 }
 
 // Kept for this visit only (nothing is stored): hints opened and notes typed, per brief.
@@ -37,7 +38,7 @@ export const rememberBriefDraft = (p: SynthParams) => {
  * Students build a patch, test it in a musical context, and save it into their
  * submission code. The teacher listens and grades by ear.
  */
-export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWork, onSaveBrief, onLoadParams, onGoToPlayground, onGoToReport }) => {
+export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWork, onSaveBrief, onLoadParams, onGoToPlayground, onGoToReport, nextQuest }) => {
   const [activeId, setActiveId] = useState(currentBriefId);
   const [, rerender] = useState(0);
   const [justSaved, setJustSaved] = useState<string | null>(null);
@@ -248,6 +249,7 @@ export const ModeBriefs: React.FC<ModeBriefsProps> = ({ engine, params, briefWor
           summary={`${savedCount} sounds saved. Extra briefs are welcome: they show your teacher more of your style.`}
           onGoToPlayground={onGoToPlayground}
           onGoToReport={onGoToReport}
+          nextQuest={nextQuest}
         />
       )}
     </div>
