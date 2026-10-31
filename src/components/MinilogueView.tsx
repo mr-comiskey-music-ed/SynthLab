@@ -599,7 +599,7 @@ export const MinilogueView: React.FC<MinilogueViewProps> = ({
                   />
                   <Knob
                     id="mini-lfo-depth"
-                    label="Int"
+                    label="Depth"
                     section="lfo"
                     value={params.lfoDepth * 100}
                     min={0}

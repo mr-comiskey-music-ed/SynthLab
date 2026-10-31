@@ -524,6 +524,7 @@ export default function App() {
               engine.applyParams(newParams);
             }}
             onRecordScore={handleRecordTaskScore}
+            completedTasks={completedTasks}
             briefWork={briefWork}
             onSaveBrief={handleSaveBrief}
             onGoToPlayground={() => setActiveMode('playground')}

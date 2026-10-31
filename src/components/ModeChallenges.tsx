@@ -4,6 +4,8 @@ import { SynthParams, ThemeMode, BriefWork } from '../types';
 import { SubtractiveEngine } from '../audio/synthEngine';
 import { PATCH_MATCHER_CHALLENGES, SYNTH_DOCTOR_TICKETS, BLIND_TEST_CHALLENGES } from '../utils/presets';
 import { scorePatch, nextPatchHint, AspectResult } from '../utils/patchScore';
+import { doctorNearMiss, MATCH_SCORE, CLOSE_SCORE } from '../utils/nearMiss';
+import { ALL_TASKS } from '../utils/taskCatalog';
 import { playPhrase, stopPhrase } from '../utils/playback';
 import { PatchParamList } from './PatchParamList';
 import { ModeBriefs, rememberBriefDraft } from './ModeBriefs';
@@ -17,6 +19,7 @@ import {
   Target,
   Ear,
   CheckCircle,
+  Check,
   AlertCircle,
   Trophy,
   RotateCcw,
@@ -36,6 +39,14 @@ export const DOCTOR_CLUE_COST = 5;
 
 type Category = 'blind' | 'doctor' | 'matcher' | 'design' | 'mine';
 
+interface FinishedTask {
+  taskId: string;
+  taskTitle: string;
+  score: number;
+  tries?: number;
+}
+const NO_TASKS: FinishedTask[] = [];
+
 interface ModeChallengesProps {
   engine: SubtractiveEngine;
   params: SynthParams;
@@ -43,6 +54,8 @@ interface ModeChallengesProps {
   onThemeChange: (theme: ThemeMode) => void;
   onLoadParams: (newParams: SynthParams) => void;
   onRecordScore?: (taskId: string, title: string, score: number) => void;
+  /** Everything finished so far, including work restored from a code. Drives the checkmarks. */
+  completedTasks?: FinishedTask[];
   briefWork: Record<string, BriefWork>;
   onSaveBrief: (briefId: string, work: BriefWork) => void;
   onGoToPlayground?: () => void;
@@ -63,6 +76,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   params,
   onLoadParams,
   onRecordScore,
+  completedTasks = NO_TASKS,
   briefWork,
   onSaveBrief,
   onGoToPlayground,
@@ -74,13 +88,26 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const paramsRef = useRef(params);
   paramsRef.current = params;
   const restoreMine = () => paramsRef.current;
+  // What's finished comes from the app (not from this screen), so it survives switching tabs and restoring a code.
+  const doneById = useMemo(() => new Map(completedTasks.map((t) => [t.taskId, t])), [completedTasks]);
 
   // ---------------- 1. A/B ear training ----------------
   const [activeBlindIdx, setActiveBlindIdx] = useState(0);
   // Which questions show their tones the other way round (shuffled once per visit).
   const swapped = useMemo(() => BLIND_TEST_CHALLENGES.map(() => Math.random() < 0.5), []);
-  // One answer per question; it can't be changed (nothing is saved after the page closes).
-  const [blindAnswers, setBlindAnswers] = useState<Record<string, 'A' | 'B'>>({});
+  // One answer per question; it can't be changed. Answers made here count at once; earlier ones
+  // (restored from a code) are rebuilt from the saved score: 100 = picked the right tone.
+  const [localBlind, setLocalBlind] = useState<Record<string, 'A' | 'B'>>({});
+  const blindAnswers = useMemo(() => {
+    const out: Record<string, 'A' | 'B'> = {};
+    BLIND_TEST_CHALLENGES.forEach((q, i) => {
+      const rec = doneById.get(q.id);
+      if (!rec) return;
+      const right: 'A' | 'B' = swapped[i] ? (q.correctOption === 'A' ? 'B' : 'A') : q.correctOption;
+      out[q.id] = rec.score >= 100 ? right : right === 'A' ? 'B' : 'A';
+    });
+    return { ...out, ...localBlind };
+  }, [doneById, swapped, localBlind]);
   const currentBlind = BLIND_TEST_CHALLENGES[activeBlindIdx];
   const isSwapped = swapped[activeBlindIdx];
   const shown = (side: 'A' | 'B') => (isSwapped ? (side === 'A' ? currentBlind.optionB : currentBlind.optionA) : side === 'A' ? currentBlind.optionA : currentBlind.optionB);
@@ -97,7 +124,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const handleSelectBlind = (side: 'A' | 'B') => {
     if (blindAnswer) return;
     const isCorrect = side === correctShown;
-    setBlindAnswers((prev) => ({ ...prev, [currentBlind.id]: side }));
+    setLocalBlind((prev) => ({ ...prev, [currentBlind.id]: side }));
     if (isCorrect) confetti({ particleCount: 50, spread: 60, origin: { y: 0.7 } });
     onRecordScore?.(currentBlind.id, `Blind Ear Test: ${currentBlind.question}`, isCorrect ? 100 : 0);
   };
@@ -109,9 +136,17 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
 
   // ---------------- 2. Synth Doctor ----------------
   const [activeTicketIdx, setActiveTicketIdx] = useState(0);
-  const [ticketStatus, setTicketStatus] = useState<'idle' | 'fixed' | 'failed'>('idle');
+  const [ticketStatus, setTicketStatus] = useState<'idle' | 'fixed' | 'close' | 'failed'>('idle');
+  const [nearMiss, setNearMiss] = useState<'further' | 'back' | null>(null);
   const [cluesByTicket, setCluesByTicket] = useState<Record<string, number>>({});
-  const [fixedTickets, setFixedTickets] = useState<Record<string, number>>({});
+  const fixedTickets = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const t of SYNTH_DOCTOR_TICKETS) {
+      const rec = doneById.get(t.id);
+      if (rec) out[t.id] = rec.score;
+    }
+    return out;
+  }, [doneById]);
   const currentTicket = SYNTH_DOCTOR_TICKETS[activeTicketIdx];
   const cluesOpen = cluesByTicket[currentTicket.id] ?? 0;
 
@@ -138,12 +173,14 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
       setTicketStatus('fixed');
       const score = 100 - DOCTOR_CLUE_COST * cluesOpen;
       if (fixedTickets[t.id] === undefined) {
-        setFixedTickets((prev) => ({ ...prev, [t.id]: score }));
         onRecordScore?.(t.id, `Synth Doctor: #${t.ticketNumber} ${t.title}`, score);
       }
       confetti({ particleCount: 70, spread: 60, origin: { y: 0.6 } });
     } else {
-      setTicketStatus('failed');
+      // Right control, just not far enough? Say so instead of a flat "not fixed".
+      const near = doctorNearMiss(t, params);
+      setNearMiss(near);
+      setTicketStatus(near ? 'close' : 'failed');
     }
   };
 
@@ -152,8 +189,26 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const [lastResult, setLastResult] = useState<{ patchId: string; score: number; aspects: AspectResult[] } | null>(null);
   const [hintsByPatch, setHintsByPatch] = useState<Record<string, { key: string; text: string }[]>>({});
   const [noMoreHints, setNoMoreHints] = useState<string | null>(null);
-  const [triesByPatch, setTriesByPatch] = useState<Record<string, number>>({});
-  const [bestByPatch, setBestByPatch] = useState<Record<string, number>>({});
+  // Tries and best scores made on this screen, merged with what the app already has (restored codes).
+  const [triesLocal, setTriesLocal] = useState<Record<string, number>>({});
+  const [bestLocal, setBestLocal] = useState<Record<string, number>>({});
+  const triesByPatch = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const p of PATCH_MATCHER_CHALLENGES) {
+      const rec = doneById.get(p.id);
+      const n = Math.max(triesLocal[p.id] ?? 0, rec ? rec.tries ?? 1 : 0);
+      if (n > 0) out[p.id] = n;
+    }
+    return out;
+  }, [doneById, triesLocal]);
+  const bestByPatch = useMemo(() => {
+    const out: Record<string, number> = {};
+    for (const p of PATCH_MATCHER_CHALLENGES) {
+      const best = Math.max(bestLocal[p.id] ?? -1, doneById.get(p.id)?.score ?? -1);
+      if (best >= 0) out[p.id] = best;
+    }
+    return out;
+  }, [doneById, bestLocal]);
   const [revealed, setRevealed] = useState<Record<string, boolean>>({});
   const currentPatch = PATCH_MATCHER_CHALLENGES[activePatchIdx];
   const currentHints = hintsByPatch[currentPatch.id] ?? [];
@@ -197,9 +252,9 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
   const handleTestMatch = () => {
     const { score, aspects } = scorePatch(params, currentPatch);
     setLastResult({ patchId: currentPatch.id, score, aspects });
-    setTriesByPatch((prev) => ({ ...prev, [currentPatch.id]: (prev[currentPatch.id] ?? 0) + 1 }));
-    setBestByPatch((prev) => ({ ...prev, [currentPatch.id]: Math.max(score, prev[currentPatch.id] ?? 0) }));
-    if (score >= 80) confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
+    setTriesLocal((prev) => ({ ...prev, [currentPatch.id]: Math.max(tries, prev[currentPatch.id] ?? 0) + 1 }));
+    setBestLocal((prev) => ({ ...prev, [currentPatch.id]: Math.max(score, prev[currentPatch.id] ?? 0) }));
+    if (score >= MATCH_SCORE) confetti({ particleCount: 80, spread: 70, origin: { y: 0.6 } });
     // After the answer is revealed, matching it no longer counts.
     if (!isRevealed) onRecordScore?.(currentPatch.id, `Patch Matcher: ${currentPatch.title}`, score);
   };
@@ -214,12 +269,18 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
     playPhrase(engine, currentPatch.phrase);
   };
 
-  const matchFeedback = (score: number) =>
-    score >= 80
-      ? 'Superb ear! That’s a close match.'
-      : score >= 55
+  const matchFeedback = (score: number, aspects: AspectResult[]) => {
+    if (score >= MATCH_SCORE) return 'Superb ear! That’s a close match.';
+    if (score >= CLOSE_SCORE) {
+      // Name the part that is costing the most points, so the last few points are easy to find.
+      const worst = [...aspects].sort((a, b) => b.weight * b.gap - a.weight * a.gap)[0];
+      const left = MATCH_SCORE - score;
+      return `So close! Just ${left} more point${left === 1 ? '' : 's'} to a match.${worst ? ` The biggest gap left is ${worst.label.toLowerCase()}.` : ''}`;
+    }
+    return score >= 55
       ? 'Good progress. Check the bars below to see which parts are still off.'
       : 'Keep going. Listen to the reference again and focus on the parts marked “far off.”';
+  };
 
   // ---------------- Tabs ----------------
   const tabs: { id: Category; label: string; icon: React.ReactNode; on: string }[] = [
@@ -229,6 +290,23 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
     { id: 'design', label: '4. Sound Design', icon: <Palette className="w-4 h-4" />, on: 'bg-fuchsia-500 text-black shadow-[0_0_12px_#d946ef]' },
     { id: 'matcher', label: '5. Patch Master', icon: <Target className="w-4 h-4" />, on: 'bg-amber-500 text-black shadow-[0_0_12px_#f59e0b]' },
   ];
+
+  // Checkmark (all done) or a count (some done) on each quest tab.
+  const tabProgress = useMemo(() => {
+    const count = (cat: TaskCategory) => {
+      // Only count what this student is graded on (an assignment link can pick a subset).
+      const graded = new Set(gradedTaskIds(assignedTasks));
+      const tasks = ALL_TASKS.filter((t) => t.category === cat && graded.has(t.id));
+      return { done: tasks.filter((t) => doneById.has(t.id) || !!briefWork[t.id]).length, total: tasks.length };
+    };
+    return {
+      blind: count('Blind Ear Test'),
+      doctor: count('Synth Doctor'),
+      mine: count('My Presets'),
+      design: count('Sound Design'),
+      matcher: count('Patch Matcher'),
+    } as Record<Category, { done: number; total: number }>;
+  }, [doneById, briefWork, assignedTasks]);
 
   const selectTab = (id: Category) => {
     stopPhrase();
@@ -278,6 +356,13 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           >
             {t.icon}
             {t.label}
+            {tabProgress[t.id].total > 0 && tabProgress[t.id].done >= tabProgress[t.id].total ? (
+              <CheckCircle className={`w-3.5 h-3.5 ${activeCategory === t.id ? '' : 'text-emerald-400'}`} aria-label="all done" />
+            ) : tabProgress[t.id].done > 0 ? (
+              <span className="text-[10px] font-semibold opacity-80 normal-case">
+                {tabProgress[t.id].done}/{tabProgress[t.id].total}
+              </span>
+            ) : null}
           </button>
         ))}
       </div>
@@ -411,6 +496,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
                   }`}
                 >
                   #{idx + 1}
+                  {fixedTickets[t.id] !== undefined && <Check className="w-3 h-3 inline ml-0.5 -mt-0.5" aria-label="fixed" />}
                 </button>
               ))}
             </div>
@@ -476,18 +562,26 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
           {ticketStatus !== 'idle' && (
             <div
               className={`p-3 rounded-lg border flex items-center justify-between gap-3 ${
-                ticketStatus === 'fixed' ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200' : 'bg-red-950/60 border-red-500/50 text-red-200'
+                ticketStatus === 'fixed'
+                  ? 'bg-emerald-950/60 border-emerald-500/50 text-emerald-200'
+                  : ticketStatus === 'close'
+                  ? 'bg-amber-950/60 border-amber-400/60 text-amber-100'
+                  : 'bg-red-950/60 border-red-500/50 text-red-200'
               }`}
             >
               <div className="flex items-center gap-3">
                 {ticketStatus === 'fixed' ? (
                   <CheckCircle className="w-5 h-5 text-emerald-400 flex-shrink-0" />
                 ) : (
-                  <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0" />
+                  <AlertCircle className={`w-5 h-5 flex-shrink-0 ${ticketStatus === 'close' ? 'text-amber-300' : 'text-red-400'}`} />
                 )}
                 <div className="text-xs leading-relaxed">
                   {ticketStatus === 'fixed'
                     ? `${currentTicket.fixExplanation} (${fixedTickets[currentTicket.id] ?? 100} points)`
+                    : ticketStatus === 'close'
+                    ? nearMiss === 'back'
+                      ? 'So close! You\u2019re on the right control, but just past the fix. Ease it back a little and submit again.'
+                      : 'So close! You\u2019re on the right control, just not far enough yet. Nudge it a little further and submit again.'
                     : cluesOpen < 2
                     ? 'Not fixed yet. Play some notes and listen again, or open a clue.'
                     : 'Not fixed yet. Re-read clue 2 and try that control again.'}
@@ -569,6 +663,7 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
                   }`}
                 >
                   #{idx + 1}
+                  {bestByPatch[p.id] !== undefined && <Check className="w-3 h-3 inline ml-0.5 -mt-0.5" aria-label="tried" />}
                 </button>
               ))}
             </div>
@@ -641,11 +736,11 @@ export const ModeChallenges: React.FC<ModeChallengesProps> = ({
               <div className="flex items-center gap-3">
                 <div className="flex flex-col items-center shrink-0">
                   <span className="text-[10px] font-mono text-slate-400 uppercase">Match</span>
-                  <span className={`text-2xl font-mono font-bold ${result.score >= 80 ? 'text-emerald-400' : result.score >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
+                  <span className={`text-2xl font-mono font-bold ${result.score >= MATCH_SCORE ? 'text-emerald-400' : result.score >= CLOSE_SCORE ? 'text-amber-300' : result.score >= 50 ? 'text-amber-400' : 'text-red-400'}`}>
                     {result.score}%
                   </span>
                 </div>
-                <div className="text-xs text-slate-200">{matchFeedback(result.score)}</div>
+                <div className="text-xs text-slate-200">{matchFeedback(result.score, result.aspects)}</div>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-1">
                 {[...result.aspects]

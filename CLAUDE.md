@@ -46,6 +46,17 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   "Play: <phrase name>" with a Loop toggle beside it
   (`PhraseButtons.tsx`).
 - Challenges start from a blank patch where it makes sense.
+- "Close" feedback (`src/utils/nearMiss.ts`): Synth Doctor shows an amber
+  "So close!" when the fix control has covered 85%+ of the way from the
+  broken value to the fix (`CLOSE_SHARE`; Cutoff is measured in octaves,
+  Octave counts one step away). Patch Master says "So close!" at 70-79
+  (a match is 80+) and names the biggest gap left. Learn missions do not
+  have this yet.
+- Checkmarks come from the app's `completedTasks`, not from the
+  Challenges screen's own state, so they survive switching tabs and
+  restoring a code: each quest tab shows a check (all done) or n/m, the
+  Doctor and Patch Master number buttons get checks, and Ear Training
+  answers are rebuilt from the saved score (100 = picked the right tone).
 - Learn has 9 steps with labeled step buttons. Once finished, it is
   freely navigable and ends with "Review steps" and "Go to Challenges".
 - Voices: Poly (chords) or Mono with Glide.
@@ -75,7 +86,8 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
 - Logo: silver panel, thin walnut side cheeks, ADSR envelope with an
   amber peak dot (Modern Synth palette), used as tab icon and header icon.
 - Two synth looks: Retro Synth and Modern Synth (`studio-retro` and
-  `hardware-bench` in code). The Filter EG knob
+  `hardware-bench` in code). The LFO knob is labeled "Depth" on both
+  (Modern Synth used to say "Int"). The Filter EG knob
   is labeled "EG Amount" on both; it has a subtle green ring always and
   a strong pulsing ring on the Learn Filter envelope step.
 - LFO rate stays in Hz.

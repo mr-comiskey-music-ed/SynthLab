@@ -60,7 +60,7 @@ export const LEARN_BASE: SynthParams = {
 /** The two synth layouts name a few knobs differently. */
 export const KNOB_NAMES: Record<string, Record<ThemeMode, string>> = {
   envAmt: { 'studio-retro': 'EG Amount', 'hardware-bench': 'EG Amount' },
-  lfoDepth: { 'studio-retro': 'LFO Depth', 'hardware-bench': 'LFO Int' },
+  lfoDepth: { 'studio-retro': 'LFO Depth', 'hardware-bench': 'LFO Depth' },
   vco2Fine: { 'studio-retro': 'VCO 2 Fine Detune', 'hardware-bench': 'VCO 2 Pitch / Detune' },
   noise: { 'studio-retro': 'White Noise', 'hardware-bench': 'Noise' },
   res: { 'studio-retro': 'Resonance (Q)', 'hardware-bench': 'Resonance' },
