@@ -83,6 +83,9 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
 
 ## Design
 - Typefaces: Barlow and Barlow Semi Condensed only. Keep the count low.
+- Header title is "SynthLab" in mixed case with the S and L set larger
+  (`App.tsx`). The browser tab title and manifest still say "Subtractive
+  Synthesis Lab".
 - Logo: silver panel, thin walnut side cheeks, ADSR envelope with an
   amber peak dot (Modern Synth palette), used as tab icon and header icon.
 - Two synth looks: Retro Synth and Modern Synth (`studio-retro` and

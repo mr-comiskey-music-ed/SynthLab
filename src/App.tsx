@@ -386,8 +386,11 @@ export default function App() {
           {/* Brand & Subtractive Lab Title */}
           <div className="flex items-center gap-3">
             <SynthLabLogo size={48} />
-            <h1 className="text-base sm:text-lg font-bold tracking-wider font-mono text-white">
-              SUBTRACTIVE SYNTHESIS LAB
+            <h1 className="text-2xl sm:text-3xl font-bold tracking-wide font-mono text-white leading-none" aria-label="SynthLab">
+              <span className="text-[1.3em]" aria-hidden="true">S</span>
+              <span aria-hidden="true">ynth</span>
+              <span className="text-[1.3em]" aria-hidden="true">L</span>
+              <span aria-hidden="true">ab</span>
             </h1>
           </div>
 
