@@ -7,7 +7,7 @@ interface SynthLabLogoProps {
 
 /**
  * SynthLab mark: a Modern Synth panel (silver face, walnut side cheeks)
- * with an ADSR envelope and an amber LED on the attack peak.
+ * with an ADSR envelope (amber, red, green, blue) and a black dot on the attack peak.
  * Same artwork as public/favicon.svg.
  */
 export const SynthLabLogo: React.FC<SynthLabLogoProps> = ({ className = '', size = 32 }) => (
@@ -30,14 +30,13 @@ export const SynthLabLogo: React.FC<SynthLabLogoProps> = ({ className = '', size
       <rect width="6" height="64" fill="#4a2810" />
       <rect x="58" width="6" height="64" fill="#4a2810" />
     </g>
-    <path
-      d="M13 49 L25 15 L33 31 H41 L51 49"
-      fill="none"
-      stroke="#1e293b"
-      strokeWidth="6"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    />
-    <circle cx="25" cy="15" r="5" fill="#f59e0b" stroke="#1e293b" strokeWidth="2" />
+    {/* Attack, Decay, Sustain, Release in the Modern Synth section colors */}
+    <g fill="none" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M13 49 L25 15" stroke="#f59e0b" />
+      <path d="M25 15 L33 31" stroke="#ef4444" />
+      <path d="M33 31 H41" stroke="#10b981" />
+      <path d="M41 31 L51 49" stroke="#3b82f6" />
+    </g>
+    <circle cx="25" cy="15" r="5" fill="#000" />
   </svg>
 );

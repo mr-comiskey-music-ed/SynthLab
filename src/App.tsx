@@ -398,9 +398,9 @@ export default function App() {
             <SynthLabLogo size={48} />
             <div className="flex flex-col gap-1">
               <SectionBar />
-              <h1 className="text-2xl sm:text-3xl font-bold tracking-wide font-mono text-white leading-none" aria-label="SynthLab">
+              <h1 className="relative -top-[0.1em] text-2xl sm:text-3xl font-bold tracking-wide font-mono text-white leading-none" aria-label="SynthLab">
                 <span className="text-[1.15em]" aria-hidden="true">S</span>
-                <span className="-ml-[0.06em]" aria-hidden="true">ynth</span>
+                <span className="-ml-[0.03em]" aria-hidden="true">ynth</span>
                 <span className="text-[1.15em]" aria-hidden="true">L</span>
                 <span className="-ml-[0.02em]" aria-hidden="true">ab</span>
               </h1>

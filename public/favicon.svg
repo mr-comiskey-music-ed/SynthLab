@@ -5,6 +5,11 @@
     <rect width="6" height="64" fill="#4a2810"/>
     <rect x="58" width="6" height="64" fill="#4a2810"/>
   </g>
-  <path d="M13 49 L25 15 L33 31 H41 L51 49" fill="none" stroke="#1e293b" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
-  <circle cx="25" cy="15" r="5" fill="#f59e0b" stroke="#1e293b" stroke-width="2"/>
+  <g fill="none" stroke-width="6" stroke-linecap="round" stroke-linejoin="round">
+    <path d="M13 49 L25 15" stroke="#f59e0b"/>
+    <path d="M25 15 L33 31" stroke="#ef4444"/>
+    <path d="M33 31 H41" stroke="#10b981"/>
+    <path d="M41 31 L51 49" stroke="#3b82f6"/>
+  </g>
+  <circle cx="25" cy="15" r="5" fill="#000"/>
 </svg>

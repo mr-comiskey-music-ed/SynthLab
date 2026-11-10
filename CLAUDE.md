@@ -89,8 +89,12 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   Modern Synth's oscillator, filter, envelope and LFO colors;
   `SectionBar` in `App.tsx`). The browser tab title and manifest still say "Subtractive
   Synthesis Lab".
-- Logo: silver panel, thin walnut side cheeks, ADSR envelope with an
-  amber peak dot (Modern Synth palette), used as tab icon and header icon.
+- Logo: silver panel, thin walnut side cheeks, and an ADSR envelope
+  drawn in the four section colors (Attack amber, Decay red, Sustain
+  green, Release blue) with a black dot on the peak. Used as tab icon
+  and header icon. Artwork lives in `SynthLabLogo.tsx` and
+  `public/favicon.svg`; the PNG/ICO icons in `public/` are rendered from
+  the SVG (bump `?v=` in `index.html` when they change).
 - Two synth looks: Retro Synth and Modern Synth (`studio-retro` and
   `hardware-bench` in code). The LFO knob is labeled "Depth" on both
   (Modern Synth used to say "Int"). The Filter EG knob
