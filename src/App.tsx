@@ -48,6 +48,16 @@ import {
   X,
 } from 'lucide-react';
 
+/** The four Modern Synth section colors (oscillators, filter, envelope, LFO) as a thin bar. */
+const SectionBar = () => (
+  <div className="flex gap-[3px] h-[3px]" aria-hidden="true">
+    <i className="flex-1 rounded-full bg-[#f59e0b]" />
+    <i className="flex-1 rounded-full bg-[#ef4444]" />
+    <i className="flex-1 rounded-full bg-[#10b981]" />
+    <i className="flex-1 rounded-full bg-[#3b82f6]" />
+  </div>
+);
+
 export default function App() {
   // Progress guard: warns before the page closes if work isn't in a code yet.
   const savedSigRef = useRef<string>('');
@@ -386,12 +396,16 @@ export default function App() {
           {/* Brand & Subtractive Lab Title */}
           <div className="flex items-center gap-3">
             <SynthLabLogo size={48} />
-            <h1 className="text-2xl sm:text-3xl font-bold tracking-wide font-mono text-white leading-none" aria-label="SynthLab">
-              <span className="text-[1.15em]" aria-hidden="true">S</span>
-              <span aria-hidden="true">ynth</span>
-              <span className="text-[1.15em]" aria-hidden="true">L</span>
-              <span aria-hidden="true">ab</span>
-            </h1>
+            <div className="flex flex-col gap-1">
+              <SectionBar />
+              <h1 className="text-2xl sm:text-3xl font-bold tracking-wide font-mono text-white leading-none" aria-label="SynthLab">
+                <span className="text-[1.15em]" aria-hidden="true">S</span>
+                <span className="-ml-[0.06em]" aria-hidden="true">ynth</span>
+                <span className="text-[1.15em]" aria-hidden="true">L</span>
+                <span className="-ml-[0.02em]" aria-hidden="true">ab</span>
+              </h1>
+              <SectionBar />
+            </div>
           </div>
 
           {/* Core Four Modes Navigation Bar (with the autosave pop-up just right of the last tab) */}
