@@ -59,7 +59,17 @@ export { scoreLabel };
 type LearnInfo = { done: number; total: number } | undefined;
 
 /** One small box per part of the app, in the order students meet them: Learn, then the five quests. */
-const GradeBoxes: React.FC<{ grades: Grades; learn?: LearnInfo; compact?: boolean }> = ({ grades, learn, compact }) => {
+const GradeBoxes: React.FC<{
+  grades: Grades;
+  learn?: LearnInfo;
+  compact?: boolean;
+  /** Tasks finished and the assignment's task list: used for the overall "Tasks Done" box. */
+  completed: { taskId: string }[];
+  assigned?: string[];
+}> = ({ grades, learn, compact, completed, assigned }) => {
+  const tasksDone = gradedDoneCount(completed, assigned);
+  const tasksTotal = gradedTaskIds(assigned).length;
+  const allDone = tasksTotal > 0 && tasksDone >= tasksTotal;
   const box = compact
     ? 'px-2.5 py-1 rounded bg-black/40 border'
     : 'px-3 py-1.5 rounded bg-black/40 border';
@@ -72,6 +82,14 @@ const GradeBoxes: React.FC<{ grades: Grades; learn?: LearnInfo; compact?: boolea
       className={compact ? 'flex flex-wrap items-stretch gap-2 font-mono' : 'grid items-stretch gap-2 font-mono'}
       style={compact ? undefined : { gridTemplateColumns: 'repeat(auto-fit, minmax(9.5rem, 1fr))' }}
     >
+      <div
+        className={`${box} ${allDone ? 'border-emerald-400/70 bg-emerald-500/10' : 'border-white/30'}`}
+        title={assigned && assigned.length ? 'Assigned tasks finished, across all the challenges' : 'Tasks finished across all the challenges'}
+      >
+        <span className={label}>Tasks Done</span>
+        <span className={`${big} font-bold ${allDone ? 'text-emerald-300' : 'text-white'}`}>{tasksDone}/{tasksTotal}</span>
+        <span className={sub}>{allDone ? 'all finished' : 'in total'}</span>
+      </div>
       <div className={`${box} border-indigo-500/30`} title="Learn: work through every step before the challenges">
         <span className={label}>Learn</span>
         {learn ? (
@@ -258,7 +276,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             </div>
           </div>
 
-          <GradeBoxes grades={grades} learn={learnSummary()} />
+          <GradeBoxes grades={grades} learn={learnSummary()} completed={completedTasks} assigned={assignedTasks} />
         </div>
 
         {/* Name input & Generate Code button */}
@@ -378,7 +396,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                   Grade Report Ready
                 </span>
               </div>
-              <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} learn={submission.learn} compact />
+              <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} learn={submission.learn} completed={submission.completedTasks} assigned={submission.assignedTasks} compact />
             </div>
 
             <div className="space-y-3 pt-3 border-t border-white/10">
@@ -507,7 +525,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                 )}
               </div>
               <div>
-                <GradeBoxes grades={gradesFor(checkedSub.completedTasks, checkedSub.assignedTasks)} learn={checkedSub.learn} compact />
+                <GradeBoxes grades={gradesFor(checkedSub.completedTasks, checkedSub.assignedTasks)} learn={checkedSub.learn} completed={checkedSub.completedTasks} assigned={checkedSub.assignedTasks} compact />
                 <span className="block text-[10px] text-slate-500 mt-1">
                   {doneLabel(checkedSub)} {checkedSub.assignedTasks?.length ? 'assigned ' : ''}tasks · {checkedSub.assignmentCode}
                 </span>
