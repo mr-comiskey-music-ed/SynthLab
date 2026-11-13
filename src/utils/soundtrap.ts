@@ -367,18 +367,18 @@ export const ST_STEPS: StStep[] = [
     flow: ['env', 'filter', 'amp'],
     what:
       'This is the biggest difference. SynthLab has two envelopes: the Amp EG for volume and the Filter EG for the cutoff. Soundtrap has one ENVELOPE (A, D, S, R) that can do both jobs at once. The Filter Env slider sets how far it moves the cutoff, like EG Amount. REG moves the cutoff up; INV flips it, so the cutoff dips down instead. In the AMP section, ENV means the same envelope also shapes the volume. BYPASS ignores the envelope for volume, so the sound simply stays on while you hold a key, while the envelope keeps moving the filter.',
-    listen: 'AMP on ENV: a pluck shape makes the whole note die away. On BYPASS: the note holds, but its brightness still plucks.',
-    start: { square: false, saw: true, cutoff: 400, res: 20, env: 0, attack: 1, decay: 900, sustain: 60, release: 300, ampMode: 'env' },
+    listen: 'REG: each note starts bright and closes down (a pluck). BYPASS: the volume holds, but the brightness still plucks. INV: each note starts dark and swells open.',
+    start: { square: false, saw: true, cutoff: 400, res: 20, env: 0, attack: 1, decay: 900, sustain: 0, release: 300, ampMode: 'env' },
     phrase: run(['D2', 'F2', 'A2', 'D3'], 0.6, 0.5),
     missions: [
       {
-        text: 'Make a pluck: Env 50% or more, then in ENVELOPE set S to 0% and D to 400 ms or less. Keep AMP on ENV.',
-        check: (p) => p.env >= 50 && p.sustain <= 2 && p.decay <= 400 && p.ampMode === 'env' && p.envPolarity === 'reg',
+        text: 'Make a pluck: raise the Filter Env slider to 100%, then in ENVELOPE set D between 300 and 600 ms. Keep Filter Freq below 800 Hz.',
+        check: (p) => p.env >= 95 && p.decay >= 300 && p.decay <= 600 && p.cutoff < 800 && p.envPolarity === 'reg' && p.ampMode === 'env',
       },
-      { text: 'Flip the AMP switch to BYPASS: the volume holds while the filter still plucks.', check: (p) => p.ampMode === 'bypass' && p.env >= 30 },
+      { text: 'Flip the AMP switch to BYPASS: the volume holds while the filter still plucks.', check: (p) => p.ampMode === 'bypass' && p.env >= 95 },
       {
-        text: 'Flip the Env switch to INV and raise Filter Freq above 2,000 Hz, so the cutoff has room to dip down.',
-        check: (p) => p.envPolarity === 'inv' && p.env >= 30 && p.cutoff > 2000,
+        text: 'Flip the Env switch to INV: now each note starts dark and swells open.',
+        check: (p) => p.envPolarity === 'inv' && p.env >= 95 && p.cutoff < 800,
       },
     ],
   },
