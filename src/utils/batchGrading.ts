@@ -174,6 +174,7 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
     'My Presets Turned In', 'My Presets Grade (by ear)',
     'Assigned Tasks Done',
     'Learn Steps Done',
+    'Soundtrap Guide Steps (optional)',
     ...TASK_CATEGORIES.flatMap((c) => [`${c} Done`, `${c} Avg`]),
     ...ALL_TASKS.map((t) => t.title),
   ];
@@ -195,6 +196,7 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
       '',
       doneLabel(s),
       s.learn ? `${s.learn.done}/${s.learn.total}` : 'not recorded',
+      s.soundtrap ? `${s.soundtrap.done}/${s.soundtrap.total}` : '',
       ...TASK_CATEGORIES.flatMap((c) => [
         `${e.categories[c].done}/${e.categories[c].total}`,
         e.categories[c].done ? e.categories[c].average : '',

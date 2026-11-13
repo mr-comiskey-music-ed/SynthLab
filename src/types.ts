@@ -71,7 +71,8 @@ export interface SynthParams {
 
 export type ThemeMode = 'studio-retro' | 'hardware-bench';
 
-export type AppMode = 'learn' | 'playground' | 'challenges' | 'teacher';
+/** 'soundtrap' is the optional Soundtrap Synth Guide (reached from Learn or a ?guide=soundtrap link). */
+export type AppMode = 'learn' | 'playground' | 'challenges' | 'teacher' | 'soundtrap';
 
 export type ArpDivision = '16n' | '8n' | '4n';
 export type ArpDirection = 'up' | 'down' | 'upDown' | 'random';
@@ -230,6 +231,8 @@ export interface StudentSubmission {
   briefs?: Record<string, BriefWork>;
   /** Learn walkthrough steps finished when the code was made. Missing on codes made before this was tracked. */
   learn?: { done: number; total: number };
+  /** Optional Soundtrap Synth Guide steps finished (ungraded). Missing when the student never opened it. */
+  soundtrap?: { done: number; total: number };
   /** Name on the code this one was restored from, when it differs from the student's name now. */
   restoredFrom?: string;
 }

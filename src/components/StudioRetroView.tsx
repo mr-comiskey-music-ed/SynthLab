@@ -44,7 +44,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
         <div className="flex items-center gap-3">
           <div className="w-3 h-3 rounded-full bg-red-600 shadow-[0_0_10px_#dc2626] animate-pulse" />
           <h2 className="text-sm font-mono tracking-widest text-slate-200 uppercase font-bold flex items-center gap-2">
-            <span>RETRO SYNTH</span>
+            <span>VINTAGE SYNTH</span>
           </h2>
         </div>
       </div>

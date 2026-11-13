@@ -268,7 +268,7 @@ export const ModePlayground: React.FC<ModePlaygroundProps> = ({
             className="px-3 py-1 rounded-lg text-xs font-mono font-bold uppercase transition-all border flex items-center gap-1.5 bg-slate-800 hover:bg-slate-700 text-slate-200 border-white/10"
           >
             <Activity className="w-3.5 h-3.5 text-amber-400" />
-            Theme: {theme === 'studio-retro' ? 'Retro Synth' : 'Modern Synth'}
+            Theme: {theme === 'studio-retro' ? 'Vintage Synth' : 'Modern Synth'}
           </button>
         </div>
       </div>

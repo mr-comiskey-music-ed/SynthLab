@@ -28,6 +28,18 @@ import { ModeLearn } from './components/ModeLearn';
 import { ModePlayground } from './components/ModePlayground';
 import { ModeChallenges } from './components/ModeChallenges';
 import { ModeTeacher, SharedReport } from './components/ModeTeacher';
+import { ModeSoundtrap } from './components/ModeSoundtrap';
+import { SoundtrapView } from './components/SoundtrapView';
+import {
+  SoundtrapPatch,
+  StSection,
+  GUIDE_BASE,
+  toSynthParams,
+  toExtras,
+  restoreSoundtrapSteps,
+  restoreSoundtrapDone,
+  soundtrapDoneSnapshot,
+} from './utils/soundtrap';
 import { SynthLabLogo } from './components/SynthLabLogo';
 import {
   BookOpen,
@@ -71,6 +83,10 @@ export default function App() {
   const [briefWork, setBriefWork] = useState<Record<string, BriefWork>>({});
   const [highlightSection, setHighlightSection] = useState<string | null>(null);
   const [sharedReport, setSharedReport] = useState<SharedReport | null>(null);
+  // Soundtrap Synth Guide: its practice panel has its own settings, translated for the engine.
+  const [stPatch, setStPatch] = useState<SoundtrapPatch>(GUIDE_BASE);
+  const [stHighlight, setStHighlight] = useState<StSection[]>([]);
+  const isSoundtrap = activeMode === 'soundtrap';
 
   // Batch grading (kept in memory only; nothing is stored)
   const [isBatchOpen, setIsBatchOpen] = useState(false);
@@ -97,6 +113,27 @@ export default function App() {
   // Challenges open on the Modern Synth by default.
   useEffect(() => {
     if (activeMode === 'challenges') setTheme('hardware-bench');
+  }, [activeMode]);
+
+  // The Soundtrap panel's extra hardware (HPF, Sub-Osc, Chorus...) is only on while the guide is open.
+  const stPatchRef = useRef(stPatch);
+  stPatchRef.current = stPatch;
+  // Leaving the guide puts back the patch the student had before they opened it.
+  const beforeGuideRef = useRef<SynthParams | null>(null);
+  useEffect(() => {
+    if (activeMode === 'soundtrap') {
+      if (!beforeGuideRef.current) beforeGuideRef.current = paramsRef.current;
+      const st = stPatchRef.current;
+      loadParams(toSynthParams(st));
+      engine.setExtras(toExtras(st));
+    } else {
+      engine.setExtras({});
+      if (beforeGuideRef.current) {
+        loadParams(beforeGuideRef.current);
+        beforeGuideRef.current = null;
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeMode]);
 
   // Initialize from URL params (e.g. shared patch, teacher assignment, shared report)
@@ -135,6 +172,9 @@ export default function App() {
     if (reportParam) {
       handleReportParam(reportParam);
     }
+
+    // A teacher's link straight to the optional Soundtrap Synth Guide.
+    if (query.get('guide') === 'soundtrap') setActiveMode('soundtrap');
 
     const assignParam = query.get('assignment');
     if (assignParam) {
@@ -197,6 +237,15 @@ export default function App() {
     setParams({ ...next });
     engine.applyParams(next);
   };
+
+  /** Set the whole Soundtrap practice panel (a guide step's starting sound or a starting point). */
+  const loadStPatch = (next: SoundtrapPatch) => {
+    stPatchRef.current = next; // so quick changes in a row build on each other
+    setStPatch(next);
+    loadParams(toSynthParams(next));
+    engine.setExtras(toExtras(next));
+  };
+  const handleStChange = (change: Partial<SoundtrapPatch>) => loadStPatch({ ...stPatchRef.current, ...change });
 
   // ---------- Batch grading review: step through students' patches ----------
   const handleGradeBatch = async () => {
@@ -273,7 +322,7 @@ export default function App() {
 
   const saveNow = () => {
     const { completedTasks: t, briefWork: b } = progressRef.current;
-    const snap: WorkSnapshot = { tasks: t, briefs: b, learnDone: learnDoneSnapshot() };
+    const snap: WorkSnapshot = { tasks: t, briefs: b, learnDone: learnDoneSnapshot(), soundtrapDone: soundtrapDoneSnapshot() };
     if (!hasWork(snap)) return; // never overwrite a good save with an empty session
     const json = JSON.stringify(snap);
     if (json === lastSavedJsonRef.current) return; // nothing new since the last save
@@ -335,6 +384,7 @@ export default function App() {
     setCompletedTasks([...byId.values()]);
     setBriefWork({ ...saved.briefs, ...briefWork });
     restoreLearnDone(saved.learnDone);
+    restoreSoundtrapDone(saved.soundtrapDone);
     setSavedAt(restoreOffer.savedAt);
     setSaveStatus('saved');
     setRestoreOffer(null);
@@ -363,6 +413,7 @@ export default function App() {
     setCompletedTasks(tasks);
     setBriefWork(briefs);
     if (s.learn) restoreLearnSteps(s.learn.done);
+    if (s.soundtrap) restoreSoundtrapSteps(s.soundtrap.done);
     if (d.patchParams) loadParams(d.patchParams);
     setRestoredName(s.studentName);
     // If nothing was added on top of the code, there is nothing unsaved.
@@ -375,6 +426,7 @@ export default function App() {
       `Restored ${s.completedTasks.length} finished task${s.completedTasks.length === 1 ? '' : 's'}` +
       (sounds ? `, ${sounds} saved sound${sounds === 1 ? '' : 's'}` : '') +
       (s.learn ? `, and Learn ${s.learn.done}/${s.learn.total}` : '') +
+      (s.soundtrap?.done ? ` (plus the Soundtrap guide ${s.soundtrap.done}/${s.soundtrap.total})` : '') +
       ` from the code${when}. Anything you did after that code is not included.`
     );
   };
@@ -415,7 +467,7 @@ export default function App() {
               type="button"
               onClick={() => setActiveMode('learn')}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all flex items-center gap-1.5 ${
-                activeMode === 'learn'
+                activeMode === 'learn' || isSoundtrap
                   ? 'bg-amber-500 text-black shadow-[0_0_12px_rgba(245,158,11,0.4)]'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
@@ -470,7 +522,7 @@ export default function App() {
 
           {/* Theme Quick Toggle & Audio Status */}
           <div className="flex items-center gap-2">
-            <button
+            {!isSoundtrap && <button
               type="button"
               onClick={() =>
                 setTheme(theme === 'studio-retro' ? 'hardware-bench' : 'studio-retro')
@@ -483,8 +535,8 @@ export default function App() {
               title="Switch hardware GUI theme"
             >
               <Palette className="w-3.5 h-3.5" />
-              <span>{theme === 'studio-retro' ? 'Retro Synth' : 'Modern Synth'}</span>
-            </button>
+              <span>{theme === 'studio-retro' ? 'Vintage Synth' : 'Modern Synth'}</span>
+            </button>}
 
             {/* Audio Engine Status */}
             <div
@@ -512,6 +564,19 @@ export default function App() {
             onLoadParams={loadParams}
             onHighlight={setHighlightSection}
             onGoToChallenges={() => setActiveMode('challenges')}
+            onOpenSoundtrap={() => setActiveMode('soundtrap')}
+          />
+        )}
+
+        {/* Optional: the Soundtrap Synth Guide */}
+        {isSoundtrap && (
+          <ModeSoundtrap
+            engine={engine}
+            patch={stPatch}
+            onLoadPatch={loadStPatch}
+            onHighlight={setStHighlight}
+            onGoToChallenges={() => setActiveMode('challenges')}
+            onBackToLearn={() => setActiveMode('learn')}
           />
         )}
 
@@ -575,7 +640,9 @@ export default function App() {
 
         {/* Primary Synthesizer Hardware Chassis (Active Theme) */}
         <section id="synth-hardware-rack" className="w-full scroll-mt-36">
-          {theme === 'studio-retro' ? (
+          {isSoundtrap ? (
+            <SoundtrapView patch={stPatch} onChange={handleStChange} highlight={stHighlight} />
+          ) : theme === 'studio-retro' ? (
             <StudioRetroView
               params={params}
               engine={engine}

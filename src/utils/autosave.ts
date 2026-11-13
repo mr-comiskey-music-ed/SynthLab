@@ -1,6 +1,7 @@
 import { SynthParams, BriefWork, StudentSubmission } from '../types';
 import { DEFAULT_SYNTH_PARAMS } from './presets';
 import { LEARN_STEPS } from './learnSteps';
+import { ST_STEPS } from './soundtrap';
 import { PHRASES } from './playback';
 import { taskTitle } from './taskCatalog';
 
@@ -15,6 +16,8 @@ export interface WorkSnapshot {
   briefs: Record<string, BriefWork>;
   /** Missions finished per Learn step. */
   learnDone: number[];
+  /** Missions finished per Soundtrap Guide step (optional extra). */
+  soundtrapDone?: number[];
 }
 
 const KEY = 'synthlab:v1:autosave';
@@ -88,12 +91,16 @@ function cleanSnapshot(raw: unknown): WorkSnapshot | null {
     Math.round(clampNum(Array.isArray(raw.learnDone) ? raw.learnDone[i] : 0, 0, s.missions.length, 0))
   );
 
-  return { tasks, briefs, learnDone };
+  const soundtrapDone = ST_STEPS.map((s, i) =>
+    Math.round(clampNum(Array.isArray(raw.soundtrapDone) ? raw.soundtrapDone[i] : 0, 0, s.missions.length, 0))
+  );
+
+  return { tasks, briefs, learnDone, soundtrapDone };
 }
 
 /** Used so an empty, brand-new session never overwrites a good save. */
 export const hasWork = (s: WorkSnapshot): boolean =>
-  s.tasks.length > 0 || Object.keys(s.briefs).length > 0 || s.learnDone.some((n) => n > 0);
+  s.tasks.length > 0 || Object.keys(s.briefs).length > 0 || s.learnDone.some((n) => n > 0) || (s.soundtrapDone ?? []).some((n) => n > 0);
 
 // ---------- Storage (every call is wrapped: storage can be blocked, full, or wiped) ----------
 export function loadSaved(): { snapshot: WorkSnapshot; savedAt: number } | null {

@@ -40,10 +40,42 @@ const clampHz = (hz: number) => Math.max(20, Math.min(20000, hz));
 
 type Osc = Tone.Oscillator | Tone.PulseOscillator;
 
+/**
+ * Extra hardware that only the Soundtrap guide's panel uses (a Juno-106 style synth). Everything here is
+ * off unless that panel turns it on, so the rest of the app sounds exactly as before.
+ */
+export interface EngineExtras {
+  /** Separate LFO amounts (0-1) for pitch, cutoff and pulse width, all at once. Replaces lfoDepth + lfoDestination. */
+  lfoAmounts?: { pitch: number; cutoff: number; pwm: number };
+  /** Seconds the LFO takes to fade in at the start of each note. */
+  lfoDelay?: number;
+  /** High-pass filter cutoff in Hz (20 or less = off). */
+  hpfCutoff?: number;
+  /** Sub-oscillator level (0-1): a square wave one octave below VCO 1. */
+  subLevel?: number;
+  /** Juno-style chorus: 0 off, 1 = I, 2 = II, 3 = I + II. */
+  chorus?: 0 | 1 | 2 | 3;
+}
+
+const CHORUS_MODES: Record<1 | 2 | 3, { frequency: number; depth: number; delayTime: number }> = {
+  1: { frequency: 0.5, depth: 0.45, delayTime: 3.5 },
+  2: { frequency: 0.85, depth: 0.75, delayTime: 3.5 },
+  3: { frequency: 8, depth: 0.12, delayTime: 2.5 },
+};
+
 /** One note's worth of synth: two oscillators + noise → filter → amp envelope. */
 class Voice {
   osc1: Osc | null = null;
   osc2: Osc | null = null;
+  /** Soundtrap guide only: a square one octave below VCO 1. Started only while subLevel is up. */
+  sub: Tone.Oscillator;
+  subGain: Tone.Gain;
+  subRunning = false;
+  /** Soundtrap guide only: high-pass filter (sits at 10 Hz, inaudible, unless the guide moves it). */
+  hpf: Tone.Filter;
+  /** Per-note fade for the pitch and pulse-width LFO (instant unless an LFO delay is set). */
+  lfoPitchFade: Tone.Gain;
+  lfoPwmFade: Tone.Gain;
   osc1Gain: Tone.Gain;
   osc2Gain: Tone.Gain;
   noiseGain: Tone.Gain;
@@ -76,6 +108,16 @@ class Voice {
     this.ampEnv = new Tone.AmplitudeEnvelope();
     this.lfoFade = new Tone.Gain(1);
     this.resComp = new Tone.Gain(1);
+    this.sub = new Tone.Oscillator({ frequency: this.freq / 2, type: 'square' });
+    this.subGain = new Tone.Gain(0);
+    this.hpf = new Tone.Filter({ frequency: 10, type: 'highpass', rolloff: -12, Q: 0.7 });
+    this.lfoPitchFade = new Tone.Gain(1);
+    this.lfoPwmFade = new Tone.Gain(1);
+    engine.lfoPitchGain.connect(this.lfoPitchFade);
+    engine.lfoPwmGain.connect(this.lfoPwmFade);
+    this.lfoPitchFade.connect(this.sub.detune);
+    this.sub.connect(this.subGain);
+    this.subGain.connect(this.filter);
 
     this.osc1Gain.connect(this.filter);
     this.osc2Gain.connect(this.filter);
@@ -86,7 +128,8 @@ class Voice {
     engine.lfoCutoffGain.connect(this.lfoFade);
     this.lfoFade.connect(this.filter.frequency);
     this.filter.connect(this.resComp);
-    this.resComp.connect(this.ampEnv);
+    this.resComp.connect(this.hpf);
+    this.hpf.connect(this.ampEnv);
     this.ampEnv.connect(out);
 
     this.buildOscillators();
@@ -97,7 +140,7 @@ class Voice {
     if (wave === 'noise') return null;
     if (wave === 'square') {
       const o = new Tone.PulseOscillator({ frequency: this.freq, width: dutyToToneWidth(duty) });
-      this.engine.lfoPwmGain.connect(o.width);
+      this.lfoPwmFade.connect(o.width);
       return o;
     }
     return new Tone.Oscillator({ frequency: this.freq, type: wave });
@@ -116,11 +159,11 @@ class Voice {
     this.osc2 = this.makeOsc(p.vco2Waveform, p.vco2PulseWidth);
     if (this.osc1) {
       this.osc1.connect(this.osc1Gain);
-      this.engine.lfoPitchGain.connect(this.osc1.detune);
+      this.lfoPitchFade.connect(this.osc1.detune);
     }
     if (this.osc2) {
       this.osc2.connect(this.osc2Gain);
-      this.engine.lfoPitchGain.connect(this.osc2.detune);
+      this.lfoPitchFade.connect(this.osc2.detune);
     }
     if (this.running) {
       this.osc1?.start();
@@ -158,6 +201,17 @@ class Voice {
     this.setPitch(this.freq, 0.01);
   }
 
+  /** Soundtrap-guide hardware: sub-oscillator and high-pass filter. */
+  updateExtras(x: EngineExtras) {
+    const sub = Math.max(0, Math.min(1, x.subLevel ?? 0));
+    this.subGain.gain.rampTo(sub, 0.02);
+    if (sub > 0 && this.running && !this.subRunning) {
+      this.sub.start();
+      this.subRunning = true;
+    }
+    this.hpf.frequency.rampTo(Math.max(10, Math.min(20000, x.hpfCutoff ?? 10)), 0.05);
+  }
+
   /**
    * Oscillator pitches plus key tracking (the filter follows the keyboard).
    * ramp: 0 = jump straight there; otherwise slide over that many seconds (glide).
@@ -171,10 +225,12 @@ class Voice {
     if (ramp <= 0) {
       if (this.osc1) this.osc1.frequency.value = f1;
       if (this.osc2) this.osc2.frequency.value = f2;
+      this.sub.frequency.value = f1 / 2;
       this.filter.frequency.value = cutoff;
     } else {
       this.osc1?.frequency.exponentialRampTo(f1, ramp);
       this.osc2?.frequency.exponentialRampTo(f2, ramp);
+      this.sub.frequency.exponentialRampTo(f1 / 2, ramp);
       this.filter.frequency.exponentialRampTo(cutoff, ramp);
     }
   }
@@ -194,11 +250,26 @@ class Voice {
       this.osc2?.start();
       this.running = true;
     }
+    if (!this.subRunning && (this.engine.getExtras().subLevel ?? 0) > 0) {
+      this.sub.start();
+      this.subRunning = true;
+    }
     const now = Tone.now();
-    // Dial the LFO in over a few tens of ms rather than letting it hit mid-wave.
+    // Dial the LFO in over a few tens of ms rather than letting it hit mid-wave
+    // (or over the LFO delay time, when the Soundtrap guide sets one).
+    const delay = Math.max(0, this.engine.getExtras().lfoDelay ?? 0);
     this.lfoFade.gain.cancelScheduledValues(now);
     this.lfoFade.gain.setValueAtTime(0, now);
-    this.lfoFade.gain.linearRampToValueAtTime(1, now + 0.06);
+    this.lfoFade.gain.linearRampToValueAtTime(1, now + Math.max(0.06, delay));
+    for (const fade of [this.lfoPitchFade, this.lfoPwmFade]) {
+      fade.gain.cancelScheduledValues(now);
+      if (delay > 0) {
+        fade.gain.setValueAtTime(0, now);
+        fade.gain.linearRampToValueAtTime(1, now + delay);
+      } else {
+        fade.gain.setValueAtTime(1, now);
+      }
+    }
     this.ampEnv.triggerAttack(now, velocity);
     this.filterEnv.triggerAttack(now);
   }
@@ -223,6 +294,10 @@ class Voice {
       if (this.held) return;
       this.osc1?.stop();
       this.osc2?.stop();
+      if (this.subRunning) {
+        this.sub.stop();
+        this.subRunning = false;
+      }
       this.running = false;
       this.note = null;
     }, (fade * 1.2 + 0.3) * 1000);
@@ -254,6 +329,9 @@ export class SubtractiveEngine {
   lfoPwmGain!: Tone.Gain;
 
   private voices: Voice[] = [];
+  private extras: EngineExtras = {};
+  private chorus: Tone.Chorus | null = null;
+  private chorusOn = false;
 
   // State
   private currentParams: SynthParams;
@@ -382,10 +460,51 @@ export class SubtractiveEngine {
     // LFO
     this.lfo.frequency.rampTo(Math.max(0.1, p.lfoRate), 0.05);
     if (this.lfo.type !== p.lfoWaveform) this.lfo.type = p.lfoWaveform;
+    this.applyLfoRouting();
+  }
+
+  private applyLfoRouting() {
+    const p = this.currentParams;
+    const a = this.extras.lfoAmounts;
     const d = p.lfoDepth;
-    this.lfoPitchGain.gain.rampTo(p.lfoDestination === 'pitch' ? lfoPitchCents(d) : 0, 0.05);
-    this.lfoCutoffGain.gain.rampTo(p.lfoDestination === 'cutoff' ? d * LFO_CUTOFF_HZ : 0, 0.05);
-    this.lfoPwmGain.gain.rampTo(p.lfoDestination === 'pwm' ? d * LFO_PWM_SWING : 0, 0.05);
+    const pitch = a ? a.pitch : p.lfoDestination === 'pitch' ? d : 0;
+    const cutoff = a ? a.cutoff : p.lfoDestination === 'cutoff' ? d : 0;
+    const pwm = a ? a.pwm : p.lfoDestination === 'pwm' ? d : 0;
+    this.lfoPitchGain.gain.rampTo(lfoPitchCents(pitch), 0.05);
+    this.lfoCutoffGain.gain.rampTo(cutoff * LFO_CUTOFF_HZ, 0.05);
+    this.lfoPwmGain.gain.rampTo(pwm * LFO_PWM_SWING, 0.05);
+  }
+
+  /** The Soundtrap guide's extra hardware. Pass {} (or nothing) to switch it all off. */
+  public setExtras(extras: EngineExtras = {}) {
+    this.extras = { ...extras };
+    for (const v of this.voices) v.updateExtras(this.extras);
+    this.applyLfoRouting();
+
+    const mode = this.extras.chorus ?? 0;
+    if (mode) {
+      if (!this.chorus) {
+        this.chorus = new Tone.Chorus({ frequency: 0.5, delayTime: 3.5, depth: 0.5, spread: 180, wet: 0.5 }).start();
+        this.chorus.connect(this.masterGain);
+      }
+      const c = CHORUS_MODES[mode];
+      this.chorus.frequency.rampTo(c.frequency, 0.05);
+      this.chorus.depth = c.depth;
+      this.chorus.delayTime = c.delayTime;
+      if (!this.chorusOn) {
+        this.voiceBus.disconnect(this.masterGain);
+        this.voiceBus.connect(this.chorus);
+        this.chorusOn = true;
+      }
+    } else if (this.chorusOn && this.chorus) {
+      this.voiceBus.disconnect(this.chorus);
+      this.voiceBus.connect(this.masterGain);
+      this.chorusOn = false;
+    }
+  }
+
+  public getExtras(): EngineExtras {
+    return this.extras;
   }
 
   // ---------- Voice allocation ----------

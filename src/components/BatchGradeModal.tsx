@@ -390,6 +390,14 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                                 from {s.restoredFrom}
                               </span>
                             )}
+                            {s.soundtrap && s.soundtrap.done > 0 && (
+                              <span
+                                className="text-[9px] font-bold text-sky-300 bg-sky-500/15 border border-sky-500/30 px-1 rounded shrink-0"
+                                title="Optional Soundtrap Synth Guide: steps finished (not graded)"
+                              >
+                                Soundtrap {s.soundtrap.done}/{s.soundtrap.total}
+                              </span>
+                            )}
                             {e.hasMultipleSubmissions && (
                               <span className="text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1 rounded shrink-0" title="This student turned in more than one code">
                                 x2
@@ -433,6 +441,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                               assignedTasks={s.assignedTasks}
                               briefs={s.briefs}
                               learn={s.learn}
+                              soundtrap={s.soundtrap}
                               onPlay={onPlayBrief}
                             />
                           </div>

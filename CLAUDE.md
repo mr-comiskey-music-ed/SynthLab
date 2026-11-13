@@ -13,8 +13,8 @@ themselves with sound.
   (`src/utils/submissionCodec.ts`).
 - The only thing kept in the browser is an autosave of the student's
   own work (localStorage key `synthlab:v1:autosave`,
-  `src/utils/autosave.ts`): finished tasks, saved sounds and Learn
-  progress, never the student's name. It is never sent anywhere. No
+  `src/utils/autosave.ts`): finished tasks, saved sounds, and Learn and
+  Soundtrap Guide progress, never the student's name. It is never sent anywhere. No
   cookies, no other storage. The submission code is still what students
   hand in. On load, a "Restore your last session?" prompt offers
   Restore or Start Fresh; autosave stays off until they answer.
@@ -29,8 +29,9 @@ themselves with sound.
   there are no tests).
 - Content lives in `src/utils/`: `learnSteps.ts`, `presets.ts`
   (Playground presets, Patch Master, Synth Doctor, Ear Training),
-  `briefs.ts`, `myPresets.ts`, `adventures.ts`; `taskCatalog.ts` maps
-  task IDs to challenges for grading.
+  `briefs.ts`, `myPresets.ts`, `adventures.ts`, `soundtrap.ts`
+  (Soundtrap Guide); `taskCatalog.ts` maps task IDs to challenges for
+  grading.
 
 ## Structure
 Learn, then five challenges in this order: 1. A/B Ear Training,
@@ -59,6 +60,20 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   answers are rebuilt from the saved score (100 = picked the right tone).
 - Learn has 9 steps with labeled step buttons. Once finished, it is
   freely navigable and ends with "Review steps" and "Go to Challenges".
+- Soundtrap Synth Guide: an optional, ungraded extra (app mode
+  `soundtrap`, `ModeSoundtrap.tsx`), deliberately kept out of the main
+  path. Reached from a small "For later" link on Learn's finish screen
+  (and a step-bar chip once Learn is done), or a `?guide=soundtrap` link
+  (copyable in the Assignment Link builder). 7 steps mapping SynthLab
+  ideas onto Soundtrap's Juno-106 style synth, with Learn-style missions
+  on a playable copy of its panel (`SoundtrapView.tsx`), then 5
+  "Settings to try" starting points. The Challenges stay the clear next
+  step. Its progress shows in the Grade Report (once a step is done),
+  batch grading and CSV, and travels in the code (`s`). The panel's
+  extra hardware (HPF, Sub-Osc, Chorus, LFO delay, per-section LFO
+  amounts) is `EngineExtras` in `synthEngine.ts`, off outside the guide;
+  leaving the guide restores the student's previous patch. A Logic Pro
+  Retro Synth guide is planned later.
 - Voices: Poly (chords) or Mono with Glide.
 - Sound Design briefs: 4 Music and 4 Sound FX requests, each with two
   click-to-reveal hint layers (broad, then specific).
@@ -95,7 +110,7 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   and header icon. Artwork lives in `SynthLabLogo.tsx` and
   `public/favicon.svg`; the PNG/ICO icons in `public/` are rendered from
   the SVG (bump `?v=` in `index.html` when they change).
-- Two synth looks: Retro Synth and Modern Synth (`studio-retro` and
+- Two synth looks: Vintage Synth and Modern Synth (`studio-retro` and
   `hardware-bench` in code). The LFO knob is labeled "Depth" on both
   (Modern Synth used to say "Int"). The Filter EG knob
   is labeled "EG Amount" on both; it has a subtle green ring always and

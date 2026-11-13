@@ -4,6 +4,7 @@ import { encodeSubmission, decodeSubmission, DecodedSubmission } from '../utils/
 import { gradesFor, headlineScore, Grades, taskInfo, gradedTaskIds, gradedDoneCount } from '../utils/taskCatalog';
 import { QuestBoxes, scoreLabel } from './QuestBoxes';
 import { learnSummary } from '../utils/learnProgress';
+import { soundtrapSummary } from '../utils/soundtrap';
 import { AssignmentLinkBuilder } from './AssignmentLinkBuilder';
 import { formatDate, doneLabel } from '../utils/batchGrading';
 import { copyText } from '../utils/copyText';
@@ -66,7 +67,9 @@ const GradeBoxes: React.FC<{
   /** Tasks finished and the assignment's task list: used for the overall "Tasks Done" box. */
   completed: { taskId: string }[];
   assigned?: string[];
-}> = ({ grades, learn, compact, completed, assigned }) => {
+  /** Optional Soundtrap Synth Guide; its box shows only once a step is finished. */
+  soundtrap?: LearnInfo;
+}> = ({ grades, learn, compact, completed, assigned, soundtrap }) => {
   const tasksDone = gradedDoneCount(completed, assigned);
   const tasksTotal = gradedTaskIds(assigned).length;
   const allDone = tasksTotal > 0 && tasksDone >= tasksTotal;
@@ -104,6 +107,15 @@ const GradeBoxes: React.FC<{
           </>
         )}
       </div>
+      {soundtrap && soundtrap.done > 0 && (
+        <div className={`${box} border-sky-500/30`} title="Optional extra: the Soundtrap Synth Guide (not graded)">
+          <span className={label}>Soundtrap Guide</span>
+          <span className={`${big} font-bold ${soundtrap.done >= soundtrap.total ? 'text-sky-300' : 'text-sky-300/70'}`}>
+            {soundtrap.done}/{soundtrap.total}
+          </span>
+          <span className={sub}>steps · optional</span>
+        </div>
+      )}
       {grades.ear && (
         <div className={`${box} border-cyan-500/30`} title="Quest 1: A/B Ear Training">
           <span className={label}>Ear Training</span>
@@ -233,6 +245,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
       patchUrl: '',
       briefs: Object.keys(briefWork).length ? briefWork : undefined,
       learn: learnSummary(),
+      soundtrap: soundtrapSummary().done > 0 ? soundtrapSummary() : undefined,
       // A code restored from a different name is flagged for the teacher.
       restoredFrom:
         restoredName && restoredName.trim().toLowerCase() !== studentName.trim().toLowerCase() ? restoredName : undefined,
@@ -276,7 +289,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
             </div>
           </div>
 
-          <GradeBoxes grades={grades} learn={learnSummary()} completed={completedTasks} assigned={assignedTasks} />
+          <GradeBoxes grades={grades} learn={learnSummary()} soundtrap={soundtrapSummary()} completed={completedTasks} assigned={assignedTasks} />
         </div>
 
         {/* Name input & Generate Code button */}
@@ -396,7 +409,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                   Grade Report Ready
                 </span>
               </div>
-              <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} learn={submission.learn} completed={submission.completedTasks} assigned={submission.assignedTasks} compact />
+              <GradeBoxes grades={gradesFor(submission.completedTasks, submission.assignedTasks)} learn={submission.learn} soundtrap={submission.soundtrap} completed={submission.completedTasks} assigned={submission.assignedTasks} compact />
             </div>
 
             <div className="space-y-3 pt-3 border-t border-white/10">
@@ -525,7 +538,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
                 )}
               </div>
               <div>
-                <GradeBoxes grades={gradesFor(checkedSub.completedTasks, checkedSub.assignedTasks)} learn={checkedSub.learn} completed={checkedSub.completedTasks} assigned={checkedSub.assignedTasks} compact />
+                <GradeBoxes grades={gradesFor(checkedSub.completedTasks, checkedSub.assignedTasks)} learn={checkedSub.learn} soundtrap={checkedSub.soundtrap} completed={checkedSub.completedTasks} assigned={checkedSub.assignedTasks} compact />
                 <span className="block text-[10px] text-slate-500 mt-1">
                   {doneLabel(checkedSub)} {checkedSub.assignedTasks?.length ? 'assigned ' : ''}tasks · {checkedSub.assignmentCode}
                 </span>
@@ -537,6 +550,7 @@ export const ModeTeacher: React.FC<ModeTeacherProps> = ({
               assignedTasks={checkedSub.assignedTasks}
               briefs={checkedSub.briefs}
               learn={checkedSub.learn}
+              soundtrap={checkedSub.soundtrap}
               onPlay={onPlayBrief}
               onLoad={(p) => {
                 onLoadParams(p);
