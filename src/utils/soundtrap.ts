@@ -352,9 +352,12 @@ export const ST_STEPS: StStep[] = [
     start: { square: false, saw: true, cutoff: 3000 },
     phrase: [one('C2', 0.8), one('C3', 0.8, 0.9), one('C4', 0.8, 1.8), one('C5', 0.8, 2.7)],
     missions: [
-      { text: 'Set the Filter Freq below 800 Hz and Res to 50% or more.', check: (p) => p.cutoff < 800 && p.res >= 50 },
-      { text: 'Now raise the HPF Freq to 500 Hz or more and hear the low end thin out.', check: (p) => p.hpf >= 500 },
-      { text: 'Raise Kybd to 70% or more, then listen to low and high notes. The high ones should be brighter.', check: (p) => p.kybd >= 70 },
+      { text: 'Set the Filter Freq between 800 and 1,500 Hz and Res to 40% or more.', check: (p) => p.cutoff >= 800 && p.cutoff <= 1500 && p.res >= 40 },
+      { text: 'Now raise the HPF Freq to 300 Hz or more and hear the low end thin out.', check: (p) => p.hpf >= 300 },
+      {
+        text: 'Pull the HPF back down below 100 Hz, then raise Kybd to 70% or more. Listen to low and high notes: the high ones should be brighter.',
+        check: (p) => p.hpf < 100 && p.kybd >= 70,
+      },
     ],
   },
   {
