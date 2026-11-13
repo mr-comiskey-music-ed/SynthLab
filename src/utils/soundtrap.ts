@@ -152,7 +152,7 @@ export function formatValue(spec: SliderSpec, v: number): string {
   }
 }
 
-/** A plain starting point for the guide: Square only, filter open, nothing moving. */
+/** A plain starting point for the guide: Saw only (like Soundtrap), filter open, nothing moving. */
 export const GUIDE_BASE: SoundtrapPatch = {
   lfoSync: false,
   lfoWave: 'sine',
@@ -162,8 +162,9 @@ export const GUIDE_BASE: SoundtrapPatch = {
   oscLfo: 0,
   pwm: 0,
   pwmMode: 'man',
-  square: true,
-  saw: false,
+  // Soundtrap starts on Saw only.
+  square: false,
+  saw: true,
   sub: false,
   subLevel: 0,
   noise: 0,
@@ -317,11 +318,11 @@ export const ST_STEPS: StStep[] = [
     what:
       'SynthLab has two VCOs, each with a Waveform knob. Soundtrap has one oscillator with three buttons that you can turn on together: Square, Saw and Sub-Osc. The Sub-Osc is a square wave one octave lower, which adds weight underneath. Turning it on wakes up the Sub-Osc slider, which sets how loud it is. Noise has its own slider, just like in SynthLab.',
     listen: 'Square is hollow, Saw is bright and buzzy, and both together are thicker. The Sub-Osc adds a low, heavy layer.',
-    start: { cutoff: 6000 },
+    start: { square: false, saw: true, cutoff: 6000 },
     phrase: run(['A2', 'C3', 'E3', 'A3'], 0.5, 0.45),
     missions: [
-      { text: 'Turn on Saw too, so Square and Saw are both lit.', check: (p) => p.square && p.saw },
-      { text: 'Now turn Square off, so only Saw is on.', check: (p) => !p.square && p.saw },
+      { text: 'Soundtrap starts on Saw only. Turn on Square too, so Saw and Square are both lit.', check: (p) => p.square && p.saw },
+      { text: 'Now turn Saw off, so only Square is on.', check: (p) => p.square && !p.saw },
       { text: 'Turn on the Sub-Osc button, then raise the Sub-Osc slider to 50% or more.', check: (p) => p.sub && p.subLevel >= 50 },
     ],
   },

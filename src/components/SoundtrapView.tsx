@@ -1,4 +1,4 @@
-import React, { useRef, useState } from 'react';
+import React, { useLayoutEffect, useRef, useState } from 'react';
 import {
   SoundtrapPatch,
   SLIDERS,
@@ -51,7 +51,9 @@ const Fader: React.FC<{
   onReset?: () => void;
   disabled?: boolean;
   title?: string;
-}> = ({ label, pos, readout, onPos, onReset, disabled, title }) => {
+  /** Name for a bracket end on this fader's label (see Brackets). */
+  anchor?: string;
+}> = ({ label, pos, readout, onPos, onReset, disabled, title, anchor }) => {
   const trackRef = useRef<HTMLDivElement | null>(null);
   const [drag, setDrag] = useState(false);
 
@@ -100,7 +102,9 @@ const Fader: React.FC<{
   const capBottom = p * (TRACK_H - CAP_H);
   return (
     <div className={`flex flex-col items-center w-[46px] shrink-0 select-none ${disabled ? 'opacity-35' : ''}`} title={title}>
-      <span className="h-7 flex items-end justify-center text-center text-[10.5px] leading-[1.1] font-medium uppercase text-[#3f3f46]">{label}</span>
+      <span className="h-7 flex items-end justify-center text-center text-[10.5px] leading-[1.1] font-medium uppercase text-[#3f3f46]">
+        <span data-br={anchor}>{label}</span>
+      </span>
       <div
         ref={trackRef}
         className={`relative w-9 mt-1 touch-none ${disabled ? 'cursor-not-allowed' : 'cursor-ns-resize'}`}
@@ -140,15 +144,20 @@ const Fader: React.FC<{
 };
 
 /** A square panel button with an LED above it. */
-const LedButton: React.FC<{ on: boolean; onClick: () => void; label?: React.ReactNode; aria: string; title?: string }> = ({
+const LedButton: React.FC<{ on: boolean; onClick: () => void; label?: React.ReactNode; aria: string; title?: string; anchor?: string }> = ({
   on,
   onClick,
   label,
   aria,
   title,
+  anchor,
 }) => (
   <div className="flex flex-col items-center gap-1 shrink-0" title={title}>
-    {label !== undefined && <span className="h-5 flex items-end text-[11px] font-medium text-[#3f3f46]">{label}</span>}
+    {label !== undefined && (
+      <span className="h-5 flex items-end text-[11px] font-medium text-[#3f3f46]">
+        <span data-br={anchor}>{label}</span>
+      </span>
+    )}
     <span
       className={`w-2.5 h-2.5 rounded-full border ${on ? 'bg-[#ff4040] border-[#ff8080] shadow-[0_0_6px_2px_rgba(255,64,64,0.6)]' : 'bg-[#7f1d1d] border-[#991b1b] opacity-60'}`}
       aria-hidden="true"
@@ -164,7 +173,7 @@ const LedButton: React.FC<{ on: boolean; onClick: () => void; label?: React.Reac
 );
 
 /** A vertical switch: a pill with a black dot, and one label per position. */
-function Switch<T extends string>({ value, options, onChange, aria }: { value: T; options: { v: T; label: string }[]; onChange: (v: T) => void; aria: string }) {
+function Switch<T extends string>({ value, options, onChange, aria, anchor }: { value: T; options: { v: T; label: string }[]; onChange: (v: T) => void; aria: string; anchor?: string }) {
   const idx = Math.max(0, options.findIndex((o) => o.v === value));
   const n = options.length;
   const rowH = 28;
@@ -173,6 +182,7 @@ function Switch<T extends string>({ value, options, onChange, aria }: { value: T
       <button
         type="button"
         onClick={() => onChange(options[(idx + 1) % n].v)}
+        data-br={anchor}
         className="relative w-[26px] rounded-full bg-white border border-[#71717a] shadow-inner"
         style={{ height: rowH * n }}
         aria-label={`${aria}: ${options[idx].label} (click to change)`}
@@ -213,8 +223,54 @@ const WaveGlyph: React.FC<{ kind: 'square' | 'saw' }> = ({ kind }) => (
   </svg>
 );
 
+/** A bracket line joining controls that work together, like the lines printed on the real panel. */
+type BracketSpec = { ends: [string, string]; mid?: string };
+const BRACKET_Y = 7;
+
+/** Draws brackets between elements marked data-br="name" inside the same section body. */
+const Brackets: React.FC<{ specs: BracketSpec[] }> = ({ specs }) => {
+  const ref = useRef<SVGSVGElement | null>(null);
+  const [paths, setPaths] = useState<string[]>([]);
+  useLayoutEffect(() => {
+    const box = ref.current?.parentElement;
+    if (!box) return;
+    const measure = () => {
+      const b = box.getBoundingClientRect();
+      const pt = (name: string) => {
+        const el = box.querySelector(`[data-br="${name}"]`);
+        if (!el) return null;
+        const r = el.getBoundingClientRect();
+        return { x: Math.round(r.left + r.width / 2 - b.left) + 0.5, y: Math.round(r.top - b.top) - 3 };
+      };
+      const out: string[] = [];
+      for (const s of specs) {
+        const a = pt(s.ends[0]);
+        const c = pt(s.ends[1]);
+        if (!a || !c) continue;
+        let d = `M${a.x} ${a.y} V${BRACKET_Y} H${c.x} V${c.y}`;
+        const m = s.mid ? pt(s.mid) : null;
+        if (m) d += ` M${m.x} ${BRACKET_Y} V${m.y}`;
+        out.push(d);
+      }
+      setPaths(out);
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(box);
+    return () => ro.disconnect();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+  return (
+    <svg ref={ref} className="absolute inset-0 w-full h-full pointer-events-none overflow-visible" aria-hidden="true">
+      {paths.map((d, i) => (
+        <path key={i} d={d} fill="none" stroke="#52525b" strokeWidth={1.25} />
+      ))}
+    </svg>
+  );
+};
+
 /** One titled panel section. Defined outside the panel so its sliders are never remounted mid-drag. */
-const Section: React.FC<{ id: StSection; lit: boolean; children: React.ReactNode }> = ({ id, lit, children }) => (
+const Section: React.FC<{ id: StSection; lit: boolean; brackets?: BracketSpec[]; children: React.ReactNode }> = ({ id, lit, brackets, children }) => (
   <div
     className={`flex flex-col rounded-[4px] bg-[#f4f4f5] border transition-shadow ${
       lit ? 'border-amber-400 shadow-[0_0_0_3px_rgba(251,191,36,0.75),0_0_18px_rgba(251,191,36,0.55)]' : 'border-[#a1a1aa]'
@@ -225,7 +281,10 @@ const Section: React.FC<{ id: StSection; lit: boolean; children: React.ReactNode
       <span className="text-[17px] font-semibold tracking-wide text-[#18181b]">{SECTION_TITLE[id]}</span>
       <div className="h-[3px] rounded-full mt-0.5" style={{ background: SECTION_COLOR[id] }} aria-hidden="true" />
     </div>
-    <div className="flex items-end gap-1.5 px-2 pt-2 pb-3 flex-1">{children}</div>
+    <div className={`relative flex items-end gap-1.5 px-2 pb-3 flex-1 ${brackets ? 'pt-5' : 'pt-2'}`}>
+      {children}
+      {brackets && <Brackets specs={brackets} />}
+    </div>
   </div>
 );
 
@@ -237,7 +296,7 @@ interface SoundtrapViewProps {
 }
 
 export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, highlight = [] }) => {
-  const fader = (key: SliderKey, opts: { label?: string; disabled?: boolean; title?: string } = {}) => {
+  const fader = (key: SliderKey, opts: { label?: string; disabled?: boolean; title?: string; anchor?: string } = {}) => {
     const spec = SLIDERS[key];
     return (
       <Fader
@@ -249,6 +308,7 @@ export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, h
         onReset={() => onChange({ [key]: GUIDE_BASE[key] } as Partial<SoundtrapPatch>)}
         disabled={opts.disabled}
         title={opts.title}
+        anchor={opts.anchor}
       />
     );
   };
@@ -293,12 +353,20 @@ export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, h
             {fader('lfoDelay')}
           </Section>
 
-          <Section id="osc" lit={highlight.includes('osc')}>
+          <Section
+            id="osc"
+            lit={highlight.includes('osc')}
+            brackets={[
+              { ends: ['pwm', 'square'], mid: 'pwm-switch' },
+              { ends: ['sub-btn', 'sub-level'] },
+            ]}
+          >
             {fader('oscLfo', { title: 'Vibrato: how much the LFO moves the pitch' })}
-            {fader('pwm', { title: 'Pulse width of the Square wave' })}
+            {fader('pwm', { title: 'Pulse width of the Square wave', anchor: 'pwm' })}
             <div className="self-center pb-6">
               <Switch
                 aria="PWM source"
+                anchor="pwm-switch"
                 value={patch.pwmMode}
                 options={[
                   { v: 'lfo', label: 'LFO' },
@@ -308,22 +376,23 @@ export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, h
               />
             </div>
             <div className="flex gap-1.5 self-center pb-6">
-              <LedButton on={patch.square} onClick={() => onChange({ square: !patch.square })} label={<WaveGlyph kind="square" />} aria="Square wave" title="Square (pulse) wave: shaped by PWM" />
+              <LedButton on={patch.square} onClick={() => onChange({ square: !patch.square })} label={<WaveGlyph kind="square" />} anchor="square" aria="Square wave" title="Square (pulse) wave: shaped by PWM" />
               <LedButton on={patch.saw} onClick={() => onChange({ saw: !patch.saw })} label={<WaveGlyph kind="saw" />} aria="Saw wave" title="Saw wave" />
-              <LedButton on={patch.sub} onClick={() => onChange({ sub: !patch.sub })} label={<WaveGlyph kind="square" />} aria="Sub-oscillator" title="Sub-Osc: a square wave one octave lower" />
+              <LedButton on={patch.sub} onClick={() => onChange({ sub: !patch.sub })} label={<WaveGlyph kind="square" />} anchor="sub-btn" aria="Sub-oscillator" title="Sub-Osc: a square wave one octave lower" />
             </div>
-            {fader('subLevel', { disabled: !patch.sub, title: patch.sub ? 'Sub-Osc level' : 'Turn on the Sub-Osc button (third wave button) to use this' })}
+            {fader('subLevel', { anchor: 'sub-level', disabled: !patch.sub, title: patch.sub ? 'Sub-Osc level' : 'Turn on the Sub-Osc button (third wave button) to use this' })}
             {fader('noise')}
           </Section>
 
           <Section id="hpf" lit={highlight.includes('hpf')}>{fader('hpf', { title: 'High-pass filter: cuts the lows below this' })}</Section>
 
-          <Section id="filter" lit={highlight.includes('filter')}>
+          <Section id="filter" lit={highlight.includes('filter')} brackets={[{ ends: ['env-switch', 'env'] }]}>
             {fader('cutoff', { title: 'Cutoff' })}
             {fader('res', { title: 'Resonance' })}
             <div className="self-center pb-6">
               <Switch
                 aria="Filter envelope direction"
+                anchor="env-switch"
                 value={patch.envPolarity}
                 options={[
                   { v: 'reg', label: 'REG' },
@@ -332,7 +401,7 @@ export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, h
                 onChange={(v) => onChange({ envPolarity: v })}
               />
             </div>
-            {fader('env', { title: 'How far the envelope moves the cutoff (EG Amount)' })}
+            {fader('env', { title: 'How far the envelope moves the cutoff (EG Amount)', anchor: 'env' })}
             {fader('filterLfo', { title: 'Wobble: how much the LFO moves the cutoff' })}
             {fader('kybd', { title: 'Keyboard tracking: higher notes open the filter more' })}
           </Section>
