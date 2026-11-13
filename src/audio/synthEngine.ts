@@ -27,6 +27,13 @@ export const lfoPwmDuty = (depth: number) => (depth * LFO_PWM_SWING) / 2;
 /** How far the cutoff swings either side of the knob, in Hz. */
 export const lfoCutoffHz = (depth: number) => depth * LFO_CUTOFF_HZ;
 
+/**
+ * Soundtrap guide: the cutoff LFO swings in octaves (through the filter's detune) instead of Hz,
+ * like a real analog synth. A Hz swing larger than the cutoff drives it to 0 Hz, which silences
+ * the note for a moment on every wobble and sounds like a click.
+ */
+export const LFO_CUTOFF_CENTS = 3600;
+
 /** Filter envelope swing in Hz at 100% amount. */
 const FILTER_ENV_HZ = 8000;
 
@@ -85,6 +92,8 @@ class Voice {
   ampEnv: Tone.AmplitudeEnvelope;
   /** Fades the LFO's cutoff movement in at each note start, so a note never begins mid-sweep with a click. */
   lfoFade: Tone.Gain;
+  /** Same fade for the octave-based cutoff LFO (Soundtrap guide). */
+  lfoDetuneFade: Tone.Gain;
   /** Pulls the level down as resonance rises (real filters lose body too), so peaky patches don't clip. */
   resComp: Tone.Gain;
 
@@ -107,6 +116,7 @@ class Voice {
     this.filterEnvGain = new Tone.Gain(0);
     this.ampEnv = new Tone.AmplitudeEnvelope();
     this.lfoFade = new Tone.Gain(1);
+    this.lfoDetuneFade = new Tone.Gain(1);
     this.resComp = new Tone.Gain(1);
     this.sub = new Tone.Oscillator({ frequency: this.freq / 2, type: 'square' });
     this.subGain = new Tone.Gain(0);
@@ -127,6 +137,8 @@ class Voice {
     this.filterEnvGain.connect(this.filter.frequency);
     engine.lfoCutoffGain.connect(this.lfoFade);
     this.lfoFade.connect(this.filter.frequency);
+    engine.lfoCutoffCentsGain.connect(this.lfoDetuneFade);
+    this.lfoDetuneFade.connect(this.filter.detune);
     this.filter.connect(this.resComp);
     this.resComp.connect(this.hpf);
     this.hpf.connect(this.ampEnv);
@@ -258,9 +270,11 @@ class Voice {
     // Dial the LFO in over a few tens of ms rather than letting it hit mid-wave
     // (or over the LFO delay time, when the Soundtrap guide sets one).
     const delay = Math.max(0, this.engine.getExtras().lfoDelay ?? 0);
-    this.lfoFade.gain.cancelScheduledValues(now);
-    this.lfoFade.gain.setValueAtTime(0, now);
-    this.lfoFade.gain.linearRampToValueAtTime(1, now + Math.max(0.06, delay));
+    for (const fade of [this.lfoFade, this.lfoDetuneFade]) {
+      fade.gain.cancelScheduledValues(now);
+      fade.gain.setValueAtTime(0, now);
+      fade.gain.linearRampToValueAtTime(1, now + Math.max(0.06, delay));
+    }
     for (const fade of [this.lfoPitchFade, this.lfoPwmFade]) {
       fade.gain.cancelScheduledValues(now);
       if (delay > 0) {
@@ -326,6 +340,7 @@ export class SubtractiveEngine {
   /** Shared LFO sends; every voice listens to these. */
   lfoPitchGain!: Tone.Gain;
   lfoCutoffGain!: Tone.Gain;
+  lfoCutoffCentsGain!: Tone.Gain;
   lfoPwmGain!: Tone.Gain;
 
   private voices: Voice[] = [];
@@ -418,9 +433,11 @@ export class SubtractiveEngine {
     this.lfo.start();
     this.lfoPitchGain = new Tone.Gain(0);
     this.lfoCutoffGain = new Tone.Gain(0);
+    this.lfoCutoffCentsGain = new Tone.Gain(0);
     this.lfoPwmGain = new Tone.Gain(0);
     this.lfo.connect(this.lfoPitchGain);
     this.lfo.connect(this.lfoCutoffGain);
+    this.lfo.connect(this.lfoCutoffCentsGain);
     this.lfo.connect(this.lfoPwmGain);
 
     // One noise source shared by every voice (each voice filters its own copy).
@@ -471,7 +488,9 @@ export class SubtractiveEngine {
     const cutoff = a ? a.cutoff : p.lfoDestination === 'cutoff' ? d : 0;
     const pwm = a ? a.pwm : p.lfoDestination === 'pwm' ? d : 0;
     this.lfoPitchGain.gain.rampTo(lfoPitchCents(pitch), 0.05);
-    this.lfoCutoffGain.gain.rampTo(cutoff * LFO_CUTOFF_HZ, 0.05);
+    // The guide (separate amounts) swings the cutoff in octaves; the main app keeps its Hz swing.
+    this.lfoCutoffGain.gain.rampTo(a ? 0 : cutoff * LFO_CUTOFF_HZ, 0.05);
+    this.lfoCutoffCentsGain.gain.rampTo(a ? cutoff * LFO_CUTOFF_CENTS : 0, 0.05);
     this.lfoPwmGain.gain.rampTo(pwm * LFO_PWM_SWING, 0.05);
   }
 

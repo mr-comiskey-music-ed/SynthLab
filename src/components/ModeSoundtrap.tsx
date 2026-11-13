@@ -1,5 +1,7 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import * as Tone from 'tone';
 import { SubtractiveEngine } from '../audio/synthEngine';
+import { MiniSoundtrapPanel } from './SoundtrapView';
 import { playPhrase, PHRASES } from '../utils/playback';
 import {
   SoundtrapPatch,
@@ -9,7 +11,6 @@ import {
   StSection,
   NAME_MAP,
   STARTING_POINTS,
-  describePatch,
   soundtrapProgress as progress,
 } from '../utils/soundtrap';
 import { CheckCircle2, ChevronRight, ChevronLeft, Volume2, RotateCcw, Circle, Ear, Trophy, ArrowRight, BookOpen, Compass, Play } from 'lucide-react';
@@ -188,7 +189,9 @@ export const ModeSoundtrap: React.FC<ModeSoundtrapProps> = ({ engine, patch, onL
     setPlayingPoint(i);
     // Let the new settings land before the first note.
     setTimeout(() => {
-      playPhrase(engine, PHRASES[sp.phrase].notes, { onDone: () => setPlayingPoint((cur) => (cur === i ? null : cur)) });
+      const shift = sp.transpose ?? 0;
+      const notes = PHRASES[sp.phrase].notes.map((n) => (shift ? { ...n, note: Tone.Frequency(n.note).transpose(shift).toNote() } : n));
+      playPhrase(engine, notes, { onDone: () => setPlayingPoint((cur) => (cur === i ? null : cur)) });
     }, 60);
   };
 
@@ -232,7 +235,7 @@ export const ModeSoundtrap: React.FC<ModeSoundtrapProps> = ({ engine, patch, onL
             Five starting points. Hear one here, copy the settings into Soundtrap, then change things until it sounds like <i>yours</i>. A
             starting point is a place to begin, not the finished sound.
           </p>
-          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-2">
+          <div className="flex flex-col gap-2">
             {STARTING_POINTS.map((sp, i) => (
               <div key={sp.name} className="rounded-lg bg-black/40 border border-white/10 p-2.5 flex flex-col gap-1.5">
                 <div className="flex items-start justify-between gap-2">
@@ -249,14 +252,7 @@ export const ModeSoundtrap: React.FC<ModeSoundtrapProps> = ({ engine, patch, onL
                     <Play className="w-3 h-3" /> {playingPoint === i ? 'Playing…' : 'Hear it'}
                   </button>
                 </div>
-                <dl className="text-[11px] font-mono leading-snug grid grid-cols-[5.5rem_1fr] gap-x-2 gap-y-0.5">
-                  {describePatch({ ...GUIDE_BASE, ...sp.patch }).map((row) => (
-                    <React.Fragment key={row.section}>
-                      <dt className="text-slate-500 uppercase text-[10px] pt-px">{row.section}</dt>
-                      <dd className="text-slate-200">{row.items.join(' · ')}</dd>
-                    </React.Fragment>
-                  ))}
-                </dl>
+                <MiniSoundtrapPanel patch={{ ...GUIDE_BASE, ...sp.patch }} />
               </div>
             ))}
           </div>

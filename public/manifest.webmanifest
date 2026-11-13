@@ -1,5 +1,5 @@
 {
-  "name": "Subtractive Synthesis Lab",
+  "name": "SynthLab",
   "short_name": "SynthLab",
   "icons": [{ "src": "/icon-192.png", "sizes": "192x192", "type": "image/png" }],
   "theme_color": "#0e1014",

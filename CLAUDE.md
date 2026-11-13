@@ -102,8 +102,7 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   "ynth" tucked toward the S and "ab" tight against the L's foot, and a
   thin four-color bar above and below (amber, red, green, blue: the
   Modern Synth's oscillator, filter, envelope and LFO colors;
-  `SectionBar` in `App.tsx`). The browser tab title and manifest still say "Subtractive
-  Synthesis Lab".
+  `SectionBar` in `App.tsx`). The browser tab title and manifest say "SynthLab" too.
 - Logo: silver panel, thin walnut side cheeks, and an ADSR envelope
   drawn in the four section colors (Attack amber, Decay red, Sustain
   green, Release blue) with a black dot on the peak. Used as tab icon

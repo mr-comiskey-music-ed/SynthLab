@@ -138,7 +138,9 @@ const Fader: React.FC<{
           <i className="block h-px bg-[#52525b]" />
         </div>
       </div>
-      <span className="mt-1 text-[10px] font-mono tabular-nums text-[#52525b] whitespace-nowrap">{readout}</span>
+      <span className="mt-1 text-[10px] font-mono tabular-nums text-[#52525b] whitespace-nowrap [.st-mini_&]:text-[14px] [.st-mini_&]:font-bold [.st-mini_&]:text-[#18181b]">
+        {readout}
+      </span>
     </div>
   );
 };
@@ -236,11 +238,13 @@ const Brackets: React.FC<{ specs: BracketSpec[] }> = ({ specs }) => {
     if (!box) return;
     const measure = () => {
       const b = box.getBoundingClientRect();
+      // Screen size over layout size: undoes the scaling of the mini panels.
+      const k = box.offsetWidth ? b.width / box.offsetWidth : 1;
       const pt = (name: string) => {
         const el = box.querySelector(`[data-br="${name}"]`);
         if (!el) return null;
         const r = el.getBoundingClientRect();
-        return { x: Math.round(r.left + r.width / 2 - b.left) + 0.5, y: Math.round(r.top - b.top) - 3 };
+        return { x: Math.round((r.left + r.width / 2 - b.left) / k) + 0.5, y: Math.round((r.top - b.top) / k) - 3 };
       };
       const out: string[] = [];
       for (const s of specs) {
@@ -293,9 +297,11 @@ interface SoundtrapViewProps {
   onChange: (next: Partial<SoundtrapPatch>) => void;
   /** Sections to glow (the guide step's topic). */
   highlight?: StSection[];
+  /** A small, read-only copy on one row (for the Settings to try). */
+  mini?: boolean;
 }
 
-export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, highlight = [] }) => {
+export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, highlight = [], mini = false }) => {
   const fader = (key: SliderKey, opts: { label?: string; disabled?: boolean; title?: string; anchor?: string } = {}) => {
     const spec = SLIDERS[key];
     return (
@@ -328,13 +334,19 @@ export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, h
   );
 
   return (
-    <div className="rounded-xl bg-[#d4d4d8] p-3 shadow-2xl" style={{ fontFamily: "'Barlow', system-ui, sans-serif" }}>
-      <div className="flex items-center justify-between mb-2 px-1">
-        <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#52525b]">Soundtrap synth · practice copy</span>
-        <span className="text-[10px] font-mono text-[#71717a]">Drag a slider · double-click to reset it</span>
-      </div>
-      <div className="overflow-x-auto pb-1">
-        <div className="flex flex-wrap items-stretch justify-center gap-1.5">
+    <div
+      className={mini ? 'st-mini rounded-lg bg-[#d4d4d8] p-2 w-max' : 'rounded-xl bg-[#d4d4d8] p-3 shadow-2xl'}
+      style={{ fontFamily: "'Barlow', system-ui, sans-serif" }}
+      inert={mini}
+    >
+      {!mini && (
+        <div className="flex items-center justify-between mb-2 px-1">
+          <span className="text-[11px] font-mono font-bold uppercase tracking-widest text-[#52525b]">Soundtrap synth · practice copy</span>
+          <span className="text-[10px] font-mono text-[#71717a]">Drag a slider · double-click to reset it</span>
+        </div>
+      )}
+      <div className={mini ? '' : 'overflow-x-auto pb-1'}>
+        <div className={`flex items-stretch gap-1.5 ${mini ? 'flex-nowrap' : 'flex-wrap justify-center'}`}>
           <Section id="lfo" lit={highlight.includes('lfo')}>
             <div className="flex flex-col items-center gap-2 self-stretch justify-between pb-1">
               <LedButton on={patch.lfoSync} onClick={() => onChange({ lfoSync: !patch.lfoSync })} label="SYNC" aria="LFO Sync" title="Lock the LFO rate to the song's tempo" />
@@ -447,6 +459,33 @@ export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, h
             {fader('glide', { disabled: !patch.mono, title: patch.mono ? 'How long each note slides to the next' : 'Turn on Monophonic to use Glide' })}
           </Section>
         </div>
+      </div>
+    </div>
+  );
+};
+
+/** A Soundtrap panel shrunk to fit its box: one row, read-only, with every setting showing. */
+export const MiniSoundtrapPanel: React.FC<{ patch: SoundtrapPatch }> = ({ patch }) => {
+  const outer = useRef<HTMLDivElement | null>(null);
+  const inner = useRef<HTMLDivElement | null>(null);
+  const [fit, setFit] = useState({ scale: 0.5, h: 0 });
+  useLayoutEffect(() => {
+    const o = outer.current;
+    const i = inner.current;
+    if (!o || !i) return;
+    const measure = () => {
+      const scale = Math.min(1, o.clientWidth / Math.max(1, i.offsetWidth));
+      setFit({ scale, h: i.offsetHeight * scale });
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(o);
+    return () => ro.disconnect();
+  }, []);
+  return (
+    <div ref={outer} className="w-full overflow-hidden" style={{ height: fit.h || undefined }}>
+      <div ref={inner} className="w-max origin-top-left" style={{ transform: `scale(${fit.scale})` }}>
+        <SoundtrapView patch={patch} onChange={() => {}} mini />
       </div>
     </div>
   );

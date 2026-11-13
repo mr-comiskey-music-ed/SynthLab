@@ -427,6 +427,8 @@ export interface StartingPoint {
   name: string;
   what: string;
   phrase: PhraseId;
+  /** Semitones to move the phrase (so it sits where the sound works best). */
+  transpose?: number;
   patch: Partial<SoundtrapPatch>;
 }
 
@@ -435,6 +437,7 @@ export const STARTING_POINTS: StartingPoint[] = [
     name: 'Round Bass',
     what: 'Saw plus Sub-Osc through a low filter, with a quick envelope plucking the cutoff.',
     phrase: 'bassRiff',
+    transpose: 7,
     patch: { square: false, saw: true, sub: true, subLevel: 70, cutoff: 500, res: 25, env: 45, kybd: 50, attack: 1, decay: 350, sustain: 20, release: 120 },
   },
   {
@@ -443,7 +446,7 @@ export const STARTING_POINTS: StartingPoint[] = [
     phrase: 'padChords',
     patch: {
       square: true, saw: true, pwm: 45, pwmMode: 'lfo', lfoWave: 'triangle', lfoRate: 0.6, hpf: 150, cutoff: 2800, res: 10, env: 15,
-      attack: 700, decay: 1500, sustain: 80, release: 1500, chorus1: true,
+      attack: 700, decay: 1500, sustain: 80, release: 1500, chorus1: true, gain: -15,
     },
   },
   {
@@ -459,51 +462,16 @@ export const STARTING_POINTS: StartingPoint[] = [
     patch: { square: true, saw: false, pwm: 40, pwmMode: 'man', cutoff: 1200, res: 20, env: 55, attack: 1, decay: 280, sustain: 0, release: 300, chorus2: true },
   },
   {
-    name: 'Gliding Lead',
-    what: 'Saw plus a little Sub-Osc, Monophonic with Glide, and vibrato that fades in.',
+    name: 'Gliding Flute',
+    what: 'Square through a soft filter with a breath of Noise, Monophonic with Glide, and vibrato that fades in.',
     phrase: 'leadLine',
+    transpose: 12,
     patch: {
-      square: false, saw: true, sub: true, subLevel: 40, cutoff: 3000, res: 30, env: 25, attack: 10, decay: 600, sustain: 80, release: 250,
-      oscLfo: 12, lfoRate: 5.5, lfoDelay: 600, chorus1: true, mono: true, glide: 120,
+      square: true, saw: false, pwm: 0, pwmMode: 'man', noise: 8, cutoff: 1100, res: 0, env: 10, kybd: 80,
+      attack: 90, decay: 600, sustain: 85, release: 220, oscLfo: 10, lfoRate: 5, lfoDelay: 450, mono: true, glide: 90, gain: -8,
     },
   },
 ];
-
-/** Every control of a patch, section by section, written the way the Soundtrap panel shows it. */
-export function describePatch(p: SoundtrapPatch): { section: string; items: string[] }[] {
-  const f = (k: SliderKey) => `${SLIDERS[k].label} ${formatValue(SLIDERS[k], p[k])}`;
-  const onOff = (b: boolean) => (b ? 'on' : 'off');
-  return [
-    {
-      section: 'LFO',
-      items: [
-        p.lfoWave === 'sine' ? 'SIN' : p.lfoWave === 'sawtooth' ? 'SAW' : 'TRI',
-        p.lfoSync ? `Sync on, Rate ${SYNC_DIVS[p.lfoSyncDiv]?.label}` : `Sync off, ${f('lfoRate')}`,
-        f('lfoDelay'),
-      ],
-    },
-    {
-      section: 'Oscillators',
-      items: [
-        `Square ${onOff(p.square)}`,
-        `Saw ${onOff(p.saw)}`,
-        p.sub ? `Sub-Osc on, ${formatValue(SLIDERS.subLevel, p.subLevel)}` : 'Sub-Osc off',
-        `PWM ${formatValue(SLIDERS.pwm, p.pwm)} (${p.pwmMode === 'lfo' ? 'LFO' : 'MAN'})`,
-        f('oscLfo'),
-        f('noise'),
-      ],
-    },
-    { section: 'HPF', items: [p.hpf <= 20 ? 'Freq all the way down' : f('hpf')] },
-    {
-      section: 'Filter',
-      items: [f('cutoff'), f('res'), `Env ${formatValue(SLIDERS.env, p.env)} (${p.envPolarity === 'inv' ? 'INV' : 'REG'})`, f('filterLfo'), f('kybd')],
-    },
-    { section: 'Amp', items: [p.ampMode === 'env' ? 'ENV' : 'BYPASS', f('gain')] },
-    { section: 'Envelope', items: [f('attack'), f('decay'), f('sustain'), f('release')] },
-    { section: 'Chorus', items: [p.chorus1 && p.chorus2 ? 'I and II' : p.chorus1 ? 'I' : p.chorus2 ? 'II' : 'off'] },
-    { section: 'Glide', items: [p.mono ? `Monophonic on, ${f('glide')}` : 'Monophonic off'] },
-  ];
-}
 
 // ---------- Progress (kept like Learn's: this visit, autosave and the submission code) ----------
 
