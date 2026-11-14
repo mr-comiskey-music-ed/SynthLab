@@ -41,13 +41,13 @@ export const AssignmentLinkBuilder: React.FC<AssignmentLinkBuilderProps> = ({ on
     setCopied('idle');
   };
 
-  // A separate, fixed link to the optional Soundtrap Synth Guide (not graded, no tasks).
-  const guideLink = `${window.location.origin}${window.location.pathname}?guide=soundtrap`;
-  const [guideCopied, setGuideCopied] = useState(false);
-  const handleCopyGuide = async () => {
-    if (await copyText(guideLink)) {
-      setGuideCopied(true);
-      setTimeout(() => setGuideCopied(false), 2500);
+  // Separate, fixed links to the optional synth guides (not graded, no tasks).
+  const guideLink = (id: string) => `${window.location.origin}${window.location.pathname}?guide=${id}`;
+  const [guideCopied, setGuideCopied] = useState<string | null>(null);
+  const handleCopyGuide = async (id: string) => {
+    if (await copyText(guideLink(id))) {
+      setGuideCopied(id);
+      setTimeout(() => setGuideCopied((c) => (c === id ? null : c)), 2500);
     }
   };
 
@@ -122,29 +122,39 @@ export const AssignmentLinkBuilder: React.FC<AssignmentLinkBuilderProps> = ({ on
             );
           })}
 
-          <div className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 space-y-1.5">
-            <span className="block font-bold text-sky-300">Soundtrap Synth Guide link (optional, not graded)</span>
-            <p className="text-[11px] text-slate-400">
-              Opens straight to the guide that maps SynthLab to Soundtrap’s synth. Post it when your class starts making sounds in
-              Soundtrap. Students who finish steps see them on their Grade Report.
-            </p>
-            <div className="flex flex-col sm:flex-row gap-2">
-              <input
-                readOnly
-                value={guideLink}
-                onFocus={(e) => e.target.select()}
-                className="flex-1 min-w-0 px-2 py-1 rounded bg-black/70 text-sky-200 text-[11px] border border-sky-500/30"
-              />
-              <button
-                type="button"
-                onClick={handleCopyGuide}
-                className="px-3 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 font-bold flex items-center justify-center gap-1"
-              >
-                {guideCopied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                {guideCopied ? 'Copied!' : 'Copy'}
-              </button>
+          {[
+            {
+              id: 'soundtrap',
+              title: 'Soundtrap Synth Guide link (optional, not graded)',
+              blurb: 'Opens straight to the guide that maps SynthLab to Soundtrap’s synth. Post it when your class starts making sounds in Soundtrap.',
+            },
+            {
+              id: 'retro',
+              title: 'Retro Synth Guide link (optional, not graded)',
+              blurb: 'Opens straight to the guide that maps SynthLab to Logic Pro’s Retro Synth. Post it when your class starts making sounds in Logic.',
+            },
+          ].map((g) => (
+            <div key={g.id} className="rounded-xl border border-sky-500/30 bg-sky-500/5 p-3 space-y-1.5">
+              <span className="block font-bold text-sky-300">{g.title}</span>
+              <p className="text-[11px] text-slate-400">{g.blurb} Students who finish steps see them on their Grade Report.</p>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  readOnly
+                  value={guideLink(g.id)}
+                  onFocus={(e) => e.target.select()}
+                  className="flex-1 min-w-0 px-2 py-1 rounded bg-black/70 text-sky-200 text-[11px] border border-sky-500/30"
+                />
+                <button
+                  type="button"
+                  onClick={() => handleCopyGuide(g.id)}
+                  className="px-3 py-1 rounded bg-sky-500/20 hover:bg-sky-500/30 border border-sky-400/40 text-sky-200 font-bold flex items-center justify-center gap-1"
+                >
+                  {guideCopied === g.id ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+                  {guideCopied === g.id ? 'Copied!' : 'Copy'}
+                </button>
+              </div>
             </div>
-          </div>
+          ))}
         </div>
 
         <div className="pt-4 mt-4 border-t border-white/10 space-y-2 text-xs">

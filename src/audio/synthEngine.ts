@@ -47,9 +47,51 @@ const clampHz = (hz: number) => Math.max(20, Math.min(20000, hz));
 
 type Osc = Tone.Oscillator | Tone.PulseOscillator;
 
+/** LFO shapes the guide synths offer (Retro Synth adds a falling ramp and random steps). */
+export type LfoShape = 'sine' | 'triangle' | 'square' | 'rampUp' | 'rampDown' | 'random';
+
 /**
- * Extra hardware that only the Soundtrap guide's panel uses (a Juno-106 style synth). Everything here is
- * off unless that panel turns it on, so the rest of the app sounds exactly as before.
+ * An LFO with every guide shape. Random is sample-and-hold: a new random level on every cycle.
+ * Output swings -1 to 1.
+ */
+class ModLfo {
+  readonly output = new Tone.Gain(1);
+  private lfo = new Tone.LFO({ frequency: 1, type: 'sine', min: -1, max: 1 }).start();
+  private hold = new Tone.Signal(0);
+  private clock: Tone.Clock;
+  private shape: LfoShape = 'sine';
+  constructor() {
+    this.lfo.connect(this.output);
+    this.clock = new Tone.Clock((time) => this.hold.setValueAtTime(Math.random() * 2 - 1, time), 1);
+  }
+  set(rate: number, shape: LfoShape) {
+    const hz = Math.max(0.05, rate);
+    this.lfo.frequency.rampTo(hz, 0.05);
+    this.clock.frequency.rampTo(hz, 0.05);
+    if (shape === this.shape) return;
+    if (shape === 'random') {
+      this.lfo.disconnect(this.output);
+      this.hold.connect(this.output);
+      this.clock.start();
+    } else {
+      if (this.shape === 'random') {
+        this.clock.stop();
+        this.hold.disconnect(this.output);
+        this.lfo.connect(this.output);
+      }
+      this.lfo.type = shape === 'rampUp' || shape === 'rampDown' ? 'sawtooth' : shape;
+      // A falling ramp is a rising one upside down.
+      this.lfo.min = shape === 'rampDown' ? 1 : -1;
+      this.lfo.max = shape === 'rampDown' ? -1 : 1;
+    }
+    this.shape = shape;
+  }
+}
+
+/**
+ * Extra hardware that only the guide synths' panels use (Soundtrap's Juno-106 style synth, Logic's
+ * Retro Synth). Everything here is off unless a guide panel turns it on, so the rest of the app sounds
+ * exactly as before.
  */
 export interface EngineExtras {
   /** Separate LFO amounts (0-1) for pitch, cutoff and pulse width, all at once. Replaces lfoDepth + lfoDestination. */
@@ -62,6 +104,19 @@ export interface EngineExtras {
   subLevel?: number;
   /** Juno-style chorus: 0 off, 1 = I, 2 = II, 3 = I + II. */
   chorus?: 0 | 1 | 2 | 3;
+  /**
+   * Retro Synth: two separate LFOs. `main` drives cutoff and pulse width, `vibrato` drives pitch.
+   * When set, they replace the app's own LFO (amounts still come from lfoAmounts).
+   */
+  modLfos?: { main: { rate: number; shape: LfoShape }; vibrato: { rate: number; shape: LfoShape } };
+  /** Retro Synth Shape Modulation toward Filter Env: how far (0-1) the filter envelope moves the pulse width. */
+  pwmEnv?: number;
+  /** Retro Synth Sine Level (0-1): a sine at the oscillator's pitch, added after the filter. */
+  sineLevel?: number;
+  /** Retro Synth filter type (default low-pass). */
+  filterType?: 'lowpass' | 'highpass';
+  /** Retro Synth Effect: Chorus or Flanger with its own Mix (0-1) and Rate (Hz). */
+  effect?: { type: 'chorus' | 'flanger'; mix: number; rate: number };
 }
 
 const CHORUS_MODES: Record<1 | 2 | 3, { frequency: number; depth: number; delayTime: number }> = {
@@ -80,6 +135,12 @@ class Voice {
   subRunning = false;
   /** Soundtrap guide only: high-pass filter (sits at 10 Hz, inaudible, unless the guide moves it). */
   hpf: Tone.Filter;
+  /** Retro Synth only: a sine at VCO 1's pitch, mixed in after the filter (Sine Level). */
+  sine: Tone.Oscillator;
+  sineGain: Tone.Gain;
+  sineRunning = false;
+  /** Retro Synth only: the filter envelope moving the pulse width (Shape Modulation toward Filter Env). */
+  pwmEnvGain: Tone.Gain;
   /** Per-note fade for the pitch and pulse-width LFO (instant unless an LFO delay is set). */
   lfoPitchFade: Tone.Gain;
   lfoPwmFade: Tone.Gain;
@@ -126,6 +187,11 @@ class Voice {
     engine.lfoPitchGain.connect(this.lfoPitchFade);
     engine.lfoPwmGain.connect(this.lfoPwmFade);
     this.lfoPitchFade.connect(this.sub.detune);
+    this.sine = new Tone.Oscillator({ frequency: this.freq, type: 'sine' });
+    this.sineGain = new Tone.Gain(0);
+    this.sine.connect(this.sineGain);
+    this.lfoPitchFade.connect(this.sine.detune);
+    this.pwmEnvGain = new Tone.Gain(0);
     this.sub.connect(this.subGain);
     this.subGain.connect(this.filter);
 
@@ -134,6 +200,7 @@ class Voice {
     this.noiseGain.connect(this.filter);
     noise.connect(this.noiseGain);
     this.filterEnv.connect(this.filterEnvGain);
+    this.filterEnv.connect(this.pwmEnvGain);
     this.filterEnvGain.connect(this.filter.frequency);
     engine.lfoCutoffGain.connect(this.lfoFade);
     this.lfoFade.connect(this.filter.frequency);
@@ -141,6 +208,7 @@ class Voice {
     this.lfoDetuneFade.connect(this.filter.detune);
     this.filter.connect(this.resComp);
     this.resComp.connect(this.hpf);
+    this.sineGain.connect(this.hpf);
     this.hpf.connect(this.ampEnv);
     this.ampEnv.connect(out);
 
@@ -153,6 +221,7 @@ class Voice {
     if (wave === 'square') {
       const o = new Tone.PulseOscillator({ frequency: this.freq, width: dutyToToneWidth(duty) });
       this.lfoPwmFade.connect(o.width);
+      this.pwmEnvGain.connect(o.width);
       return o;
     }
     return new Tone.Oscillator({ frequency: this.freq, type: wave });
@@ -222,6 +291,15 @@ class Voice {
       this.subRunning = true;
     }
     this.hpf.frequency.rampTo(Math.max(10, Math.min(20000, x.hpfCutoff ?? 10)), 0.05);
+    const sine = Math.max(0, Math.min(1, x.sineLevel ?? 0));
+    this.sineGain.gain.rampTo(sine, 0.02);
+    if (sine > 0 && this.running && !this.sineRunning) {
+      this.sine.start();
+      this.sineRunning = true;
+    }
+    this.pwmEnvGain.gain.rampTo(Math.max(-1, Math.min(1, x.pwmEnv ?? 0)) * LFO_PWM_SWING, 0.05);
+    const type = x.filterType ?? 'lowpass';
+    if (this.filter.type !== type) this.filter.type = type;
   }
 
   /**
@@ -238,11 +316,13 @@ class Voice {
       if (this.osc1) this.osc1.frequency.value = f1;
       if (this.osc2) this.osc2.frequency.value = f2;
       this.sub.frequency.value = f1 / 2;
+      this.sine.frequency.value = f1;
       this.filter.frequency.value = cutoff;
     } else {
       this.osc1?.frequency.exponentialRampTo(f1, ramp);
       this.osc2?.frequency.exponentialRampTo(f2, ramp);
       this.sub.frequency.exponentialRampTo(f1 / 2, ramp);
+      this.sine.frequency.exponentialRampTo(f1, ramp);
       this.filter.frequency.exponentialRampTo(cutoff, ramp);
     }
   }
@@ -265,6 +345,10 @@ class Voice {
     if (!this.subRunning && (this.engine.getExtras().subLevel ?? 0) > 0) {
       this.sub.start();
       this.subRunning = true;
+    }
+    if (!this.sineRunning && (this.engine.getExtras().sineLevel ?? 0) > 0) {
+      this.sine.start();
+      this.sineRunning = true;
     }
     const now = Tone.now();
     // Dial the LFO in over a few tens of ms rather than letting it hit mid-wave
@@ -312,6 +396,10 @@ class Voice {
         this.sub.stop();
         this.subRunning = false;
       }
+      if (this.sineRunning) {
+        this.sine.stop();
+        this.sineRunning = false;
+      }
       this.running = false;
       this.note = null;
     }, (fade * 1.2 + 0.3) * 1000);
@@ -347,6 +435,9 @@ export class SubtractiveEngine {
   private extras: EngineExtras = {};
   private chorus: Tone.Chorus | null = null;
   private chorusOn = false;
+  /** Retro Synth's two LFOs, made the first time that guide opens. */
+  private modLfos: { main: ModLfo; vibrato: ModLfo } | null = null;
+  private modLfosOn = false;
 
   // State
   private currentParams: SynthParams;
@@ -498,18 +589,29 @@ export class SubtractiveEngine {
   public setExtras(extras: EngineExtras = {}) {
     this.extras = { ...extras };
     for (const v of this.voices) v.updateExtras(this.extras);
+    this.applyModLfos();
     this.applyLfoRouting();
 
     const mode = this.extras.chorus ?? 0;
-    if (mode) {
+    const fx = this.extras.effect;
+    // Juno chorus modes, or Retro Synth's Chorus / Flanger (a flanger is a very short, fed-back chorus).
+    const c = mode
+      ? { ...CHORUS_MODES[mode], feedback: 0, wet: 0.5 }
+      : fx && fx.mix > 0
+      ? fx.type === 'flanger'
+        ? { frequency: fx.rate, depth: 0.9, delayTime: 1.5, feedback: 0.6, wet: fx.mix }
+        : { frequency: fx.rate, depth: 0.6, delayTime: 3.5, feedback: 0, wet: fx.mix }
+      : null;
+    if (c) {
       if (!this.chorus) {
         this.chorus = new Tone.Chorus({ frequency: 0.5, delayTime: 3.5, depth: 0.5, spread: 180, wet: 0.5 }).start();
         this.chorus.connect(this.masterGain);
       }
-      const c = CHORUS_MODES[mode];
       this.chorus.frequency.rampTo(c.frequency, 0.05);
       this.chorus.depth = c.depth;
       this.chorus.delayTime = c.delayTime;
+      this.chorus.feedback.rampTo(c.feedback, 0.05);
+      this.chorus.wet.rampTo(c.wet, 0.05);
       if (!this.chorusOn) {
         this.voiceBus.disconnect(this.masterGain);
         this.voiceBus.connect(this.chorus);
@@ -519,6 +621,30 @@ export class SubtractiveEngine {
       this.voiceBus.disconnect(this.chorus);
       this.voiceBus.connect(this.masterGain);
       this.chorusOn = false;
+    }
+  }
+
+  /** Swap the app's LFO for Retro Synth's two (and back), keeping the same depth sends. */
+  private applyModLfos() {
+    const want = this.extras.modLfos;
+    if (want && !this.modLfos) this.modLfos = { main: new ModLfo(), vibrato: new ModLfo() };
+    const m = this.modLfos;
+    if (want && m) {
+      m.main.set(want.main.rate, want.main.shape);
+      m.vibrato.set(want.vibrato.rate, want.vibrato.shape);
+      if (!this.modLfosOn) {
+        for (const g of [this.lfoPitchGain, this.lfoCutoffGain, this.lfoCutoffCentsGain, this.lfoPwmGain]) this.lfo.disconnect(g);
+        m.vibrato.output.connect(this.lfoPitchGain);
+        m.main.output.connect(this.lfoCutoffCentsGain);
+        m.main.output.connect(this.lfoPwmGain);
+        this.modLfosOn = true;
+      }
+    } else if (this.modLfosOn && m) {
+      m.vibrato.output.disconnect(this.lfoPitchGain);
+      m.main.output.disconnect(this.lfoCutoffCentsGain);
+      m.main.output.disconnect(this.lfoPwmGain);
+      for (const g of [this.lfoPitchGain, this.lfoCutoffGain, this.lfoCutoffCentsGain, this.lfoPwmGain]) this.lfo.connect(g);
+      this.modLfosOn = false;
     }
   }
 

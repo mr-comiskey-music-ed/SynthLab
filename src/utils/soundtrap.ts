@@ -1,7 +1,9 @@
-import { SynthParams, PhraseId } from '../types';
+import { SynthParams } from '../types';
 import { DEFAULT_SYNTH_PARAMS } from './presets';
 import { EngineExtras } from '../audio/synthEngine';
-import { PhraseNote } from './playback';
+import { SYNC_DIVS, divHz, GuideStep, GuideStartingPoint, NameRow, one, run, makeGuideProgress } from './guides';
+
+export { SYNC_DIVS, GUIDE_BPM } from './guides';
 
 /**
  * The Soundtrap synth (built like a Roland Juno-106), for the optional Soundtrap Synth Guide.
@@ -50,22 +52,6 @@ export interface SoundtrapPatch {
   glide: number; // ms
 }
 
-/** Tempo-synced LFO rates, slowest to fastest. In Soundtrap they follow the song's tempo; here, 120 BPM. */
-export const SYNC_DIVS: { label: string; beats: number }[] = [
-  { label: '1/1', beats: 4 },
-  { label: '1/2', beats: 2 },
-  { label: '1/4.', beats: 1.5 },
-  { label: '1/4', beats: 1 },
-  { label: '1/8.', beats: 0.75 },
-  { label: '1/4T', beats: 2 / 3 },
-  { label: '1/8', beats: 0.5 },
-  { label: '1/8T', beats: 1 / 3 },
-  { label: '1/16', beats: 0.25 },
-  { label: '1/16T', beats: 1 / 6 },
-  { label: '1/32', beats: 0.125 },
-];
-export const GUIDE_BPM = 120;
-const divHz = (i: number) => 1 / ((SYNC_DIVS[Math.max(0, Math.min(SYNC_DIVS.length - 1, Math.round(i)))].beats * 60) / GUIDE_BPM);
 
 export type SliderKey =
   | 'lfoRate'
@@ -256,41 +242,22 @@ export type StSection = 'lfo' | 'osc' | 'hpf' | 'filter' | 'amp' | 'env' | 'chor
 /** Parts of the Soundtrap signal-path diagram. */
 export type StFlow = 'osc' | 'hpf' | 'filter' | 'amp' | 'chorus' | 'env' | 'lfo';
 
-export interface StMission {
-  text: string;
-  check: (p: SoundtrapPatch) => boolean;
-}
-
-export interface StStep {
-  title: string;
-  short: string;
-  sections: StSection[];
-  flow: StFlow[];
-  what: string;
-  listen: string;
-  start: Partial<SoundtrapPatch>;
-  phrase: PhraseNote[];
-  missions: StMission[];
-  extra?: 'names';
-}
-
-const one = (note: string, dur: number, at = 0): PhraseNote => ({ note, at, dur });
-const run = (notes: string[], step: number, dur: number): PhraseNote[] => notes.map((n, i) => one(n, dur, i * step));
+export type StStep = GuideStep<SoundtrapPatch> & { sections: StSection[]; flow: StFlow[] };
 
 /** SynthLab name → Soundtrap name, for step 1. */
-export const NAME_MAP: { synthlab: string; soundtrap: string; note?: string }[] = [
-  { synthlab: 'VCO 1 + VCO 2, Waveform', soundtrap: 'OSCILLATORS: wave buttons', note: 'one oscillator, waves switched on together' },
-  { synthlab: 'Noise', soundtrap: 'OSCILLATORS: Noise' },
-  { synthlab: 'Pulse Width', soundtrap: 'OSCILLATORS: PWM', note: 'with an LFO / MAN switch' },
-  { synthlab: 'Cutoff', soundtrap: 'FILTER: Freq' },
-  { synthlab: 'Resonance', soundtrap: 'FILTER: Res' },
-  { synthlab: 'EG Amount', soundtrap: 'FILTER: Env', note: 'with a REG / INV switch' },
-  { synthlab: 'Amp EG + Filter EG', soundtrap: 'ENVELOPE: A D S R', note: 'one envelope for both' },
-  { synthlab: 'LFO Rate, Waveform', soundtrap: 'LFO: Rate, SIN / SAW / TRI' },
-  { synthlab: 'LFO Depth + Target', soundtrap: 'an LFO slider in each section it moves' },
-  { synthlab: 'Master volume', soundtrap: 'AMP: Gain' },
-  { synthlab: 'Mono + Glide', soundtrap: 'GLIDE: Monophonic + Glide' },
-  { synthlab: '(new)', soundtrap: 'HPF, Kybd, LFO Delay Time, Chorus' },
+export const NAME_MAP: NameRow[] = [
+  { synthlab: 'VCO 1 + VCO 2, Waveform', theirs: 'OSCILLATORS: wave buttons', note: 'one oscillator, waves switched on together' },
+  { synthlab: 'Noise', theirs: 'OSCILLATORS: Noise' },
+  { synthlab: 'Pulse Width', theirs: 'OSCILLATORS: PWM', note: 'with an LFO / MAN switch' },
+  { synthlab: 'Cutoff', theirs: 'FILTER: Freq' },
+  { synthlab: 'Resonance', theirs: 'FILTER: Res' },
+  { synthlab: 'EG Amount', theirs: 'FILTER: Env', note: 'with a REG / INV switch' },
+  { synthlab: 'Amp EG + Filter EG', theirs: 'ENVELOPE: A D S R', note: 'one envelope for both' },
+  { synthlab: 'LFO Rate, Waveform', theirs: 'LFO: Rate, SIN / SAW / TRI' },
+  { synthlab: 'LFO Depth + Target', theirs: 'an LFO slider in each section it moves' },
+  { synthlab: 'Master volume', theirs: 'AMP: Gain' },
+  { synthlab: 'Mono + Glide', theirs: 'GLIDE: Monophonic + Glide' },
+  { synthlab: '(new)', theirs: 'HPF, Kybd, LFO Delay Time, Chorus' },
 ];
 
 export const ST_STEPS: StStep[] = [
@@ -423,16 +390,7 @@ export const ST_STEPS: StStep[] = [
 
 // ---------- Settings to try ----------
 
-export interface StartingPoint {
-  name: string;
-  what: string;
-  phrase: PhraseId;
-  /** Semitones to move the phrase (so it sits where the sound works best). */
-  transpose?: number;
-  patch: Partial<SoundtrapPatch>;
-}
-
-export const STARTING_POINTS: StartingPoint[] = [
+export const STARTING_POINTS: GuideStartingPoint<SoundtrapPatch>[] = [
   {
     name: 'Round Bass',
     what: 'Saw plus Sub-Osc through a low filter, with a quick envelope plucking the cutoff.',
@@ -475,46 +433,9 @@ export const STARTING_POINTS: StartingPoint[] = [
 
 // ---------- Progress (kept like Learn's: this visit, autosave and the submission code) ----------
 
-export const soundtrapProgress = {
-  step: 0,
-  started: false,
-  done: ST_STEPS.map(() => 0),
-  finished: false,
-};
-
-export function soundtrapSummary(): { done: number; total: number } {
-  return {
-    done: ST_STEPS.filter((s, i) => (soundtrapProgress.done[i] ?? 0) >= s.missions.length).length,
-    total: ST_STEPS.length,
-  };
-}
-
-/** From a code: the first `steps` steps are finished. Never takes progress away. */
-export function restoreSoundtrapSteps(steps: number): void {
-  const n = Math.max(0, Math.min(ST_STEPS.length, Math.round(steps)));
-  if (!n) return;
-  ST_STEPS.forEach((s, i) => {
-    if (i < n) soundtrapProgress.done[i] = Math.max(soundtrapProgress.done[i] ?? 0, s.missions.length);
-  });
-  soundtrapProgress.step = Math.max(soundtrapProgress.step, Math.min(n, ST_STEPS.length - 1));
-}
-
-export function soundtrapDoneSnapshot(): number[] {
-  return [...soundtrapProgress.done];
-}
-
-/** From autosave: exact mission counts per step. Never takes progress away. */
-export function restoreSoundtrapDone(done: number[] | undefined): void {
-  if (!Array.isArray(done)) return;
-  let any = false;
-  ST_STEPS.forEach((s, i) => {
-    const n = Math.max(0, Math.min(s.missions.length, Math.round(Number(done[i]) || 0)));
-    if (n > 0) {
-      soundtrapProgress.done[i] = Math.max(soundtrapProgress.done[i] ?? 0, n);
-      any = true;
-    }
-  });
-  if (!any) return;
-  const firstOpen = ST_STEPS.findIndex((s, i) => (soundtrapProgress.done[i] ?? 0) < s.missions.length);
-  soundtrapProgress.step = Math.max(soundtrapProgress.step, firstOpen === -1 ? ST_STEPS.length - 1 : firstOpen);
-}
+const tracker = makeGuideProgress(ST_STEPS);
+export const soundtrapProgress = tracker.progress;
+export const soundtrapSummary = tracker.summary;
+export const restoreSoundtrapSteps = tracker.restoreSteps;
+export const soundtrapDoneSnapshot = tracker.snapshot;
+export const restoreSoundtrapDone = tracker.restoreDone;

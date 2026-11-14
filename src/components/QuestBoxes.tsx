@@ -47,6 +47,8 @@ interface QuestBoxesProps {
   learn?: StudentSubmission['learn'];
   /** Optional Soundtrap Synth Guide progress; shown only once the student has finished a step. */
   soundtrap?: StudentSubmission['soundtrap'];
+  /** Optional Retro Synth Guide progress; shown only once the student has finished a step. */
+  retro?: StudentSubmission['retro'];
   onPlay?: (taskId: string, params: SynthParams, phrase?: PhraseId) => void;
   onLoad?: (params: SynthParams) => void;
 }
@@ -88,7 +90,7 @@ const Row: React.FC<{ title: string; value: React.ReactNode; done: boolean; mute
  * The grade report, one box per part of the app in the order students meet them:
  * Learn, then the five challenges. Used for a student's own report and for a teacher checking a code.
  */
-export const QuestBoxes: React.FC<QuestBoxesProps> = ({ completedTasks, assignedTasks, briefs, learn, soundtrap, onPlay, onLoad }) => {
+export const QuestBoxes: React.FC<QuestBoxesProps> = ({ completedTasks, assignedTasks, briefs, learn, soundtrap, retro, onPlay, onLoad }) => {
   const graded = new Set(gradedTaskIds(assignedTasks));
   const byId = new Map<string, StudentSubmission['completedTasks'][number]>(completedTasks.map((t) => [t.taskId, t]));
   const grades = gradesFor(completedTasks, assignedTasks);
@@ -135,17 +137,25 @@ export const QuestBoxes: React.FC<QuestBoxesProps> = ({ completedTasks, assigned
     <div className="space-y-2.5">
       {learnBox}
 
-      {soundtrap && soundtrap.done > 0 && (
-        <Shell
-          tone={{ box: 'border-sky-500/35 bg-sky-950/20', head: 'border-sky-500/25', label: 'text-sky-300' }}
-          kicker="Extra · not graded"
-          title="Soundtrap Synth Guide"
-          summary={
-            <span className={`font-bold ${soundtrap.done >= soundtrap.total ? 'text-emerald-400' : 'text-sky-300'}`}>
-              {soundtrap.done >= soundtrap.total ? 'Completed' : 'Started'} · {soundtrap.done}/{soundtrap.total} steps
-            </span>
-          }
-        />
+      {(
+        [
+          ['Soundtrap Synth Guide', soundtrap],
+          ['Retro Synth Guide', retro],
+        ] as const
+      ).map(([title, g]) =>
+        g && g.done > 0 ? (
+          <Shell
+            key={title}
+            tone={{ box: 'border-sky-500/35 bg-sky-950/20', head: 'border-sky-500/25', label: 'text-sky-300' }}
+            kicker="Extra · not graded"
+            title={title}
+            summary={
+              <span className={`font-bold ${g.done >= g.total ? 'text-emerald-400' : 'text-sky-300'}`}>
+                {g.done >= g.total ? 'Completed' : 'Started'} · {g.done}/{g.total} steps
+              </span>
+            }
+          />
+        ) : null
       )}
 
       {QUESTS.map((q) => {

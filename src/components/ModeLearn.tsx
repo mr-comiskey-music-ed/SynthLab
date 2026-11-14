@@ -16,8 +16,8 @@ interface ModeLearnProps {
   /** Glow a panel on the synth ('vco', 'filter', 'envelope', 'lfo'), or null for none. */
   onHighlight: (section: string | null) => void;
   onGoToChallenges: () => void;
-  /** Opens the optional Soundtrap Synth Guide (offered only once Learn is finished). */
-  onOpenSoundtrap?: () => void;
+  /** Opens one of the optional synth guides (offered only once Learn is finished). */
+  onOpenGuide?: (guide: 'soundtrap' | 'retro') => void;
 }
 
 // Progress lives for this visit only (nothing is stored), and survives switching tabs.
@@ -117,7 +117,7 @@ const WAVES = [
   { type: 'sine', name: 'Sine', desc: 'none: pure, round' },
 ];
 
-export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onLoadParams, onHighlight, onGoToChallenges, onOpenSoundtrap }) => {
+export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onLoadParams, onHighlight, onGoToChallenges, onOpenGuide }) => {
   const [stepIdx, setStepIdx] = useState(progress.step);
   const [done, setDone] = useState<number[]>(progress.done);
   const [finished, setFinished] = useState(progress.finished);
@@ -217,20 +217,29 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
             </button>
           </div>
         </div>
-        {onOpenSoundtrap && (
-          // An extra for later, kept small so the Challenges stay the clear next step.
+        {onOpenGuide && (
+          // Extras for later, kept small so the Challenges stay the clear next step.
           <div className="mt-4 pt-3 border-t border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs text-slate-400">
             <span>
-              <b className="text-slate-300">For later:</b> when you start making sounds in Soundtrap, the Soundtrap Synth Guide shows where
-              everything you just learned lives on Soundtrap’s synth.
+              <b className="text-slate-300">For later:</b> when you start making sounds in Soundtrap or Logic, these guides show where
+              everything you just learned lives on their synths.
             </span>
-            <button
-              type="button"
-              onClick={onOpenSoundtrap}
-              className="shrink-0 px-2.5 py-1 rounded border border-sky-400/40 text-sky-200 hover:bg-sky-500/10 flex items-center gap-1"
-            >
-              <Compass className="w-3.5 h-3.5" /> Soundtrap Synth Guide
-            </button>
+            <span className="flex gap-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => onOpenGuide('soundtrap')}
+                className="px-2.5 py-1 rounded border border-sky-400/40 text-sky-200 hover:bg-sky-500/10 flex items-center gap-1"
+              >
+                <Compass className="w-3.5 h-3.5" /> Soundtrap Synth Guide
+              </button>
+              <button
+                type="button"
+                onClick={() => onOpenGuide('retro')}
+                className="px-2.5 py-1 rounded border border-sky-400/40 text-sky-200 hover:bg-sky-500/10 flex items-center gap-1"
+              >
+                <Compass className="w-3.5 h-3.5" /> Retro Synth Guide
+              </button>
+            </span>
           </div>
         )}
       </div>
@@ -390,15 +399,25 @@ export const ModeLearn: React.FC<ModeLearnProps> = ({ engine, theme, params, onL
             </button>
           );
         })}
-        {allDone && onOpenSoundtrap && (
-          <button
-            type="button"
-            onClick={onOpenSoundtrap}
-            title="Optional extra for later: Soundtrap's synth, explained with what you learned here"
-            className="ml-auto px-1.5 py-0.5 rounded text-[10px] font-mono leading-4 border border-sky-400/30 text-sky-200/80 hover:bg-sky-500/10 flex items-center gap-1"
-          >
-            <Compass className="w-3 h-3" /> Extra: Soundtrap guide
-          </button>
+        {allDone && onOpenGuide && (
+          <span className="ml-auto flex gap-1">
+            {(
+              [
+                ['soundtrap', 'Soundtrap', "Soundtrap's synth"],
+                ['retro', 'Retro Synth', "Logic's Retro Synth"],
+              ] as const
+            ).map(([id, short, long]) => (
+              <button
+                key={id}
+                type="button"
+                onClick={() => onOpenGuide(id)}
+                title={`Optional extra for later: ${long}, explained with what you learned here`}
+                className="px-1.5 py-0.5 rounded text-[10px] font-mono leading-4 border border-sky-400/30 text-sky-200/80 hover:bg-sky-500/10 flex items-center gap-1"
+              >
+                <Compass className="w-3 h-3" /> Extra: {short}
+              </button>
+            ))}
+          </span>
         )}
       </div>
 

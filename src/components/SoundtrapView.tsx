@@ -1,4 +1,5 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
+import { ShrinkToFit } from './ShrinkToFit';
 import {
   SoundtrapPatch,
   SLIDERS,
@@ -296,7 +297,7 @@ interface SoundtrapViewProps {
   patch: SoundtrapPatch;
   onChange: (next: Partial<SoundtrapPatch>) => void;
   /** Sections to glow (the guide step's topic). */
-  highlight?: StSection[];
+  highlight?: string[];
   /** A small, read-only copy on one row (for the Settings to try). */
   mini?: boolean;
 }
@@ -465,28 +466,8 @@ export const SoundtrapView: React.FC<SoundtrapViewProps> = ({ patch, onChange, h
 };
 
 /** A Soundtrap panel shrunk to fit its box: one row, read-only, with every setting showing. */
-export const MiniSoundtrapPanel: React.FC<{ patch: SoundtrapPatch }> = ({ patch }) => {
-  const outer = useRef<HTMLDivElement | null>(null);
-  const inner = useRef<HTMLDivElement | null>(null);
-  const [fit, setFit] = useState({ scale: 0.5, h: 0 });
-  useLayoutEffect(() => {
-    const o = outer.current;
-    const i = inner.current;
-    if (!o || !i) return;
-    const measure = () => {
-      const scale = Math.min(1, o.clientWidth / Math.max(1, i.offsetWidth));
-      setFit({ scale, h: i.offsetHeight * scale });
-    };
-    measure();
-    const ro = new ResizeObserver(measure);
-    ro.observe(o);
-    return () => ro.disconnect();
-  }, []);
-  return (
-    <div ref={outer} className="w-full overflow-hidden" style={{ height: fit.h || undefined }}>
-      <div ref={inner} className="w-max origin-top-left" style={{ transform: `scale(${fit.scale})` }}>
-        <SoundtrapView patch={patch} onChange={() => {}} mini />
-      </div>
-    </div>
-  );
-};
+export const MiniSoundtrapPanel: React.FC<{ patch: SoundtrapPatch }> = ({ patch }) => (
+  <ShrinkToFit>
+    <SoundtrapView patch={patch} onChange={() => {}} mini />
+  </ShrinkToFit>
+);

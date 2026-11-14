@@ -71,8 +71,11 @@ export interface SynthParams {
 
 export type ThemeMode = 'studio-retro' | 'hardware-bench';
 
-/** 'soundtrap' is the optional Soundtrap Synth Guide (reached from Learn or a ?guide=soundtrap link). */
-export type AppMode = 'learn' | 'playground' | 'challenges' | 'teacher' | 'soundtrap';
+/**
+ * 'soundtrap' and 'retro' are the optional synth guides (Soundtrap's synth, Logic's Retro Synth), reached from
+ * Learn or a ?guide=soundtrap / ?guide=retro link.
+ */
+export type AppMode = 'learn' | 'playground' | 'challenges' | 'teacher' | 'soundtrap' | 'retro';
 
 export type ArpDivision = '16n' | '8n' | '4n';
 export type ArpDirection = 'up' | 'down' | 'upDown' | 'random';
@@ -233,6 +236,8 @@ export interface StudentSubmission {
   learn?: { done: number; total: number };
   /** Optional Soundtrap Synth Guide steps finished (ungraded). Missing when the student never opened it. */
   soundtrap?: { done: number; total: number };
+  /** Optional Retro Synth Guide steps finished (ungraded). Missing when the student never opened it. */
+  retro?: { done: number; total: number };
   /** Name on the code this one was restored from, when it differs from the student's name now. */
   restoredFrom?: string;
 }

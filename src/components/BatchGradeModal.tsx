@@ -398,6 +398,14 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                                 Soundtrap {s.soundtrap.done}/{s.soundtrap.total}
                               </span>
                             )}
+                            {s.retro && s.retro.done > 0 && (
+                              <span
+                                className="text-[9px] font-bold text-sky-300 bg-sky-500/15 border border-sky-500/30 px-1 rounded shrink-0"
+                                title="Optional Retro Synth Guide: steps finished (not graded)"
+                              >
+                                Retro {s.retro.done}/{s.retro.total}
+                              </span>
+                            )}
                             {e.hasMultipleSubmissions && (
                               <span className="text-[9px] font-bold text-amber-300 bg-amber-500/15 border border-amber-500/30 px-1 rounded shrink-0" title="This student turned in more than one code">
                                 x2
@@ -442,6 +450,7 @@ export const BatchGradeModal: React.FC<BatchGradeModalProps> = ({
                               briefs={s.briefs}
                               learn={s.learn}
                               soundtrap={s.soundtrap}
+                              retro={s.retro}
                               onPlay={onPlayBrief}
                             />
                           </div>

@@ -14,7 +14,7 @@ themselves with sound.
 - The only thing kept in the browser is an autosave of the student's
   own work (localStorage key `synthlab:v1:autosave`,
   `src/utils/autosave.ts`): finished tasks, saved sounds, and Learn and
-  Soundtrap Guide progress, never the student's name. It is never sent anywhere. No
+  synth-guide progress, never the student's name. It is never sent anywhere. No
   cookies, no other storage. The submission code is still what students
   hand in. On load, a "Restore your last session?" prompt offers
   Restore or Start Fresh; autosave stays off until they answer.
@@ -30,7 +30,7 @@ themselves with sound.
 - Content lives in `src/utils/`: `learnSteps.ts`, `presets.ts`
   (Playground presets, Patch Master, Synth Doctor, Ear Training),
   `briefs.ts`, `myPresets.ts`, `adventures.ts`, `soundtrap.ts`
-  (Soundtrap Guide); `taskCatalog.ts` maps task IDs to challenges for
+  and `retroSynth.ts` (the synth guides, sharing `guides.ts`); `taskCatalog.ts` maps task IDs to challenges for
   grading.
 
 ## Structure
@@ -60,20 +60,29 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   answers are rebuilt from the saved score (100 = picked the right tone).
 - Learn has 9 steps with labeled step buttons. Once finished, it is
   freely navigable and ends with "Review steps" and "Go to Challenges".
-- Soundtrap Synth Guide: an optional, ungraded extra (app mode
-  `soundtrap`, `ModeSoundtrap.tsx`), deliberately kept out of the main
-  path. Reached from a small "For later" link on Learn's finish screen
-  (and a step-bar chip once Learn is done), or a `?guide=soundtrap` link
-  (copyable in the Assignment Link builder). 7 steps mapping SynthLab
-  ideas onto Soundtrap's Juno-106 style synth, with Learn-style missions
-  on a playable copy of its panel (`SoundtrapView.tsx`), then 5
-  "Settings to try" starting points. The Challenges stay the clear next
-  step. Its progress shows in the Grade Report (once a step is done),
-  batch grading and CSV, and travels in the code (`s`). The panel's
-  extra hardware (HPF, Sub-Osc, Chorus, LFO delay, per-section LFO
-  amounts) is `EngineExtras` in `synthEngine.ts`, off outside the guide;
-  leaving the guide restores the student's previous patch. A Logic Pro
-  Retro Synth guide is planned later.
+- Synth guides: optional, ungraded extras that map SynthLab onto the
+  DAW synths students use, deliberately kept out of the main path. One
+  shared screen (`ModeGuide.tsx`) runs each guide from a `GuideDef`
+  (`SoundtrapGuide.tsx`, `RetroGuide.tsx`). Reached from a small "For
+  later" line on Learn's finish screen (and step-bar chips once Learn is
+  done), or a `?guide=soundtrap` / `?guide=retro` link (copyable in the
+  Assignment Link builder). Each has 7 steps with Learn-style missions
+  on a playable copy of the synth's panel, then 5 "Settings to try"
+  shown as small read-only panels. The Challenges stay the clear next
+  step. Progress shows in the Grade Report (once a step is done), batch
+  grading and CSV, and travels in the code (`s`, `r`). The panels' extra
+  hardware is `EngineExtras` in `synthEngine.ts`, off outside the
+  guides; leaving a guide restores the student's previous patch.
+  - Soundtrap (app mode `soundtrap`, `SoundtrapView.tsx`): Juno-106
+    style; HPF, Sub-Osc, Chorus, LFO delay, per-section LFO amounts.
+  - Logic Retro Synth (app mode `retro`, `RetroView.tsx`): ANALOG
+    engine only. Shape 1 sweeps Noise, Saw, Square, then a narrowing
+    pulse; Shape 2 the same from Triangle. Two separate LFOs (LFO:
+    cutoff and Shape Modulation; VIBRATO: pitch), each with its own
+    wave, Rate, Sync and depth slider. Sine Level is added after the
+    filter (not a sub). LP 24dB / LP 12dB / HP 12dB, Flanger or Chorus.
+    Shows Logic's units (Cutoff, Res, Sustain as 0-1). Glide plays one
+    note at a time in this copy; Vel sliders are shown but inert.
 - Voices: Poly (chords) or Mono with Glide.
 - Sound Design briefs: 4 Music and 4 Sound FX requests, each with two
   click-to-reveal hint layers (broad, then specific).

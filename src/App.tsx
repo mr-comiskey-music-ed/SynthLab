@@ -28,18 +28,29 @@ import { ModeLearn } from './components/ModeLearn';
 import { ModePlayground } from './components/ModePlayground';
 import { ModeChallenges } from './components/ModeChallenges';
 import { ModeTeacher, SharedReport } from './components/ModeTeacher';
-import { ModeSoundtrap } from './components/ModeSoundtrap';
+import { ModeGuide } from './components/ModeGuide';
+import { SOUNDTRAP_GUIDE } from './components/SoundtrapGuide';
+import { RETRO_GUIDE } from './components/RetroGuide';
 import { SoundtrapView } from './components/SoundtrapView';
+import { RetroView } from './components/RetroView';
 import {
   SoundtrapPatch,
-  StSection,
   GUIDE_BASE,
-  toSynthParams,
-  toExtras,
+  toSynthParams as stToParams,
+  toExtras as stToExtras,
   restoreSoundtrapSteps,
   restoreSoundtrapDone,
   soundtrapDoneSnapshot,
 } from './utils/soundtrap';
+import {
+  RetroPatch,
+  RETRO_BASE,
+  toSynthParams as rsToParams,
+  toExtras as rsToExtras,
+  restoreRetroSteps,
+  restoreRetroDone,
+  retroDoneSnapshot,
+} from './utils/retroSynth';
 import { SynthLabLogo } from './components/SynthLabLogo';
 import {
   BookOpen,
@@ -83,10 +94,11 @@ export default function App() {
   const [briefWork, setBriefWork] = useState<Record<string, BriefWork>>({});
   const [highlightSection, setHighlightSection] = useState<string | null>(null);
   const [sharedReport, setSharedReport] = useState<SharedReport | null>(null);
-  // Soundtrap Synth Guide: its practice panel has its own settings, translated for the engine.
+  // The optional synth guides (Soundtrap, Retro Synth): each practice panel has its own settings, translated for the engine.
   const [stPatch, setStPatch] = useState<SoundtrapPatch>(GUIDE_BASE);
-  const [stHighlight, setStHighlight] = useState<StSection[]>([]);
-  const isSoundtrap = activeMode === 'soundtrap';
+  const [rsPatch, setRsPatch] = useState<RetroPatch>(RETRO_BASE);
+  const [guideHighlight, setGuideHighlight] = useState<string[]>([]);
+  const isGuide = activeMode === 'soundtrap' || activeMode === 'retro';
 
   // Batch grading (kept in memory only; nothing is stored)
   const [isBatchOpen, setIsBatchOpen] = useState(false);
@@ -115,17 +127,23 @@ export default function App() {
     if (activeMode === 'challenges') setTheme('hardware-bench');
   }, [activeMode]);
 
-  // The Soundtrap panel's extra hardware (HPF, Sub-Osc, Chorus...) is only on while the guide is open.
+  // A guide panel's extra hardware (HPF, Sub-Osc, Chorus, two LFOs...) is only on while that guide is open.
   const stPatchRef = useRef(stPatch);
   stPatchRef.current = stPatch;
-  // Leaving the guide puts back the patch the student had before they opened it.
+  const rsPatchRef = useRef(rsPatch);
+  rsPatchRef.current = rsPatch;
+  // Leaving a guide puts back the patch the student had before they opened it.
   const beforeGuideRef = useRef<SynthParams | null>(null);
   useEffect(() => {
-    if (activeMode === 'soundtrap') {
+    if (activeMode === 'soundtrap' || activeMode === 'retro') {
       if (!beforeGuideRef.current) beforeGuideRef.current = paramsRef.current;
-      const st = stPatchRef.current;
-      loadParams(toSynthParams(st));
-      engine.setExtras(toExtras(st));
+      if (activeMode === 'soundtrap') {
+        loadParams(stToParams(stPatchRef.current));
+        engine.setExtras(stToExtras(stPatchRef.current));
+      } else {
+        loadParams(rsToParams(rsPatchRef.current));
+        engine.setExtras(rsToExtras(rsPatchRef.current));
+      }
     } else {
       engine.setExtras({});
       if (beforeGuideRef.current) {
@@ -173,8 +191,9 @@ export default function App() {
       handleReportParam(reportParam);
     }
 
-    // A teacher's link straight to the optional Soundtrap Synth Guide.
-    if (query.get('guide') === 'soundtrap') setActiveMode('soundtrap');
+    // A teacher's link straight to one of the optional synth guides.
+    const guide = query.get('guide');
+    if (guide === 'soundtrap' || guide === 'retro') setActiveMode(guide);
 
     const assignParam = query.get('assignment');
     if (assignParam) {
@@ -238,14 +257,21 @@ export default function App() {
     engine.applyParams(next);
   };
 
-  /** Set the whole Soundtrap practice panel (a guide step's starting sound or a starting point). */
+  /** Set a whole guide practice panel (a guide step's starting sound or a starting point). */
   const loadStPatch = (next: SoundtrapPatch) => {
     stPatchRef.current = next; // so quick changes in a row build on each other
     setStPatch(next);
-    loadParams(toSynthParams(next));
-    engine.setExtras(toExtras(next));
+    loadParams(stToParams(next));
+    engine.setExtras(stToExtras(next));
   };
   const handleStChange = (change: Partial<SoundtrapPatch>) => loadStPatch({ ...stPatchRef.current, ...change });
+  const loadRsPatch = (next: RetroPatch) => {
+    rsPatchRef.current = next;
+    setRsPatch(next);
+    loadParams(rsToParams(next));
+    engine.setExtras(rsToExtras(next));
+  };
+  const handleRsChange = (change: Partial<RetroPatch>) => loadRsPatch({ ...rsPatchRef.current, ...change });
 
   // ---------- Batch grading review: step through students' patches ----------
   const handleGradeBatch = async () => {
@@ -322,7 +348,10 @@ export default function App() {
 
   const saveNow = () => {
     const { completedTasks: t, briefWork: b } = progressRef.current;
-    const snap: WorkSnapshot = { tasks: t, briefs: b, learnDone: learnDoneSnapshot(), soundtrapDone: soundtrapDoneSnapshot() };
+    const snap: WorkSnapshot = { tasks: t, briefs: b, learnDone: learnDoneSnapshot(),
+      soundtrapDone: soundtrapDoneSnapshot(),
+      retroDone: retroDoneSnapshot(),
+    };
     if (!hasWork(snap)) return; // never overwrite a good save with an empty session
     const json = JSON.stringify(snap);
     if (json === lastSavedJsonRef.current) return; // nothing new since the last save
@@ -385,6 +414,7 @@ export default function App() {
     setBriefWork({ ...saved.briefs, ...briefWork });
     restoreLearnDone(saved.learnDone);
     restoreSoundtrapDone(saved.soundtrapDone);
+    restoreRetroDone(saved.retroDone);
     setSavedAt(restoreOffer.savedAt);
     setSaveStatus('saved');
     setRestoreOffer(null);
@@ -414,6 +444,7 @@ export default function App() {
     setBriefWork(briefs);
     if (s.learn) restoreLearnSteps(s.learn.done);
     if (s.soundtrap) restoreSoundtrapSteps(s.soundtrap.done);
+    if (s.retro) restoreRetroSteps(s.retro.done);
     if (d.patchParams) loadParams(d.patchParams);
     setRestoredName(s.studentName);
     // If nothing was added on top of the code, there is nothing unsaved.
@@ -427,6 +458,7 @@ export default function App() {
       (sounds ? `, ${sounds} saved sound${sounds === 1 ? '' : 's'}` : '') +
       (s.learn ? `, and Learn ${s.learn.done}/${s.learn.total}` : '') +
       (s.soundtrap?.done ? ` (plus the Soundtrap guide ${s.soundtrap.done}/${s.soundtrap.total})` : '') +
+      (s.retro?.done ? ` (plus the Retro Synth guide ${s.retro.done}/${s.retro.total})` : '') +
       ` from the code${when}. Anything you did after that code is not included.`
     );
   };
@@ -467,7 +499,7 @@ export default function App() {
               type="button"
               onClick={() => setActiveMode('learn')}
               className={`px-3 py-1.5 rounded-lg text-xs font-mono font-bold uppercase transition-all flex items-center gap-1.5 ${
-                activeMode === 'learn' || isSoundtrap
+                activeMode === 'learn' || isGuide
                   ? 'bg-amber-500 text-black shadow-[0_0_12px_rgba(245,158,11,0.4)]'
                   : 'text-slate-400 hover:text-slate-200'
               }`}
@@ -522,7 +554,7 @@ export default function App() {
 
           {/* Theme Quick Toggle & Audio Status */}
           <div className="flex items-center gap-2">
-            {!isSoundtrap && <button
+            {!isGuide && <button
               type="button"
               onClick={() =>
                 setTheme(theme === 'studio-retro' ? 'hardware-bench' : 'studio-retro')
@@ -564,17 +596,29 @@ export default function App() {
             onLoadParams={loadParams}
             onHighlight={setHighlightSection}
             onGoToChallenges={() => setActiveMode('challenges')}
-            onOpenSoundtrap={() => setActiveMode('soundtrap')}
+            onOpenGuide={(g) => setActiveMode(g)}
           />
         )}
 
-        {/* Optional: the Soundtrap Synth Guide */}
-        {isSoundtrap && (
-          <ModeSoundtrap
+        {/* Optional: the synth guides (Soundtrap, Retro Synth) */}
+        {activeMode === 'soundtrap' && (
+          <ModeGuide
+            guide={SOUNDTRAP_GUIDE}
             engine={engine}
             patch={stPatch}
             onLoadPatch={loadStPatch}
-            onHighlight={setStHighlight}
+            onHighlight={setGuideHighlight}
+            onGoToChallenges={() => setActiveMode('challenges')}
+            onBackToLearn={() => setActiveMode('learn')}
+          />
+        )}
+        {activeMode === 'retro' && (
+          <ModeGuide
+            guide={RETRO_GUIDE}
+            engine={engine}
+            patch={rsPatch}
+            onLoadPatch={loadRsPatch}
+            onHighlight={setGuideHighlight}
             onGoToChallenges={() => setActiveMode('challenges')}
             onBackToLearn={() => setActiveMode('learn')}
           />
@@ -640,8 +684,10 @@ export default function App() {
 
         {/* Primary Synthesizer Hardware Chassis (Active Theme) */}
         <section id="synth-hardware-rack" className="w-full scroll-mt-36">
-          {isSoundtrap ? (
-            <SoundtrapView patch={stPatch} onChange={handleStChange} highlight={stHighlight} />
+          {activeMode === 'soundtrap' ? (
+            <SoundtrapView patch={stPatch} onChange={handleStChange} highlight={guideHighlight} />
+          ) : activeMode === 'retro' ? (
+            <RetroView patch={rsPatch} onChange={handleRsChange} highlight={guideHighlight} />
           ) : theme === 'studio-retro' ? (
             <StudioRetroView
               params={params}

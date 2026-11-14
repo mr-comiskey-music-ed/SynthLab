@@ -175,6 +175,7 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
     'Assigned Tasks Done',
     'Learn Steps Done',
     'Soundtrap Guide Steps (optional)',
+    'Retro Synth Guide Steps (optional)',
     ...TASK_CATEGORIES.flatMap((c) => [`${c} Done`, `${c} Avg`]),
     ...ALL_TASKS.map((t) => t.title),
   ];
@@ -197,6 +198,7 @@ export function downloadBatchCsv(entries: BatchEntry[]) {
       doneLabel(s),
       s.learn ? `${s.learn.done}/${s.learn.total}` : 'not recorded',
       s.soundtrap ? `${s.soundtrap.done}/${s.soundtrap.total}` : '',
+      s.retro ? `${s.retro.done}/${s.retro.total}` : '',
       ...TASK_CATEGORIES.flatMap((c) => [
         `${e.categories[c].done}/${e.categories[c].total}`,
         e.categories[c].done ? e.categories[c].average : '',
