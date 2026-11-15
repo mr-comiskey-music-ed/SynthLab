@@ -81,8 +81,11 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
     cutoff and Shape Modulation; VIBRATO: pitch), each with its own
     wave, Rate, Sync and depth slider. Sine Level is added after the
     filter (not a sub). LP 24dB / LP 12dB / HP 12dB, Flanger or Chorus.
-    Shows Logic's units (Cutoff, Res, Sustain as 0-1). Glide plays one
-    note at a time in this copy; Vel sliders are shown but inert.
+    Shows Logic's units (Cutoff, Res, Sustain as 0-1; Mix reads 1.00 at
+    Osc 1, 0.00 at Osc 2, shown in place of the "Mix" title while
+    dragging). Envelope and filter dots drag like Logic's. Glide is
+    polyphonic (`polyGlide`); its Mode menu is left out. Vel sliders are
+    shown but inert. The guide skips Sine Level (knob only).
 - Voices: Poly (chords) or Mono with Glide.
 - Sound Design briefs: 4 Music and 4 Sound FX requests, each with two
   click-to-reveal hint layers (broad, then specific).

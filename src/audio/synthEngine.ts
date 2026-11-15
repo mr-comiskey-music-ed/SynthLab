@@ -115,6 +115,11 @@ export interface EngineExtras {
   sineLevel?: number;
   /** Retro Synth filter type (default low-pass). */
   filterType?: 'lowpass' | 'highpass';
+  /**
+   * Retro Synth polyphonic Glide (seconds): with chords still allowed, each new note slides in from the
+   * last note played (a chord played together slides in from the note before it).
+   */
+  polyGlide?: number;
   /** Retro Synth Effect: Chorus or Flanger with its own Mix (0-1) and Rate (Hz). */
   effect?: { type: 'chorus' | 'flanger'; mix: number; rate: number };
 }
@@ -327,8 +332,11 @@ class Voice {
     }
   }
 
-  /** Start a note. With glide > 0 (mono mode), the pitch slides from the previous note. */
-  attack(note: string, freq: number, velocity: number, glide = 0) {
+  /**
+   * Start a note. With glide > 0 the pitch slides in: from this voice's last pitch (mono mode), or from
+   * `from` when given (polyphonic glide).
+   */
+  attack(note: string, freq: number, velocity: number, glide = 0, from?: number) {
     if (this.idleTimer) {
       clearTimeout(this.idleTimer);
       this.idleTimer = null;
@@ -336,7 +344,12 @@ class Voice {
     this.note = note;
     this.held = true;
     this.startedAt = performance.now();
-    this.setPitch(freq, glide > 0 && this.running ? glide : 0);
+    if (glide > 0 && from) {
+      this.setPitch(from, 0);
+      this.setPitch(freq, glide);
+    } else {
+      this.setPitch(freq, glide > 0 && this.running ? glide : 0);
+    }
     if (!this.running) {
       this.osc1?.start();
       this.osc2?.start();
@@ -678,8 +691,23 @@ export class SubtractiveEngine {
       else v.attack(note, freq, velocity, glide);
       return;
     }
+    const glide = Math.max(0, this.extras.polyGlide ?? 0);
+    if (glide > 0) {
+      // Notes started together (a chord) all slide in from the note played before the chord.
+      const now = performance.now();
+      if (now - this.lastNoteAt > 15) this.glideFrom = this.lastFreq;
+      this.lastNoteAt = now;
+      this.lastFreq = freq;
+      this.pickVoice(note).attack(note, freq, velocity, glide, this.glideFrom ?? undefined);
+      return;
+    }
+    this.lastFreq = freq;
     this.pickVoice(note).attack(note, freq, velocity);
   }
+  /** Polyphonic glide: the last note played, and where the current chord slides in from. */
+  private lastFreq: number | null = null;
+  private lastNoteAt = 0;
+  private glideFrom: number | null = null;
 
   private releaseVoice(note: string) {
     for (const v of this.voices) if (v.note === note && v.held) v.release();

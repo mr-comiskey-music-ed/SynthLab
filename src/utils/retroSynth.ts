@@ -167,7 +167,8 @@ export function rFormat(spec: RetroSpec, v: number): string {
     case 'shapeMod':
       return Math.abs(v) < 0.005 ? 'Off' : `${v < 0 ? 'LFO' : 'Env'} ${Math.abs(v).toFixed(2)}`;
     case 'mix':
-      return v < 0.005 ? 'Osc 1' : v > 0.995 ? 'Osc 2' : `${(1 - v).toFixed(2)} / ${v.toFixed(2)}`;
+      // Like Logic: 1.00 is all Osc 1, 0.00 is all Osc 2.
+      return (1 - v).toFixed(2);
     case 'semi':
       return `${v > 0 ? '+' : ''}${Math.round(v)}`;
     case 'cents':
@@ -280,9 +281,9 @@ export function toSynthParams(r: RetroPatch): SynthParams {
     // The guide routes its two LFOs itself (toExtras); these are only for anything that reads one value.
     lfoDepth: r.filterLfo * r.lfoAmount,
     lfoDestination: 'cutoff',
-    // Glide here plays one note at a time (the engine glides in Mono).
-    voiceMode: r.glideOn ? 'mono' : 'poly',
-    glide: r.glideOn ? r.glideTime / 1000 : 0,
+    // Retro Synth glides polyphonically (toExtras: polyGlide), so chords still play.
+    voiceMode: 'poly',
+    glide: 0,
   };
 }
 
@@ -303,6 +304,7 @@ export function toExtras(r: RetroPatch): EngineExtras {
     sineLevel: r.sineLevel * OSC_LEVEL,
     filterType: on && r.filterType === 'hp' ? 'highpass' : 'lowpass',
     effect: r.fxOn ? { type: r.fxType, mix: r.fxMix, rate: r.fxRate } : undefined,
+    polyGlide: r.glideOn ? r.glideTime / 1000 : 0,
   };
 }
 
@@ -320,7 +322,7 @@ const divIs = (i: number, label: string) => SYNC_DIVS[i]?.label === label;
 /** SynthLab name → Retro Synth name, for step 1. */
 export const RETRO_NAME_MAP: NameRow[] = [
   { synthlab: 'VCO 1 + VCO 2, Waveform', theirs: 'OSCILLATOR: Shape 1, Shape 2', note: 'one knob sweeps through the waves' },
-  { synthlab: 'VCO 1 / VCO 2 levels', theirs: 'OSCILLATOR: Mix', note: 'a slider from Osc 1 to Osc 2' },
+  { synthlab: 'VCO 1 / VCO 2 levels', theirs: 'OSCILLATOR: Mix', note: 'a slider from Osc 1 (1.00) to Osc 2 (0.00)' },
   { synthlab: 'VCO 2 Semi, Fine', theirs: 'OSCILLATOR: Semitones, Cents', note: 'they tune Osc 2' },
   { synthlab: 'Pulse Width', theirs: 'Shape turned past Square' },
   { synthlab: 'Noise', theirs: 'Shape 1 turned all the way left' },
@@ -365,7 +367,7 @@ export const RS_STEPS: RsStep[] = [
     phrase: run(['A2', 'C3', 'E3', 'A3'], 0.5, 0.45),
     missions: [
       {
-        text: 'Slide Mix all the way up to Osc 1, then turn Shape 1 to Square.',
+        text: 'Slide Mix all the way up to Osc 1 (1.00), then turn Shape 1 to Square.',
         check: (p) => p.mix <= 0.02 && shapeAt(p.shape1, 1).name === 'Square',
       },
       {
@@ -422,17 +424,23 @@ export const RS_STEPS: RsStep[] = [
     sections: ['filter', 'filterEnv', 'ampEnv'],
     flow: ['filterEnv', 'filter', 'ampEnv', 'amp'],
     what:
-      'Good news: this works just like SynthLab. FILTER ENV moves the cutoff, and the filter’s Env knob is your EG Amount. AMP ENV shapes the volume on its own. One difference: the Env knob starts in the middle, which is off. Right of center pushes the cutoff up; left of center flips the envelope so it pushes the cutoff down. In the orange screens, drag A, D, S or R up or down. The Vel sliders set how much playing harder changes things (this copy plays every note at the same strength).',
-    listen: 'A pluck in the brightness; a slow fade-in from AMP ENV while the filter still plucks; a flipped envelope that starts dark and swells open.',
+      'Good news: this works just like SynthLab. FILTER ENV moves the cutoff, and the filter’s Env knob is your EG Amount. AMP ENV shapes the volume on its own. One difference: the Env knob starts in the middle, which is off. Right of center pushes the cutoff up; left of center flips the envelope so it pushes the cutoff down. In the orange screens, drag the dots, or drag A, D, S or R up or down. The Vel sliders set how much playing harder changes things (this copy plays every note at the same strength).',
+    listen: 'A pluck in the brightness; then the volume plucking too, like a plucked string; then a slow brass-like swell as the filter opens.',
     start: { cutoff: 0.4, res: 0.2, filterEnv: 0, fA: 0.4, fD: 900, fS: 0.6, fR: 300, aA: 1, aD: 500, aS: 1, aR: 300 },
-    phrase: run(['D2', 'F2', 'A2', 'D3'], 0.6, 0.5),
+    phrase: run(['D2', 'F2', 'A2', 'D3'], 1, 0.9),
     missions: [
       {
         text: 'Make a pluck: turn the filter’s Env knob right to +0.80 or more, then in FILTER ENV set S to 0 and D between 300 and 600 ms.',
         check: (p) => p.filterEnv >= 0.8 && p.fS <= 0.02 && p.fD >= 300 && p.fD <= 600 && p.cutoff < 0.55,
       },
-      { text: 'Now the volume on its own: in AMP ENV, set A to 300 ms or more, so each note fades in while the filter still plucks.', check: (p) => p.aA >= 300 && p.filterEnv >= 0.8 },
-      { text: 'Turn the Env knob left of center, to −0.80 or less: each note now starts dark and swells open.', check: (p) => p.filterEnv <= -0.8 && p.cutoff < 0.55 },
+      {
+        text: 'Now make the volume pluck too: in AMP ENV set S to 0 and D between 300 and 600 ms. Both envelopes together sound like a plucked string.',
+        check: (p) => p.aS <= 0.02 && p.aD >= 300 && p.aD <= 600 && p.filterEnv >= 0.8,
+      },
+      {
+        text: 'Brass swell: set AMP ENV S back to 1.00, then in FILTER ENV set A to 400 ms or more. Each note now opens up slowly.',
+        check: (p) => p.aS >= 0.95 && p.fA >= 400 && p.filterEnv >= 0.8,
+      },
     ],
   },
   {
@@ -461,20 +469,16 @@ export const RS_STEPS: RsStep[] = [
     ],
   },
   {
-    title: 'Sine Level, Effect and Glide',
+    title: 'Effect and Glide',
     short: 'Extras',
-    sections: ['amp', 'effect', 'glide'],
-    flow: ['sine', 'amp', 'effect'],
+    sections: ['effect', 'glide'],
+    flow: ['effect'],
     what:
-      'Three extras SynthLab doesn’t have. Sine Level (in AMP) adds a pure sine wave at the note’s pitch after the filter, so it fills out the sound even when the filter is nearly closed. EFFECT is a Flanger or Chorus: turn it on with its power button, pick one in the menu, and set Mix (how much) and Rate (how fast it moves). Glide works like SynthLab’s Mono with Glide: turn it on with its power button and Time sets how long the pitch slides from note to note (this copy plays one note at a time while Glide is on).',
-    listen: 'Sine Level: a round, pure body under a dark sound. Chorus: wider and shimmering; Flanger: a sweeping jet sound. Glide: notes sliding into each other.',
+      'Two extras at the edges of the panel. EFFECT is a Flanger or Chorus: turn it on with its power button, pick one in the menu, and set Mix (how much) and Rate (how fast it moves). Glide is like SynthLab’s Glide, but it works on chords too: turn it on with its power button, and Time sets how long the pitch slides from one note (or chord) to the next.',
+    listen: 'Chorus: wider and shimmering; Flanger: a sweeping jet sound. Glide: notes sliding into each other.',
     start: { cutoff: 0.6, aA: 10, aD: 800, aS: 0.7, aR: 500 },
     phrase: run(['C3', 'G3', 'E3', 'C4', 'G3'], 0.4, 0.38),
     missions: [
-      {
-        text: 'Raise Sine Level to 0.50 or more, then drag Cutoff below 0.30. The sine still comes through, because it is added after the filter.',
-        check: (p) => p.sineLevel >= 0.5 && p.cutoff < 0.3,
-      },
       { text: 'Turn on the Effect with its power button, and set its Mix to 0.50 or more (Chorus or Flanger).', check: (p) => p.fxOn && p.fxMix >= 0.5 },
       { text: 'Turn on Glide with its power button, set Time to 200 ms or more, and play a few notes in a row.', check: (p) => p.glideOn && p.glideTime >= 200 },
     ],

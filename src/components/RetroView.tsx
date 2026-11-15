@@ -329,42 +329,78 @@ const Section: React.FC<{ id: RsSection; title: string; lit: boolean; children: 
   );
 };
 
-/** The filter's response, drawn from Cutoff, Res and type. */
-const FilterCurve: React.FC<{ p: RetroPatch }> = ({ p }) => {
+/**
+ * Drag a dot inside a stretched SVG screen: the callback gets how far the pointer moved, in the SVG's own units.
+ * Touch that starts on a dot never scrolls the page.
+ */
+function dragInSvg(e: React.MouseEvent | React.TouchEvent, svg: SVGSVGElement | null, vbW: number, vbH: number, cb: (dx: number, dy: number) => void) {
+  const r = svg?.getBoundingClientRect();
+  if (!r || !r.width || !r.height) return;
+  e.stopPropagation();
+  startDrag(e, (x, y, x0, y0) => cb(((x - x0) * vbW) / r.width, ((y - y0) * vbH) / r.height));
+}
+
+/** A dot you can drag: a small visible dot with a bigger, invisible target around it. */
+const Handle: React.FC<{ cx: number; cy: number; onDown: (e: React.MouseEvent | React.TouchEvent) => void; label: string; cursor?: string }> = ({
+  cx,
+  cy,
+  onDown,
+  label,
+  cursor = 'move',
+}) => (
+  <g style={{ pointerEvents: 'all', cursor }} className="touch-none" onMouseDown={onDown} onTouchStart={onDown} role="slider" aria-label={label}>
+    <circle cx={cx} cy={cy} r={11} fill="transparent" />
+    <circle cx={cx} cy={cy} r={3.5} fill={ORANGE} />
+  </g>
+);
+
+/** The filter's response, drawn from Cutoff, Res and type. Drag the dot: sideways for Cutoff, up and down for Res. */
+const FilterCurve: React.FC<{ p: RetroPatch; onChange: Change }> = ({ p, onChange }) => {
   const W = 300;
   const H = 120;
-  const x = (hz: number) => (Math.log(hz / 20) / Math.log(1000)) * W;
+  const svgRef = useRef<SVGSVGElement | null>(null);
   const fc = cutoffHz(p.cutoff);
   const steps = 80;
   const slope = p.filterType === 'lp24' ? 24 : 12;
   const q = 0.7 + Math.pow(p.res, 1.6) * 17;
+  const peak = (Math.min(q, 12) - 0.7) * 2.2;
   const pts: string[] = [];
   for (let i = 0; i <= steps; i++) {
     const hz = 20 * Math.pow(1000, i / steps);
     const ratio = p.filterType === 'hp' ? fc / hz : hz / fc;
     // A simple drawing: flat, a resonant bump at the cutoff, then the slope.
-    const bump = (Math.min(q, 12) - 0.7) * 2.2 * Math.exp(-Math.pow(Math.log2(ratio) * 2.2, 2));
+    const bump = peak * Math.exp(-Math.pow(Math.log2(ratio) * 2.2, 2));
     const fall = ratio > 1 ? slope * Math.log2(ratio) : 0;
     const db = bump - fall;
     const y = 34 - db * 1.1;
     pts.push(`${(i / steps) * W},${Math.max(4, Math.min(H + 20, y))}`);
   }
+  const down = (e: React.MouseEvent | React.TouchEvent) => {
+    const c0 = p.cutoff;
+    const r0 = p.res;
+    dragInSvg(e, svgRef.current, W, H, (dx, dy) =>
+      onChange({ cutoff: rValue(RSPECS.cutoff, c0 + dx / W), res: rValue(RSPECS.res, r0 - dy / 90) })
+    );
+  };
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full" preserveAspectRatio="none" aria-hidden="true">
+    <svg ref={svgRef} viewBox={`0 0 ${W} ${H}`} className="w-full h-full pointer-events-none overflow-visible" preserveAspectRatio="none">
       <polyline points={pts.join(' ')} fill="none" stroke={ORANGE} strokeWidth={1.6} />
-      <circle cx={x(fc)} cy={34} r={3.5} fill={ORANGE} />
+      <Handle cx={p.cutoff * W} cy={34 - peak * 1.1} onDown={down} label="Filter: drag sideways for Cutoff, up and down for Res" />
     </svg>
   );
 };
 
-/** An ADSR drawing with its four numbers, like Retro Synth's envelope screens. */
+/** An ADSR drawing with its four numbers, like Retro Synth's envelope screens. The dots drag too. */
 const EnvScreen: React.FC<{ p: RetroPatch; onChange: Change; keys: [RetroKey, RetroKey, RetroKey, RetroKey] }> = ({ p, onChange, keys }) => {
   const [ka, kd, ks, kr] = keys;
-  const tx = (ms: number) => Math.cbrt(Math.max(0, ms) / 10000) * 90;
-  const a = tx(p[ka] as number);
-  const d = tx(p[kd] as number);
+  const svgRef = useRef<SVGSVGElement | null>(null);
+  // Times are drawn on the same curve as the numbers (cube root), so a dot and its number move together.
+  const SPAN = 90;
+  const tx = (k: RetroKey) => rPos(RSPECS[k], p[k] as number) * SPAN;
+  const a = tx(ka);
+  const d = tx(kd);
   const s = p[ks] as number;
-  const r = tx(p[kr] as number);
+  const r = tx(kr);
   const top = 8;
   const bottom = 92;
   const sy = bottom - s * (bottom - top);
@@ -372,24 +408,36 @@ const EnvScreen: React.FC<{ p: RetroPatch; onChange: Change; keys: [RetroKey, Re
   const x2 = x1 + d;
   const x3 = Math.max(x2 + 30, 200);
   const x4 = Math.min(x3 + r, 296);
+  const set = (k: RetroKey, pos: number) => ({ [k]: rValue(RSPECS[k], pos) }) as Partial<RetroPatch>;
+  const sVal = (y: number) => Math.round(Math.max(0, Math.min(1, (bottom - y) / (bottom - top))) * 100) / 100;
+  const drag = (which: 'a' | 'd' | 's' | 'r') => (e: React.MouseEvent | React.TouchEvent) => {
+    const start = { a, d, r, sy };
+    dragInSvg(e, svgRef.current, 300, 100, (dx, dy) => {
+      if (which === 'a') onChange(set(ka, (start.a + dx) / SPAN));
+      else if (which === 'd') onChange({ ...set(kd, (start.d + dx) / SPAN), [ks]: sVal(start.sy + dy) } as Partial<RetroPatch>);
+      else if (which === 's') onChange({ [ks]: sVal(start.sy + dy) } as Partial<RetroPatch>);
+      else onChange(set(kr, (start.r + dx) / SPAN));
+    });
+  };
   return (
     <Screen className="w-[300px] h-[150px] p-1.5 flex flex-col justify-between">
-      <div className="flex justify-between">
+      <div className="flex justify-between relative z-10">
         <ScreenField k={ka} patch={p} onChange={onChange} label="A" />
         <ScreenField k={kd} patch={p} onChange={onChange} label="D" />
       </div>
-      <svg viewBox="0 0 300 100" className="absolute inset-x-1.5 top-8 bottom-8 w-[calc(100%-12px)] h-[calc(100%-64px)] pointer-events-none" preserveAspectRatio="none" aria-hidden="true">
+      <svg
+        ref={svgRef}
+        viewBox="0 0 300 100"
+        className="absolute inset-x-1.5 top-8 bottom-8 w-[calc(100%-12px)] h-[calc(100%-64px)] pointer-events-none overflow-visible"
+        preserveAspectRatio="none"
+      >
         <polyline points={`6,${bottom} ${x1},${top} ${x2},${sy} ${x3},${sy} ${x4},${bottom}`} fill="none" stroke={ORANGE} strokeWidth={1.6} />
-        {[
-          [x1, top],
-          [x2, sy],
-          [x3, sy],
-          [x4, bottom],
-        ].map(([cx, cy], i) => (
-          <circle key={i} cx={cx} cy={cy} r={3} fill={ORANGE} />
-        ))}
+        <Handle cx={x1} cy={top} onDown={drag('a')} label="Attack: drag sideways" cursor="ew-resize" />
+        <Handle cx={x2} cy={sy} onDown={drag('d')} label="Decay and Sustain: drag sideways for Decay, up and down for Sustain" />
+        <Handle cx={x3} cy={sy} onDown={drag('s')} label="Sustain: drag up and down" cursor="ns-resize" />
+        <Handle cx={x4} cy={bottom} onDown={drag('r')} label="Release: drag sideways" cursor="ew-resize" />
       </svg>
-      <div className="flex justify-between">
+      <div className="flex justify-between relative z-10">
         <ScreenField k={ks} patch={p} onChange={onChange} label="S" />
         <ScreenField k={kr} patch={p} onChange={onChange} label="R" />
       </div>
@@ -506,6 +554,32 @@ const LfoPanel: React.FC<{ p: RetroPatch; onChange: Change; which: 'lfo' | 'vib'
   );
 };
 
+/**
+ * The Osc 1 / Osc 2 Mix fader. Like Logic's, it reads 1.00 at Osc 1 and 0.00 at Osc 2, and the number
+ * takes the place of the "Mix" title while you drag, then fades back. Fixed width, so nothing shifts.
+ */
+const MixFader: React.FC<{ p: RetroPatch; onChange: Change; mini: boolean }> = ({ p, onChange, mini }) => {
+  const [showNum, setShowNum] = useState(false);
+  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const onDragChange: Change = (next) => {
+    onChange(next);
+    setShowNum(true);
+    if (timer.current) clearTimeout(timer.current);
+    timer.current = setTimeout(() => setShowNum(false), 900);
+  };
+  const num = rFormat(RSPECS.mix, p.mix);
+  return (
+    <div className="flex flex-col items-center pt-1 w-16 shrink-0">
+      <span className={`text-[15px] font-semibold tabular-nums ${showNum || mini ? 'text-[#ffb057] font-mono' : 'text-[#e4e4e7]'} [.rs-mini_&]:text-[17px]`}>
+        {showNum || mini ? num : 'Mix'}
+      </span>
+      <span className="text-[12px] text-[#c4c4c8]">Osc 1</span>
+      <VSlider k="mix" patch={p} onChange={onDragChange} invert h={150} showValue={false} title="Top: only Osc 1 (1.00) · bottom: only Osc 2 (0.00)" />
+      <span className="text-[12px] text-[#c4c4c8]">Osc 2</span>
+    </div>
+  );
+};
+
 interface RetroViewProps {
   patch: RetroPatch;
   onChange: Change;
@@ -599,13 +673,7 @@ export const RetroView: React.FC<RetroViewProps> = ({ patch: p, onChange, highli
                   <Knob k="semitones" patch={p} onChange={onChange} title="Osc 2 tuning in semitones" />
                   <Knob k="cents" patch={p} onChange={onChange} title="Osc 2 fine tuning" />
                 </div>
-                <div className="flex flex-col items-center pt-1">
-                  <span className="text-[15px] font-semibold text-[#e4e4e7]">Mix</span>
-                  <span className="text-[12px] text-[#c4c4c8]">Osc 1</span>
-                  <VSlider k="mix" patch={p} onChange={onChange} invert h={150} showValue={false} title="Top: only Osc 1 · bottom: only Osc 2" />
-                  <span className="text-[12px] text-[#c4c4c8]">Osc 2</span>
-                  <span className="mt-0.5 text-[11px] font-mono tabular-nums text-[#ffb057] whitespace-nowrap [.rs-mini_&]:text-[15px] [.rs-mini_&]:font-bold">{rFormat(RSPECS.mix, p.mix)}</span>
-                </div>
+                <MixFader p={p} onChange={onChange} mini={mini} />
               </div>
             </Section>
 
@@ -629,7 +697,7 @@ export const RetroView: React.FC<RetroViewProps> = ({ patch: p, onChange, highli
               <div className="flex gap-2">
                 <Screen className="w-[300px] h-[150px] p-1.5 flex flex-col" dim={!p.filterOn}>
                   <div className="flex-1 min-h-0">
-                    <FilterCurve p={p} />
+                    <FilterCurve p={p} onChange={onChange} />
                   </div>
                   <div className="flex justify-between">
                     <ScreenField k="cutoff" patch={p} onChange={onChange} label="Cutoff" />
@@ -677,12 +745,6 @@ export const RetroView: React.FC<RetroViewProps> = ({ patch: p, onChange, highli
             <Section id="glide" title="Glide" lit={lit('glide')} titleTop>
               <div className="flex flex-col items-center gap-2">
                 <PowerButton on={p.glideOn} onClick={() => onChange({ glideOn: !p.glideOn })} aria="Glide on/off" />
-                <div className="flex items-center gap-2 text-[14px]">
-                  <span className="text-[#c4c4c8]">Mode</span>
-                  <span className="px-2 py-0.5 rounded bg-[#232326] text-[#a1a1aa]" title="Which oscillators glide (All Osc in this copy)">
-                    All Osc
-                  </span>
-                </div>
                 <div className={p.glideOn ? '' : 'opacity-50'}>
                   <Knob k="glideTime" patch={p} onChange={onChange} title="How long each note slides to the next" />
                 </div>
