@@ -357,7 +357,7 @@ export const ST_STEPS: StStep[] = [
     what:
       'In SynthLab the LFO has one Depth knob and a Target switch. Soundtrap’s LFO section only sets the wave (SIN, SAW, TRI), the Rate and a Delay Time. How much it moves each thing is set in the section it moves: the LFO slider in OSCILLATORS is vibrato (pitch), the LFO slider in FILTER is wobble (cutoff), and PWM on LFO is shimmer. They can all be up at once. Delay Time makes the LFO wait and fade in, so a long note starts steady and then wobbles, like a singer’s vibrato. SYNC locks the Rate to the song’s tempo, so the slider steps through note values (1/4, 1/8, 1/16T…) instead of Hz.',
     listen: 'Vibrato: the pitch wavering. Delay: a steady start, then vibrato. Synced wobble: the tone pulsing in time.',
-    start: { square: false, saw: true, cutoff: 1500, res: 30, sustain: 100, decay: 400, release: 400, lfoWave: 'sine', lfoRate: 2, lfoDelay: 0 },
+    start: { square: false, saw: true, cutoff: 1500, res: 30, sustain: 100, decay: 400, release: 400, lfoWave: 'sine', lfoRate: 2, lfoDelay: 0, lfoSync: false, lfoSyncDiv: 3 },
     phrase: [one('A3', 2.6)],
     missions: [
       {
