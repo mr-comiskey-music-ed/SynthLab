@@ -328,7 +328,7 @@ export const StudioRetroView: React.FC<StudioRetroViewProps> = ({
           {/* Both displays share what's left of the panel: filter 2 parts, scope 3 (scope is the bigger of the two) */}
           <div className="flex flex-col flex-1 min-h-0 gap-1.5">
             <div className="min-h-[130px]" style={{ flex: '2 1 0%' }}>
-              <FilterVisualizer engine={engine} theme="studio-retro" height={130} fill />
+              <FilterVisualizer engine={engine} theme="studio-retro" height={130} fill onParamChange={onParamChange} />
             </div>
             <div className="min-h-[160px]" style={{ flex: '3 1 0%' }}>
               <Visualizer engine={engine} theme="studio-retro" height={160} fill />

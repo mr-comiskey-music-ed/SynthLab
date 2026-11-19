@@ -85,7 +85,7 @@ export default function App() {
   // Progress guard: warns before the page closes if work isn't in a code yet.
   const savedSigRef = useRef<string>('');
   const [restoredName, setRestoredName] = useState<string>('');
-  const [theme, setTheme] = useState<ThemeMode>('studio-retro');
+  const [theme, setTheme] = useState<ThemeMode>('hardware-bench');
   const [activeMode, setActiveMode] = useState<AppMode>('learn');
   const [params, setParams] = useState<SynthParams>(DEFAULT_SYNTH_PARAMS);
   const [audioStarted, setAudioStarted] = useState<boolean>(false);
@@ -122,7 +122,7 @@ export default function App() {
   const paramsRef = useRef(params);
   paramsRef.current = params;
 
-  // Challenges open on the Modern Synth by default.
+  // The app starts on the Modern Synth; Challenges always open on it.
   useEffect(() => {
     if (activeMode === 'challenges') setTheme('hardware-bench');
   }, [activeMode]);

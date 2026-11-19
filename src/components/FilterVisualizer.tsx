@@ -3,6 +3,7 @@ import { SubtractiveEngine } from '../audio/synthEngine';
 import { ThemeMode, SynthParams } from '../types';
 import { Maximize2, Minimize2 } from 'lucide-react';
 import { VIZ_FONT, fitCanvas, vizPalette } from './vizUtils';
+import { startDrag } from './dragUtils';
 
 interface FilterVisualizerProps {
   engine: SubtractiveEngine;
@@ -10,9 +11,33 @@ interface FilterVisualizerProps {
   height?: number;
   /** Stretch to fill the height its parent gives it (height is then the minimum). */
   fill?: boolean;
+  /** Makes the dot draggable: sideways for Cutoff, up and down for Resonance (like the Retro Synth guide's filter screen). */
+  onParamChange?: (key: 'filterCutoff' | 'filterResonance', value: number) => void;
 }
 
-export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, theme, height = 130, fill = false }) => {
+const MIN_FREQ = 20;
+const MAX_FREQ = 20000;
+const MIN_LOG = Math.log10(MIN_FREQ);
+const MAX_LOG = Math.log10(MAX_FREQ);
+const DB_MIN = -48;
+const DB_MAX = 42;
+const RES_MIN = 0.1;
+const RES_MAX = 20;
+/** How close (CSS px) a pointer has to be to grab the dot. Generous for fingers. */
+const GRAB_RADIUS = 18;
+
+/** Where things were drawn on the last frame, so a pointer can be matched to the dot. */
+interface FilterLayout {
+  width: number;
+  height: number;
+  plotTop: number;
+  plotBottom: number;
+  stages: number;
+  dotX: number;
+  dotY: number;
+}
+
+export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, theme, height = 130, fill = false, onParamChange }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const [isFullScreen, setIsFullScreen] = useState(false);
   const animFrameId = useRef<number | null>(null);
@@ -29,6 +54,74 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
   }, [fill, isFullScreen]);
   const cssHeight = isFullScreen ? 450 : fill ? Math.max(height, fillH) : height;
   const pal = vizPalette(theme);
+  const draggable = !!onParamChange;
+  const layoutRef = useRef<FilterLayout | null>(null);
+  // 'hover' or 'drag' makes the dot bigger, so students can see it can be grabbed.
+  const dotStateRef = useRef<'idle' | 'hover' | 'drag'>('idle');
+  const onChangeRef = useRef(onParamChange);
+  onChangeRef.current = onParamChange;
+
+  /** Pointer position in the canvas's drawing units, and whether it is on the dot. */
+  const locate = (clientX: number, clientY: number) => {
+    const canvas = canvasRef.current;
+    const L = layoutRef.current;
+    if (!canvas || !L) return null;
+    const r = canvas.getBoundingClientRect();
+    if (!r.width || !r.height) return null;
+    const x = ((clientX - r.left) * L.width) / r.width;
+    const y = ((clientY - r.top) * L.height) / r.height;
+    return { x, y, onDot: Math.hypot(x - L.dotX, y - L.dotY) <= GRAB_RADIUS, rect: r, L };
+  };
+
+  /** Grab the dot: it follows the pointer (keeping where it was grabbed), sideways = Cutoff, up/down = Res. */
+  const beginDrag = (e: React.MouseEvent | React.TouchEvent, clientX: number, clientY: number) => {
+    const hit = locate(clientX, clientY);
+    if (!hit || !hit.onDot) return false;
+    const { L, rect } = hit;
+    const offX = hit.x - L.dotX;
+    const offY = hit.y - L.dotY;
+    dotStateRef.current = 'drag';
+    startDrag(e, (cx, cy) => {
+      const x = ((cx - rect.left) * L.width) / rect.width - offX;
+      const y = ((cy - rect.top) * L.height) / rect.height - offY;
+      const t = Math.max(0, Math.min(1, x / L.width));
+      const hz = Math.round(Math.pow(10, MIN_LOG + t * (MAX_LOG - MIN_LOG)));
+      const db = DB_MIN + ((L.plotBottom - y) / (L.plotBottom - L.plotTop)) * (DB_MAX - DB_MIN);
+      const res = Math.round(Math.max(RES_MIN, Math.min(RES_MAX, db / L.stages)) * 10) / 10;
+      const p = engine.getParams();
+      if (hz !== Math.round(p.filterCutoff)) onChangeRef.current?.('filterCutoff', hz);
+      if (res !== p.filterResonance) onChangeRef.current?.('filterResonance', res);
+    });
+    const end = () => {
+      dotStateRef.current = 'idle';
+      window.removeEventListener('mouseup', end);
+      window.removeEventListener('touchend', end);
+      window.removeEventListener('touchcancel', end);
+    };
+    window.addEventListener('mouseup', end);
+    window.addEventListener('touchend', end);
+    window.addEventListener('touchcancel', end);
+    return true;
+  };
+
+  // A touch that starts on the dot drags it and never scrolls; a touch anywhere else scrolls as usual.
+  // (A native, non-passive listener, so the scroll can be stopped right at touchstart.)
+  const beginDragRef = useRef(beginDrag);
+  beginDragRef.current = beginDrag;
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !draggable) return;
+    const onTouchStart = (ev: TouchEvent) => {
+      if (ev.touches.length !== 1) return;
+      const t = ev.touches[0];
+      if (beginDragRef.current(ev as unknown as React.TouchEvent, t.clientX, t.clientY)) {
+        ev.preventDefault();
+        ev.stopPropagation();
+      }
+    };
+    canvas.addEventListener('touchstart', onTouchStart, { passive: false });
+    return () => canvas.removeEventListener('touchstart', onTouchStart);
+  }, [draggable, isFullScreen]);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -48,12 +141,8 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
       const Q = params.filterResonance; // 0.1 - 20
       const rolloff = params.filterRolloff; // -12 or -24
 
-      const minFreq = 20;
-      const maxFreq = 20000;
-      const minLog = Math.log10(minFreq);
-      const maxLog = Math.log10(maxFreq);
       const freqToX = (f: number) =>
-        ((Math.log10(Math.max(minFreq, Math.min(maxFreq, f))) - minLog) / (maxLog - minLog)) * width;
+        ((Math.log10(Math.max(MIN_FREQ, Math.min(MAX_FREQ, f))) - MIN_LOG) / (MAX_LOG - MIN_LOG)) * width;
 
       // Layout: header gap for the FILTER tag, plot, frequency labels, readout bar
       // Small card: just the curve and its axes. The Cutoff / slope / Res readout is for full screen.
@@ -81,8 +170,6 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
         return 10 * Math.log10((nr * nr + ni * ni) / (dr * dr + di * di));
       };
 
-      const DB_MIN = -48;
-      const DB_MAX = 42;
       const dbToY = (db: number) =>
         plotBottom - ((Math.max(DB_MIN, Math.min(DB_MAX, db)) - DB_MIN) / (DB_MAX - DB_MIN)) * (plotBottom - plotTop);
 
@@ -123,7 +210,7 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
       let peakDb = -999;
       let peakX = 0;
       for (let x = 0; x <= width; x += 1) {
-        const freq = Math.pow(10, minLog + (x / width) * (maxLog - minLog));
+        const freq = Math.pow(10, MIN_LOG + (x / width) * (MAX_LOG - MIN_LOG));
         const db = stages * stageDb(freq);
         pts.push([x, dbToY(db)]);
         if (db > peakDb) {
@@ -162,10 +249,26 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
       ctx.stroke();
       ctx.shadowBlur = 0;
 
-      // Dot on the resonance peak, only when there is a real peak above the passband.
-      if (peakDb > 0.8) {
+      // The dot. When it can be dragged it always sits on the curve at the cutoff, where each
+      // filter stage gives exactly Res dB (so up/down maps straight onto Resonance). When it can't,
+      // it marks the resonance peak, only when there is a real peak above the passband.
+      const dotX = draggable ? cutX : peakX;
+      const dotY = draggable ? dbToY(stages * Q) : dbToY(peakDb);
+      layoutRef.current = { width, height: h, plotTop, plotBottom, stages, dotX, dotY };
+      if (draggable || peakDb > 0.8) {
+        const big = draggable && dotStateRef.current !== 'idle';
+        if (draggable) {
+          // A soft ring so the dot reads as something to grab.
+          ctx.beginPath();
+          ctx.arc(dotX, dotY, big ? 11 : 8, 0, Math.PI * 2);
+          ctx.fillStyle = pal.traceFill;
+          ctx.fill();
+          ctx.strokeStyle = pal.gridStrong;
+          ctx.lineWidth = 1;
+          ctx.stroke();
+        }
         ctx.beginPath();
-        ctx.arc(peakX, dbToY(peakDb), 4.5, 0, Math.PI * 2);
+        ctx.arc(dotX, dotY, big ? 6 : 4.5, 0, Math.PI * 2);
         ctx.fillStyle = pal.trace;
         ctx.fill();
         ctx.strokeStyle = '#ffffff';
@@ -212,7 +315,7 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
         cancelAnimationFrame(animFrameId.current);
       }
     };
-  }, [engine, theme, cssHeight, isFullScreen]);
+  }, [engine, theme, cssHeight, isFullScreen, draggable]);
 
   const containerClasses = isFullScreen
     ? 'fixed inset-4 md:inset-12 z-50 flex flex-col p-4 bg-slate-950 border-2 border-amber-500 shadow-2xl rounded-2xl'
@@ -230,8 +333,11 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
         id="filter-visualizer-card"
         ref={cardRef}
         className={containerClasses}
-        onDoubleClick={() => setIsFullScreen(!isFullScreen)}
-        title="Double-click to toggle full screen"
+        onDoubleClick={(e) => {
+          if (locate(e.clientX, e.clientY)?.onDot) return; // double-clicking the dot isn't a full-screen request
+          setIsFullScreen(!isFullScreen);
+        }}
+        title={draggable ? 'Drag the dot: sideways for Cutoff, up and down for Resonance · double-click to toggle full screen' : 'Double-click to toggle full screen'}
       >
         <div className="absolute top-2 left-3 z-10 flex items-center gap-2 pointer-events-none">
           <span
@@ -256,6 +362,19 @@ export const FilterVisualizer: React.FC<FilterVisualizerProps> = ({ engine, them
           ref={canvasRef}
           className={fill && !isFullScreen ? 'absolute inset-0 w-full h-full block' : 'w-full block'}
           style={fill && !isFullScreen ? undefined : { height: cssHeight }}
+          role={draggable ? 'slider' : undefined}
+          aria-label={draggable ? 'Filter: drag the dot sideways for Cutoff, up and down for Resonance' : undefined}
+          onMouseDown={draggable ? (e) => { if (beginDrag(e, e.clientX, e.clientY)) e.stopPropagation(); } : undefined}
+          onMouseMove={draggable ? (e) => {
+            if (dotStateRef.current === 'drag') return;
+            const on = !!locate(e.clientX, e.clientY)?.onDot;
+            dotStateRef.current = on ? 'hover' : 'idle';
+            e.currentTarget.style.cursor = on ? 'move' : '';
+          } : undefined}
+          onMouseLeave={draggable ? (e) => {
+            if (dotStateRef.current === 'hover') dotStateRef.current = 'idle';
+            e.currentTarget.style.cursor = '';
+          } : undefined}
         />
       </div>
     </>

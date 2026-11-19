@@ -127,6 +127,12 @@ Learn, then five challenges in this order: 1. A/B Ear Training,
   is labeled "EG Amount" on both; it has a subtle green ring always and
   a strong pulsing ring on the Learn Filter envelope step.
 - LFO rate stays in Hz.
+- The Filter response display's dot drags on both looks, like the
+  Retro Synth guide's: sideways for Cutoff, up and down for Resonance
+  (`FilterVisualizer.tsx`; it sits on the curve at the cutoff). Shared
+  mouse/touch drag helper is `dragUtils.ts`.
+- The app opens on the Modern Synth everywhere (Learn, Playground,
+  Challenges); the header button still switches to Vintage.
 - Touch screens must clearly separate swipe-to-scroll from
   touch-and-drag on knobs. A touch that starts on a knob dial or slider
   track turns it and never scrolls (`touch-none` on just those parts);
